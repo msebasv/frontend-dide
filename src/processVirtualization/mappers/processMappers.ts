@@ -54,8 +54,14 @@ export const mapVirtualizationProcesses = ({
 
     const faculty = facultiesMap.get(program?._dev_table_faculty_value ?? "");
 
+    type PhaseWithFormattedValue = Dev_tablephases & {
+      "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
+    };
+
     const processPhases =
-      phasesByProcess.get(process.dev_tablevirtualizationprocessid) ?? [];
+      (phasesByProcess.get(
+        process.dev_tablevirtualizationprocessid,
+      ) as PhaseWithFormattedValue[]) ?? [];
 
     const lastPhase = [...processPhases].sort(
       (a, b) =>
@@ -63,7 +69,10 @@ export const mapVirtualizationProcesses = ({
         new Date(a.createdon ?? "").getTime(),
     )[0];
 
-    console.log(lastPhase.dev_expectedactivitytemplatename);
+    const activityName =
+      lastPhase?.[
+        "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
+      ] ?? "";
 
     return {
       processId: process.dev_tablevirtualizationprocessid,
@@ -71,7 +80,7 @@ export const mapVirtualizationProcesses = ({
       courseName: course?.dev_namecourse ?? "",
       programName: program?.dev_nameprogram ?? "",
       facultyName: faculty?.dev_namefaculty ?? "",
-      status: lastPhase?.dev_expectedactivitytemplatename ?? "",
+      status: activityName,
     };
   });
 };
