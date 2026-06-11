@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --font-segoe: "Segoe UI", sans-serif;
+  --font-open: "Open Sans", sans-serif;
+
+  --color-primary: #001831;
+  --color-secondary: #005553;
+  --color-black: #000000;
+  --color-white: #ffffff;
+
+  --button-color-primary: #001831;
+  --button-color-secondary: #005553;
+
+  --color-text-primary: #000000;
+  --color-text-secondary: #ffffff;
+
+  --text-size-base: 16px;
+  --text-size-lg: 18px;
+  --text-size-sm: 14px;
+}
+
+body {
+  font-family: var(--font-segoe);
+}

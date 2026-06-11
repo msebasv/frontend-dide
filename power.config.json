@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "appId": "ea549549-542b-4d4c-92ab-3d26ce7fc9dd",
+  "appDisplayName": "AcademicPlusDev",
+  "region": "prod",
+  "environmentId": "432f8369-49cc-eeb4-96fc-07316fc316e7",
+  "description": " ",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:3000",
+  "logoPath": "Default",
+  "connectionReferences": {
+    "52d0de73-f63c-488d-903f-b5a0f7624231": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_c_course_instance"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "fc6a42ca-6526-f111-88b4-002248df1759",
+        "workflowDisplayName": "fl-dev-c-course-instance",
+        "workflowName": "a6f97ede-a2b8-b61d-ef40-9297f6eab1f6"
+      }
+    },
+    "eb4877c0-64fa-4267-b7e8-3b97f6aa6b21": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365users",
+      "displayName": "Office 365 Users",
+      "dataSources": [
+        "office365users"
+      ],
+      "dataSets": {}
+    }
+  },
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "table_course_instances": {
+          "entitySetName": "dev_tablecourseinstances",
+          "logicalName": "dev_tablecourseinstance",
+          "isHidden": false
+        },
+        "table_assign_roles": {
+          "entitySetName": "dev_tableassignroles",
+          "logicalName": "dev_tableassignrole",
+          "isHidden": false
+        },
+        "table_leader_users": {
+          "entitySetName": "dev_tableleaderuserses",
+          "logicalName": "dev_tableleaderusers",
+          "isHidden": false
+        },
+        "table_virtualization_processes": {
+          "entitySetName": "dev_tablevirtualizationprocesses",
+          "logicalName": "dev_tablevirtualizationprocess",
+          "isHidden": false
+        },
+        "table_activities": {
+          "entitySetName": "dev_tableactivities",
+          "logicalName": "dev_tableactivity",
+          "isHidden": false
+        },
+        "table_activity_templates": {
+          "entitySetName": "dev_tableactivitytemplates",
+          "logicalName": "dev_tableactivitytemplate",
+          "isHidden": false
+        },
+        "table_faculties": {
+          "entitySetName": "dev_table_faculties",
+          "logicalName": "dev_table_faculty",
+          "isHidden": false
+        },
+        "table_phases": {
+          "entitySetName": "dev_tablephases",
+          "logicalName": "dev_tablephase",
+          "isHidden": false
+        },
+        "table_phase_templates": {
+          "entitySetName": "dev_tablephasetemplates",
+          "logicalName": "dev_tablephasetemplate",
+          "isHidden": false
+        },
+        "table_programs": {
+          "entitySetName": "dev_table_programs",
+          "logicalName": "dev_table_program",
+          "isHidden": false
+        },
+        "table_roles": {
+          "entitySetName": "dev_tableroles",
+          "logicalName": "dev_tablerole",
+          "isHidden": false
+        }
+      },
+      "environmentVariableName": ""
+    }
+  }
+}
