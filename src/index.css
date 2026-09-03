@@ -1,25 +1,142 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 @theme {
-  --font-segoe: "Segoe UI", sans-serif;
-  --font-open: "Open Sans", sans-serif;
+  /* Tipografía Acacia */
+  --font-sans: "Inter", "Segoe UI", sans-serif;
+  --font-segoe: "Inter", "Segoe UI", sans-serif;
+  --font-open: "Inter", "Open Sans", sans-serif;
 
-  --color-primary: #001831;
-  --color-secondary: #005553;
+  /* Primario de marca #004040 + Acacia lime */
+  --color-primary: #004040;
+  --color-primary-light: #005555;
+  --color-secondary: #86c127; /* Color Base Acacia */
+  --color-secondary-light: #9ad43a;
+  --color-accent: #6aa81c;
+  --color-accent-gold: #e8a317;
+  --color-acacia-10: #dbeae3; /* Background block Acacia 10 */
+  --color-acacia-5: #f3f5f2; /* Background Block Acacia 5 */
+  --color-sidebar: #f6f7f8;
+  --color-background: #f6f7f8;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-muted: #6b7a72;
+  --color-border: #d5e0da;
+  --color-border-light: #e8efe9;
+  --color-danger: #dc2626;
+  --color-success: #3f8f2a;
+  --color-warning: #d97706;
   --color-black: #000000;
   --color-white: #ffffff;
 
-  --button-color-primary: #001831;
-  --button-color-secondary: #005553;
+  --shadow-card: 0 8px 24px -12px rgb(0 64 64 / 0.12);
+  --shadow-card-hover: 0 16px 32px -14px rgb(0 64 64 / 0.18);
+  --shadow-sidebar: 4px 0 24px -10px rgb(0 64 64 / 0.12);
 
-  --color-text-primary: #000000;
-  --color-text-secondary: #ffffff;
+  --radius-pill: 999px;
+  --radius-card: 1.25rem;
 
   --text-size-base: 16px;
   --text-size-lg: 18px;
   --text-size-sm: 14px;
+  --text-size-xs: 12px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
-  font-family: var(--font-segoe);
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  overflow: hidden;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+#root {
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #b7c9bf;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8fa89a;
+}
+
+@media (max-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+}
+
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(0 64 64 / 0.25) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgb(0 64 64 / 0.2);
+  border-radius: 999px;
+}
+
+.sidebar-item {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Motivo orgánico banner — ya no se usa blur; decor SVG de hojas */
+.acacia-organic {
+  display: none;
+}
+
+/* Controles Acacia: radio / checkbox */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #004040;
+  width: 1.05rem;
+  height: 1.05rem;
+  cursor: pointer;
+}
+
+input[type="checkbox"] {
+  border-radius: 0.3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-shell *,
+  .sidebar-item,
+  aside {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

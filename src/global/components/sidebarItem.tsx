@@ -1,43 +1,82 @@
 import { type ReactNode } from "react";
 import { useSidebar } from "../context/sidebarContext";
 import { NavLink } from "react-router-dom";
+import clsx from "clsx";
 
 interface SidebarItemProps {
   icon: ReactNode;
   text: string;
-  path: string; // 👈 ahora recibe la ruta
+  path: string;
 }
 
 const SidebarItem = ({ icon, text, path }: SidebarItemProps) => {
-  const { isOpen } = useSidebar();
+  const { isOpen, closeMobile } = useSidebar();
 
   return (
     <NavLink
       to={path}
+      onClick={() => closeMobile?.()}
+      title={!isOpen ? text : undefined}
       className={({ isActive }) =>
-        `relative flex items-center text-size-sm py-3 px-4 my-1 rounded-xs cursor-pointer transition-colors group ${
+        clsx(
+          "sidebar-item group relative flex min-h-11 items-center rounded-full text-sm outline-none",
+          "transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "focus-visible:ring-2 focus-visible:ring-secondary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          isOpen ? "gap-3 px-2.5" : "justify-center px-0",
           isActive
-            ? "bg-white/20 text-white border-l-4 border-l-secondary"
-            : "text-gray-300 hover:bg-gray-50 hover:text-gray-900"
-        }`
+            ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(0,64,64,0.55)]"
+            : "text-primary/65 hover:bg-acacia-10 hover:text-primary",
+        )
       }
     >
-      {icon}
-      <span
-        className={`overflow-hidden whitespace-nowrap transition-all ${
-          isOpen ? "w-52 ml-3 font-medium" : "w-0 ml-0"
-        }`}
-      >
-        {text}
-      </span>
+      {({ isActive }) => (
+        <>
+          <span
+            className={clsx(
+              "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+              "transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              isActive
+                ? "bg-secondary/25 text-secondary"
+                : "bg-transparent text-current group-hover:bg-white/60",
+            )}
+          >
+            <span
+              className={clsx(
+                "inline-flex transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "group-hover:scale-110",
+                isActive && "scale-105",
+              )}
+            >
+              {icon}
+            </span>
+          </span>
 
-      {!isOpen && (
-        <div
-          className={`
-            w-52 absolute left-full rounded-md px-4 py-2 ml-6 bg-primary text-white text-sm invisible opacity-20 -translate-x-3 transition-all group-hover:visible group-hover:opacity-100 group-hover:translate-x-0`}
-        >
-          {text}
-        </div>
+          <span
+            className={clsx(
+              "overflow-hidden whitespace-nowrap font-semibold tracking-tight",
+              "transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              isOpen
+                ? "max-w-[12rem] translate-x-0 opacity-100"
+                : "max-w-0 -translate-x-1 opacity-0",
+            )}
+          >
+            {text}
+          </span>
+
+          <span
+            className={clsx(
+              "pointer-events-none absolute left-[calc(100%+0.65rem)] z-50 hidden",
+              "whitespace-nowrap rounded-full border border-border bg-surface px-3 py-2",
+              "text-xs font-semibold text-primary shadow-[var(--shadow-card)]",
+              "opacity-0 translate-x-1 transition-all duration-200 ease-out",
+              "group-hover:translate-x-0 group-hover:opacity-100 md:block",
+              isOpen && "!hidden",
+            )}
+          >
+            {text}
+            <span className="absolute top-1/2 left-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-l border-border bg-surface" />
+          </span>
+        </>
       )}
     </NavLink>
   );

@@ -1,0 +1,113 @@
+{
+  "name": "fl-dev-cu-activity",
+  "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+  "type": "Microsoft.PowerApps/apis",
+  "properties": {
+    "displayName": "fl-dev-cu-activity",
+    "isCustom": false,
+    "swagger": {
+      "swagger": "2.0",
+      "info": {
+        "title": "fl-dev-cu-activity",
+        "version": "2015-02-01-preview"
+      },
+      "host": "brazil-001.azure-apim.net",
+      "schemes": [
+        "https"
+      ],
+      "consumes": [
+        "application/json"
+      ],
+      "produces": [
+        "application/json"
+      ],
+      "paths": {
+        "/{connectionId}/triggers/manual/run": {
+          "post": {
+            "operationId": "Run",
+            "description": "Runs a logic flow trigger.",
+            "parameters": [
+              {
+                "name": "connectionId",
+                "in": "path",
+                "required": true,
+                "type": "string",
+                "x-ms-visibility": "internal"
+              },
+              {
+                "name": "input",
+                "description": "The trigger's input",
+                "in": "body",
+                "required": true,
+                "schema": {
+                  "$ref": "#/definitions/ManualTriggerInput"
+                }
+              },
+              {
+                "name": "api-version",
+                "description": "The api version",
+                "in": "query",
+                "required": true,
+                "default": "2015-02-01-preview",
+                "x-ms-visibility": "internal",
+                "type": "string"
+              }
+            ],
+            "responses": {
+              "202": {
+                "description": "Accepted"
+              }
+            }
+          }
+        }
+      },
+      "definitions": {
+        "ManualTriggerInput": {
+          "type": "object",
+          "properties": {
+            "text_1": {
+              "description": "Please enter your input",
+              "title": "virtualization-process",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
+            },
+            "text_2": {
+              "description": "Please enter your input",
+              "title": "template-activity",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
+            },
+            "text_3": {
+              "description": "Please enter your input",
+              "title": "files",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
+            },
+            "text": {
+              "description": "Please enter your input",
+              "title": "observations",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
+            },
+            "boolean": {
+              "description": "Please select yes or no",
+              "title": "is-aprove",
+              "type": "boolean",
+              "x-ms-content-hint": "BOOLEAN",
+              "x-ms-dynamically-added": true
+            }
+          },
+          "required": [
+            "text_1",
+            "text_2"
+          ]
+        }
+      },
+      "basePath": "/apim/logicflows"
+    }
+  }
+}

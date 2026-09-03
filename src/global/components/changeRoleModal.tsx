@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
 
@@ -6,6 +7,7 @@ import Modal from "./modal";
 import Select from "./select";
 import Button from "./button";
 import { FaExchangeAlt } from "react-icons/fa";
+import { formatDomainLabel } from "../utils/textUtils";
 
 const ChangeRoleModal = ({
   isOpen,
@@ -14,28 +16,41 @@ const ChangeRoleModal = ({
   isOpen: boolean;
   onClose: () => void;
 }) => {
+  const navigate = useNavigate();
   const { roles, currentRole, setCurrentRole } = useAuth();
 
   const roleOptions = roles.map((role) => ({
-    label: role,
+    label: formatDomainLabel(role),
     value: role,
   }));
 
   const [selectedRole, setSelectedRole] = useState<{
     label: string;
     value: string;
-  } | null>(
-    currentRole
-      ? {
-          label: currentRole,
-          value: currentRole,
-        }
-      : null,
-  );
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setSelectedRole(
+      currentRole
+        ? {
+            label: formatDomainLabel(currentRole),
+            value: currentRole,
+          }
+        : null,
+    );
+  }, [isOpen, currentRole, roles]);
 
   const handleAccept = () => {
     if (selectedRole) {
+      const roleChanged = selectedRole.value !== currentRole;
       setCurrentRole(selectedRole.value);
+      onClose();
+      if (roleChanged) {
+        navigate("/", { replace: true });
+      }
+      return;
     }
 
     onClose();
@@ -54,7 +69,7 @@ const ChangeRoleModal = ({
         onChange={setSelectedRole}
         placeholder="Selecciona un rol"
       />
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&_button]:w-full sm:[&_button]:w-auto">
         <Button onClick={onClose} variant="secondary">
           Cancelar
         </Button>

@@ -16,7 +16,11 @@ export * as Dev_tablephasesModel from './models/Dev_tablephasesModel';
 export * as Dev_tablephasetemplatesModel from './models/Dev_tablephasetemplatesModel';
 export * as Dev_tablerolesModel from './models/Dev_tablerolesModel';
 export * as Dev_tablevirtualizationprocessesModel from './models/Dev_tablevirtualizationprocessesModel';
+export * as DocumentsModel from './models/DocumentsModel';
 export * as Fl_dev_c_course_instanceModel from './models/Fl_dev_c_course_instanceModel';
+export * as Fl_dev_c_temp_folderModel from './models/Fl_dev_c_temp_folderModel';
+export * as Fl_dev_cu_activityModel from './models/Fl_dev_cu_activityModel';
+export * as Fl_dev_cu_virtualization_processModel from './models/Fl_dev_cu_virtualization_processModel';
 export * as Office365UsersModel from './models/Office365UsersModel';
 
 // Services
@@ -31,5 +35,10 @@ export * from './services/Dev_tablephasesService';
 export * from './services/Dev_tablephasetemplatesService';
 export * from './services/Dev_tablerolesService';
 export * from './services/Dev_tablevirtualizationprocessesService';
+export * from './services/DocumentsService';
 export * from './services/Fl_dev_c_course_instanceService';
+export * from './services/Fl_dev_c_temp_folderService';
+export * from './services/Fl_dev_cu_activityService';
+export * from './services/Fl_dev_cu_virtualization_processService';
 export * from './services/Office365UsersService';
+export * from './services/SharePointOnlineService';

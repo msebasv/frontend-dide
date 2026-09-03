@@ -19,7 +19,7 @@
       "workflowDetails": {
         "workflowEntityId": "fc6a42ca-6526-f111-88b4-002248df1759",
         "workflowDisplayName": "fl-dev-c-course-instance",
-        "workflowName": "a6f97ede-a2b8-b61d-ef40-9297f6eab1f6"
+        "workflowName": "1296a6a4-5ec2-422d-bd71-a3f9d1c3bc58"
       }
     },
     "eb4877c0-64fa-4267-b7e8-3b97f6aa6b21": {
@@ -29,6 +29,65 @@
         "office365users"
       ],
       "dataSets": {}
+    },
+    "62d2e942-642b-4203-bc6a-ff2d7a8d911d": {
+      "id": "/providers/microsoft.powerapps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "dataSources": [
+        "sharepointonline",
+        "documents"
+      ],
+      "dataSets": {
+        "https://unbosqueeduco.sharepoint.com/sites/development-dide": {
+          "dataSources": {
+            "documents": {
+              "tableName": "691335fc-2161-4ee3-b307-6f51481425dc"
+            }
+          }
+        }
+      }
+    },
+    "3433b3a9-ea73-42e9-b629-a6a7c4bdd259": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_c_temp_folder"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "30934191-8938-f111-88b5-002248df1759",
+        "workflowDisplayName": "fl-dev-c-temp-folder",
+        "workflowName": "d7e250ad-d92c-4342-bbbf-2affa9536fe5",
+        "dependencies": {
+          "shared_sharepointonline-1": "62d2e942-642b-4203-bc6a-ff2d7a8d911d"
+        }
+      }
+    },
+    "263ce059-3258-4dec-b86c-f0e72034c6c3": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_cu_activity"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "3c0b931f-bc2c-f111-88b5-002248df1759",
+        "workflowDisplayName": "fl-dev-cu-activity",
+        "workflowName": "3fc1603b-ca41-4a41-9893-a296a7544c77",
+        "dependencies": {
+          "shared_sharepointonline-1": "62d2e942-642b-4203-bc6a-ff2d7a8d911d"
+        }
+      }
+    },
+    "eb77b000-f1e4-4c4e-ad55-1c3c1cfce212": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_cu_virtualization_process"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "356fa1c2-8341-f111-bec7-002248df1759",
+        "workflowDisplayName": "fl-dev-cu-virtualization-process",
+        "workflowName": "7be286ea-1218-409b-a108-04e504d1166c"
+      }
     }
   },
   "databaseReferences": {

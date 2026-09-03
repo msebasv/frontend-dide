@@ -23,67 +23,62 @@ interface SelectProps {
   onChange: (value: Option | null) => void;
 
   placeholder?: string;
+  disabled?: boolean;
 }
 
-function Select({ options, value, onChange, placeholder }: SelectProps) {
+function Select({
+  options,
+  value,
+  onChange,
+  placeholder,
+  disabled = false,
+}: SelectProps) {
   return (
-    <Listbox value={value} onChange={onChange} by="value">
+    <Listbox value={value} onChange={onChange} by="value" disabled={disabled}>
       <div className="relative">
-        {/* BUTTON */}
-
         <ListboxButton
           className={clsx(
-            "flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900",
-            "focus:outline-none focus:ring-2 focus:ring-primary",
+            "flex w-full items-center justify-between rounded-full border border-border bg-white px-4 py-2.5 text-base text-primary sm:py-2.5 sm:text-sm",
+            "focus:outline-none focus:ring-2 focus:ring-secondary/30",
+            "data-disabled:cursor-not-allowed data-disabled:bg-acacia-5 data-disabled:text-muted",
           )}
         >
-          <span>{value?.label || placeholder}</span>
+          <span className="min-w-0 truncate text-left">
+            {value?.label || placeholder}
+          </span>
 
-          <FaAngleDown className="h-4 w-4 text-gray-400" />
+          <FaAngleDown className="h-4 w-4 shrink-0 text-muted" />
         </ListboxButton>
 
-        {/* OPTIONS */}
-
+        {/*
+          modal={false}: evita que Headless UI bloquee el scroll del documento
+          al abrir (eso hacía saltar sidebar/contenido y dejaba hueco abajo).
+        */}
         <ListboxOptions
-          anchor="bottom"
-          className="
-            mt-1
-            max-h-60
-            w-(--button-width)
-            overflow-auto
-            rounded-lg
-            border
-            border-gray-200
-            bg-white
-            shadow-lg
-          "
+          anchor={{ to: "bottom start", gap: "4px", padding: 8 }}
+          modal={false}
+          className={clsx(
+            "z-[110] max-h-60 w-[var(--button-width)] overflow-auto rounded-2xl",
+            "border border-border bg-white shadow-lg",
+            "focus:outline-none",
+          )}
         >
           {options.map((option) => (
             <ListboxOption
               key={option.value}
               value={option}
-              className="
-                group
-                flex
-                text-sm
-                cursor-pointer
-                items-center
-                gap-2
-                px-3
-                py-2
-                data-focus:bg-primary/10
-              "
+              className="group flex cursor-pointer items-center gap-2 px-3 py-2 text-sm data-focus:bg-primary/10"
             >
               {({ selected }) => (
                 <>
                   <FaCheck
                     className={clsx(
-                      "h-3 w-3 text-primary",
+                      "h-3 w-3 shrink-0 text-primary",
                       selected ? "visible" : "invisible",
                     )}
                   />
 
-                  <span>{option.label}</span>
+                  <span className="min-w-0">{option.label}</span>
                 </>
               )}
             </ListboxOption>
