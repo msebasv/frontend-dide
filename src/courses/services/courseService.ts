@@ -55,7 +55,7 @@ import { findRoleId } from "../utils/roleUtils";
 import type { Course, CourseDetail } from "../types/course.types";
 import { getRecordTimestamp } from "../../global/utils/dateUtils";
 import type { ProcessEditData } from "../../processVirtualization/types/process.types";
-import { isLeaderRole, PROCESS_PHASES } from "../../global/constants/domainConstants";
+import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 
 /**
  * Carga en paralelo todas las tablas base necesarias para mapear procesos.
