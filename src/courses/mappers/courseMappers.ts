@@ -41,7 +41,6 @@ import {
 } from "../../global/constants/domainConstants";
 import { buildPhaseBreakdownFromDeliverables } from "../utils/phaseBreakdown";
 import { formatDeliverableState } from "../services/deliverableService";
-import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 
 /** Re-exportaciones para compatibilidad con imports existentes. */
 export const LEADER_SYLLABUS_STATUS = PROCESS_PHASES.LEADER_SYLLABUS;
