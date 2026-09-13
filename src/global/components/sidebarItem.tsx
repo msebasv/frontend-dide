@@ -19,10 +19,10 @@ const SidebarItem = ({ icon, text, path }: SidebarItemProps) => {
       title={!isOpen ? text : undefined}
       className={({ isActive }) =>
         clsx(
-          "sidebar-item group relative flex min-h-11 items-center rounded-full text-sm outline-none",
+          "sidebar-item group relative flex min-h-11 items-center rounded-full outline-none",
           "transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "focus-visible:ring-2 focus-visible:ring-secondary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          isOpen ? "gap-3 px-2.5" : "justify-center px-0",
+          isOpen ? "gap-2.5 px-2.5 py-1.5" : "justify-center px-0",
           isActive
             ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgba(0,64,64,0.55)]"
             : "text-primary/65 hover:bg-acacia-10 hover:text-primary",
@@ -53,14 +53,20 @@ const SidebarItem = ({ icon, text, path }: SidebarItemProps) => {
 
           <span
             className={clsx(
-              "overflow-hidden whitespace-nowrap font-semibold tracking-tight",
+              "min-w-0 flex-1 font-semibold tracking-tight",
               "transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
               isOpen
-                ? "max-w-[12rem] translate-x-0 opacity-100"
-                : "max-w-0 -translate-x-1 opacity-0",
+                ? "max-w-[11.5rem] translate-x-0 text-[12.5px] leading-snug opacity-100"
+                : "max-w-0 -translate-x-1 overflow-hidden text-sm opacity-0",
             )}
           >
-            {text}
+            <span
+              className={clsx(
+                isOpen && "line-clamp-2 break-words whitespace-normal",
+              )}
+            >
+              {text}
+            </span>
           </span>
 
           <span

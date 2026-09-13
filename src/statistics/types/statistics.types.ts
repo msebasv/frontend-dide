@@ -4,6 +4,8 @@
 
 import type { PeriodFilter } from "../../global/utils/semesterUtils";
 
+export type StatisticsViewMode = "process" | "deliverable";
+
 export interface StatisticsMetrics {
   totalProcesses: number;
   inProgress: number;
@@ -14,6 +16,16 @@ export interface StatisticsMetrics {
   avgActivitiesPerProcess: number;
   processesThisMonth: number;
   activitiesThisMonth: number;
+}
+
+/** KPIs agregados a nivel entregable (independientes del estado del proceso). */
+export interface DeliverableStatisticsMetrics {
+  totalDeliverables: number;
+  pending: number;
+  inReview: number;
+  approved: number;
+  /** Aprobados / total × 100. */
+  completionRate: number;
 }
 
 export interface PhaseStat {
@@ -46,6 +58,21 @@ export interface ActivityRoleStat {
   count: number;
 }
 
+/** Entregable enriquecido con datos del proceso padre (para tablas y drill). */
+export interface StatisticsDeliverableRow {
+  id: string;
+  name: string;
+  creditNumber: number;
+  creditLabel: string;
+  stateLabel: string;
+  processId: string;
+  processName: string;
+  courseName: string;
+  facultyName: string;
+  programName: string;
+  modifiedOn: string;
+}
+
 /** Payload completo para la página de estadísticas. */
 export interface LeaderStatistics {
   metrics: StatisticsMetrics;
@@ -54,6 +81,9 @@ export interface LeaderStatistics {
   programDistribution: ProgramStat[];
   monthlyTrend: MonthlyTrend[];
   activitiesByRole: ActivityRoleStat[];
+  deliverableMetrics: DeliverableStatisticsMetrics;
+  deliverableDistribution: PhaseStat[];
+  deliverableFacultyDistribution: FacultyStat[];
 }
 
 /** Carga de trabajo de un usuario en los procesos filtrados. */

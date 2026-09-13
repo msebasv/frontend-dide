@@ -15,9 +15,7 @@ import RecentList from "../../global/components/recentList";
 import Button from "../../global/components/button";
 import FormatsFolderButton from "../../global/components/formatsFolderButton";
 
-import { processStatusColors } from "../../processVirtualization/constants/processStatusStyles";
 import type { Course, DashboardMetrics } from "../../courses/types/course.types";
-import { formatDomainLabel } from "../../global/utils/textUtils";
 
 interface ValidatorDashboardProps {
   metrics: DashboardMetrics;
@@ -43,8 +41,8 @@ function ValidatorDashboard({
 
   const recentItems = pendingCourses.slice(0, 5).map((c) => ({
     id: c.processId,
-    title: c.courseName,
-    subtitle: `Autor: ${c.authorName}`,
+    title: c.processName,
+    subtitle: `${c.courseName} · Autor: ${c.authorName}`,
     badge: isDide ? "Por aprobar" : "Por validar",
     badgeColor: isDide ? "#86c127" : "#004040",
     link: `/courses/${c.processId}`,
@@ -60,14 +58,8 @@ function ValidatorDashboard({
     .slice(0, 3)
     .map((c) => ({
       id: c.processId,
-      title: c.courseName,
-      subtitle: c.processName,
-      badge: formatDomainLabel(c.status.slice(0, 28)),
-      badgeColor:
-        processStatusColors[c.status] ??
-        Object.entries(processStatusColors).find(
-          ([key]) => key.toLowerCase() === c.status.toLowerCase(),
-        )?.[1],
+      title: c.processName,
+      subtitle: c.courseName,
       link: `/courses/${c.processId}`,
       icon: <IoBookOutline size={16} />,
     }));

@@ -28,7 +28,7 @@
  * Modulos de negocio:
  * - courses — Mis cursos, detalle, carga y validación de material
  * - processVirtualization — Gestión global de procesos (solo líder)
- * - history — Auditoría de actividades por proceso
+ * - tracking — Seguimiento de procesos por entregable
  * - statistics — Analítica para el líder de virtualización
  * - home — Dashboards por rol
  * - global — Layout, auth, componentes reutilizables, config
@@ -40,7 +40,7 @@
  *
  * Enrutamiento en Power Apps:
  * Se usa HashRouter (no BrowserRouter) porque la app corre dentro de un iframe
- * con URL dinámica del runtime de Power Apps. Las rutas son del tipo #/history.
+ * con URL dinámica del runtime de Power Apps. Las rutas son del tipo #/tracking.
  *
  * Despliegue:
  * npm run build

@@ -89,20 +89,6 @@
               },
               "x-ms-content-hint": "FILE",
               "x-ms-dynamically-added": true
-            },
-            "text": {
-              "description": "Please enter your input",
-              "title": "virtualization-process",
-              "type": "string",
-              "x-ms-content-hint": "TEXT",
-              "x-ms-dynamically-added": true
-            },
-            "text_1": {
-              "description": "Please enter your input",
-              "title": "activity-id",
-              "type": "string",
-              "x-ms-content-hint": "TEXT",
-              "x-ms-dynamically-added": true
             }
           },
           "required": [

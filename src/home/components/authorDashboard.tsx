@@ -15,9 +15,7 @@ import PhaseDistribution from "../../global/components/phaseDistribution";
 import Button from "../../global/components/button";
 import FormatsFolderButton from "../../global/components/formatsFolderButton";
 
-import { processStatusColors } from "../../processVirtualization/constants/processStatusStyles";
 import type { Course, DashboardMetrics } from "../../courses/types/course.types";
-import { formatDomainLabel } from "../../global/utils/textUtils";
 
 interface AuthorDashboardProps {
   metrics: DashboardMetrics;
@@ -34,7 +32,7 @@ function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
 
   const phaseItems = [
     {
-      label: "Pendiente de carga",
+      label: "Pendiente",
       count: pendingUpload.length,
       color: "#d97706",
     },
@@ -52,15 +50,10 @@ function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
 
   const recentItems = courses.slice(0, 5).map((c) => ({
     id: c.processId,
-    title: c.courseName,
-    subtitle: c.processName,
-    badge: c.canUpload ? "Cargar" : formatDomainLabel(c.status.slice(0, 28)),
-    badgeColor: c.canUpload
-      ? "#d97706"
-      : processStatusColors[c.status] ??
-        Object.entries(processStatusColors).find(
-          ([key]) => key.toLowerCase() === c.status.toLowerCase(),
-        )?.[1],
+    title: c.processName,
+    subtitle: c.courseName,
+    badge: c.canUpload ? "Cargar" : undefined,
+    badgeColor: c.canUpload ? "#d97706" : undefined,
     link: c.canUpload
       ? `/courses/${c.processId}/upload`
       : `/courses/${c.processId}`,

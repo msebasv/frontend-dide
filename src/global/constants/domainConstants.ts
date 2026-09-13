@@ -10,11 +10,20 @@
 
 /** Fases del flujo de virtualización (nombres exactos de plantillas en Dataverse). */
 export const PROCESS_PHASES = {
+  /**
+   * Tras crear el proceso: el líder carga el syllabus.
+   * Nombre exacto de la plantilla/fase en Dataverse.
+   */
+  LEADER_SYLLABUS: "Cargue Syllabus",
   AUTHOR_UPLOAD: "Cargue de documentos por el autor",
   VALIDATOR_REVIEW: "Revisión y aprobación evaluador disciplinar",
   ADVISOR_REVIEW: "Revisión y aprobación asesor pedagógico",
   DIDE_REVIEW: "Confirmación DIDE",
-  COMPLETED: "Syllabus completado y aprobado",
+  /**
+   * Cierre del proceso (si Dataverse usa otro nombre al final, actualizar aquí).
+   * Ya no coincide con LEADER_SYLLABUS.
+   */
+  COMPLETED: "Proceso finalizado",
   UNKNOWN: "Sin estado",
 } as const;
 
@@ -79,8 +88,9 @@ export const isLeaderRole = (role: string): boolean => {
  * Las claves corresponden a PROCESS_PHASES.
  */
 export const PHASE_SHORT_LABELS: Record<string, string> = {
+  [PROCESS_PHASES.LEADER_SYLLABUS]: "Syllabus (Líder)",
   [PROCESS_PHASES.AUTHOR_UPLOAD]: "Cargue Autor",
-  [PROCESS_PHASES.VALIDATOR_REVIEW]: "Validador",
+  [PROCESS_PHASES.VALIDATOR_REVIEW]: "Validador Disciplinar",
   [PROCESS_PHASES.ADVISOR_REVIEW]: "Asesor Pedagógico",
   [PROCESS_PHASES.DIDE_REVIEW]: "Diseñador DIDE",
   [PROCESS_PHASES.COMPLETED]: "Completado",
@@ -94,6 +104,7 @@ export const PENDING_APPROVAL_PHASES = [
 
 /** Orden canónico de fases para gráficas de distribución. */
 export const PHASE_DISTRIBUTION_ORDER = [
+  PROCESS_PHASES.LEADER_SYLLABUS,
   PROCESS_PHASES.AUTHOR_UPLOAD,
   PROCESS_PHASES.VALIDATOR_REVIEW,
   PROCESS_PHASES.ADVISOR_REVIEW,

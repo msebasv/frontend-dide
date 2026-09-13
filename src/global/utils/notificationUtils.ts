@@ -17,7 +17,7 @@ export const buildCourseNotifications = (
       .map((course) => ({
         id: `upload-${course.processId}`,
         title: "Material pendiente de carga",
-        description: course.courseName || course.processName,
+        description: course.processName || course.courseName,
         link: `/courses/${course.processId}/upload`,
         kind: "upload" as const,
       }));
@@ -33,7 +33,7 @@ export const buildCourseNotifications = (
           role === USER_ROLES.VALIDATOR
             ? "Curso pendiente de validación"
             : "Curso pendiente de asesoría",
-        description: course.courseName || course.processName,
+        description: course.processName || course.courseName,
         link: `/courses/${course.processId}`,
         kind: "validate" as const,
       }));
@@ -46,7 +46,7 @@ export const buildCourseNotifications = (
       .map((course) => ({
         id: `approve-dide-${course.processId}`,
         title: "Curso pendiente de aprobación DIDE",
-        description: course.courseName || course.processName,
+        description: course.processName || course.courseName,
         link: `/courses/${course.processId}`,
         kind: "validate" as const,
       }));
@@ -68,7 +68,7 @@ export const buildLeaderNotifications = (
     .map((process) => ({
       id: `review-${process.processId}`,
       title: "Proceso en espera de aprobación",
-      description: process.courseName || process.processName,
+      description: process.processName || process.courseName,
       link: `/virtualization-processes/${process.processId}`,
       kind: "review" as const,
     }));

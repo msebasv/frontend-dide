@@ -25,6 +25,18 @@ export interface Course {
   canValidate: boolean;
   /** true si el diseñador DIDE puede aprobar (con Word) en la fase actual. */
   canFinalize: boolean;
+  /**
+   * Conteo de entregables por fase (datos reales de Dataverse).
+   * Si falta, la UI cae al estado único `status`.
+   */
+  phaseBreakdown?: CoursePhaseBreakdown;
+}
+
+/** Conteo de materiales/entregables por nombre de fase. */
+export interface CoursePhaseBreakdown {
+  counts: Partial<Record<string, number>>;
+  /** true solo si los conteos son de demostración (legacy). */
+  isMock?: boolean;
 }
 
 /** Material académico cargado en una actividad del proceso. */
@@ -48,6 +60,13 @@ export interface CourseMaterial {
   performedByEmail: string;
   /** Rol con el que se realizó la actividad (autor, validador, etc.). */
   performedByRole: string;
+  /** Fase a la que pertenece la actividad. */
+  phaseId: string;
+  /**
+   * Entregable (categoría × crédito) al que pertenece la fase.
+   * Vacío en procesos legacy sin deliverables.
+   */
+  deliverableId: string;
   /** Fecha de creación del material. */
   createdOn: string;
   /** Última modificación (útil para fecha de aprobación/devolución). */
@@ -66,6 +85,17 @@ export interface ProcessFile {
   fileId?: string;
   driveItemId?: string;
   listItemId?: number;
+  /**
+   * Carpeta de versión SharePoint:
+   * `v01- Cargue de documentos por el autor - 9e4da645`
+   */
+  versionFolder?: string;
+  /** Número de versión parseado (1, 2, …). */
+  versionNumber?: number;
+  /** Estado/fase de la carpeta de versión. */
+  versionStatusLabel?: string;
+  /** Prefijo del id de actividad en la carpeta. */
+  activityIdPrefix?: string;
 }
 
 /** Vista detallada de un proceso con sus materiales. */

@@ -8,6 +8,8 @@ import { Dev_table_programsService } from "../../generated/services/Dev_table_pr
 import { Dev_table_facultiesService } from "../../generated/services/Dev_table_facultiesService";
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
 import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
+import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
+import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
 
 import {
   buildProcessTrackingRows,
@@ -30,6 +32,8 @@ export const getProcessTrackingBoard = async (
     facultiesResult,
     phasesResult,
     activitiesResult,
+    deliverablesResult,
+    activityTemplatesResult,
   ] = await Promise.all([
     Dev_tableassignrolesService.getAll(),
     Dev_tablevirtualizationprocessesService.getAll(),
@@ -38,6 +42,8 @@ export const getProcessTrackingBoard = async (
     Dev_table_facultiesService.getAll(),
     Dev_tablephasesService.getAll(),
     Dev_tableactivitiesService.getAll(),
+    Dev_tabledeliverablesService.getAll(),
+    Dev_tableactivitytemplatesService.getAll(),
   ]);
 
   const rows = buildProcessTrackingRows({
@@ -47,6 +53,8 @@ export const getProcessTrackingBoard = async (
     faculties: facultiesResult.data ?? [],
     phases: phasesResult.data ?? [],
     activities: activitiesResult.data ?? [],
+    deliverables: deliverablesResult.data ?? [],
+    activityTemplates: activityTemplatesResult.data ?? [],
     assignRoles: assignRolesResult.data ?? [],
     userEmail,
     userRole,

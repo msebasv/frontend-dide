@@ -6,6 +6,9 @@
 import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 
 export const processStatusStyles: Record<string, string> = {
+  /** Naranja — syllabus pendiente del líder */
+  [PROCESS_PHASES.LEADER_SYLLABUS]:
+    "bg-orange-100 text-orange-950 ring-1 ring-orange-300/70",
   /** Ámbar — pendiente de carga del autor */
   [PROCESS_PHASES.AUTHOR_UPLOAD]:
     "bg-amber-100 text-amber-900 ring-1 ring-amber-300/70",
@@ -25,6 +28,7 @@ export const processStatusStyles: Record<string, string> = {
 
 /** Colores hex para gráficas y badges (Recharts, PhaseDistribution, etc.). */
 export const processStatusColors: Record<string, string> = {
+  [PROCESS_PHASES.LEADER_SYLLABUS]: "#ea580c",
   [PROCESS_PHASES.AUTHOR_UPLOAD]: "#d97706",
   [PROCESS_PHASES.VALIDATOR_REVIEW]: "#0284c7",
   [PROCESS_PHASES.ADVISOR_REVIEW]: "#7c3aed",

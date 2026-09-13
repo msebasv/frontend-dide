@@ -4,7 +4,7 @@
   "type": "Microsoft.PowerApps/apis",
   "properties": {
     "displayName": "Office 365 Users",
-    "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1807/1.0.1807.4725/office365users/icon.png",
+    "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1818/1.0.1818.4788/office365users/icon.png",
     "iconBrandColor": "#FFFFFF",
     "apiEnvironment": "Shared",
     "isCustomApi": false,
@@ -2065,8 +2065,8 @@
       "brandColor": "#FFFFFF",
       "useNewApimVersion": "true",
       "version": {
-        "previous": "releases/v1.0.1788\\1.0.1788.4544",
-        "current": "releases/v1.0.1807\\1.0.1807.4725"
+        "previous": "releases/v1.0.1816\\1.0.1816.4782",
+        "current": "releases/v1.0.1818\\1.0.1818.4788"
       }
     },
     "capabilities": [
@@ -2075,7 +2075,7 @@
     "interfaces": {},
     "description": "Office 365 Users Connection provider lets you access user profiles in your organization using your Office 365 account. You can perform various actions such as get your profile, a user's profile, a user's manager or direct reports and also update a user profile.",
     "createdTime": "2018-05-08T19:20:37.6150317Z",
-    "changedTime": "2026-04-21T18:30:43.7530542Z",
+    "changedTime": "2026-07-07T18:30:57.6711651Z",
     "releaseTag": "Production",
     "tier": "Standard",
     "publisher": "Microsoft",

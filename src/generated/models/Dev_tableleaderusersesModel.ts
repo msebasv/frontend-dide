@@ -16,7 +16,7 @@ export type Dev_tableleaderusersesstatuscode = keyof typeof Dev_tableleaderusers
 export interface Dev_tableleaderusersesBase {
   "dev_tablefaculty@odata.bind"?: string;
   dev_tableleaderusersid: string;
-  "dev_tablerole@odata.bind"?: string;
+  "dev_tablerole@odata.bind": string;
   dev_useremail?: string;
   importsequencenumber?: number;
   overriddencreatedon?: string;

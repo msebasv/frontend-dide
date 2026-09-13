@@ -30,6 +30,8 @@ const WORD_FIXES: Record<string, string> = {
   pedagogica: "Pedagógica",
   dide: "DIDE",
   syllabus: "Syllabus",
+  evaluador: "Validador",
+  evaluadores: "Validador Disciplinar",
 };
 
 const capitalizeWord = (word: string, index: number): string => {

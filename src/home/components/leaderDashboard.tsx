@@ -173,7 +173,7 @@ function LeaderDashboard({
           <div>
             <p className="text-sm font-bold text-primary">Acceso rápido</p>
             <p className="text-xs text-muted">
-              Gestiona procesos, consulta estadísticas y revisa el historial
+              Gestiona procesos, consulta estadísticas y el seguimiento
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -185,9 +185,9 @@ function LeaderDashboard({
                 Estadísticas
               </Button>
             </Link>
-            <Link to="/history">
+            <Link to="/tracking">
               <Button variant="outline" size="sm">
-                Historial
+                Seguimiento
               </Button>
             </Link>
           </div>

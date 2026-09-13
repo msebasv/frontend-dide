@@ -2,7 +2,7 @@
  * Servicio de cursos — capa de acceso a datos y acciones de negocio.
  *
  * Responsabilidades:
- * - Lectura: procesos, cursos, historial (vía fetchBaseData + mappers).
+ * - Lectura: procesos, cursos, entregables (vía fetchBaseData + mappers).
  * - Escritura: crear curso/proceso, cargar material, aprobar/devolver validaciones.
  * - Orquestación de flujos Power Automate (fl-dev-cu-activity, fl-dev-c-temp-folder).
  *
@@ -39,14 +39,13 @@ import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableac
 import { Dev_tablerolesService } from "../../generated/services/Dev_tablerolesService";
 import { Dev_tablephasetemplatesService } from "../../generated/services/Dev_tablephasetemplatesService";
 import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
+import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
 
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 
 import {
   mapCoursesForUser,
   mapCourseDetail,
-  mapHistoryEntries,
-  buildHistoryProcesses,
   getValidationTargetPhaseName,
   isAdvisorRole,
   isDideDesignerRole,
@@ -54,10 +53,9 @@ import {
 import { findRoleId } from "../utils/roleUtils";
 
 import type { Course, CourseDetail } from "../types/course.types";
-import type { HistoryEntry, HistoryProcess } from "../../history/types/history.types";
-import { mapVirtualizationProcesses } from "../../processVirtualization/mappers/processMappers";
+import { getRecordTimestamp } from "../../global/utils/dateUtils";
 import type { ProcessEditData } from "../../processVirtualization/types/process.types";
-import { isLeaderRole } from "../../global/constants/domainConstants";
+import { isLeaderRole, PROCESS_PHASES } from "../../global/constants/domainConstants";
 
 /**
  * Carga en paralelo todas las tablas base necesarias para mapear procesos.
@@ -72,6 +70,7 @@ const fetchBaseData = async () => {
     facultiesResult,
     phasesResult,
     activitiesResult,
+    activityTemplatesResult,
   ] = await Promise.all([
     Dev_tableassignrolesService.getAll(),
     Dev_tablevirtualizationprocessesService.getAll(),
@@ -80,6 +79,7 @@ const fetchBaseData = async () => {
     Dev_table_facultiesService.getAll(),
     Dev_tablephasesService.getAll(),
     Dev_tableactivitiesService.getAll(),
+    Dev_tableactivitytemplatesService.getAll(),
   ]);
 
   return {
@@ -90,6 +90,7 @@ const fetchBaseData = async () => {
     faculties: facultiesResult.data ?? [],
     phases: phasesResult.data ?? [],
     activities: activitiesResult.data ?? [],
+    activityTemplates: activityTemplatesResult.data ?? [],
   };
 };
 
@@ -98,10 +99,16 @@ export const getCoursesForUser = async (
   userEmail: string,
   userRole: string,
 ): Promise<Course[]> => {
-  const data = await fetchBaseData();
+  const [data, deliverablesResult] = await Promise.all([
+    fetchBaseData(),
+    Dev_tabledeliverablesService.getAll({
+      filter: "statecode eq 0",
+    }).catch(() => ({ data: [] })),
+  ]);
 
   return mapCoursesForUser({
     ...data,
+    deliverables: deliverablesResult.data ?? [],
     userEmail,
     userRole,
   });
@@ -111,7 +118,12 @@ export const getCoursesForUser = async (
 export const getCourseDetail = async (
   processId: string,
 ): Promise<CourseDetail | null> => {
-  const data = await fetchBaseData();
+  const [data, deliverablesRes] = await Promise.all([
+    fetchBaseData(),
+    Dev_tabledeliverablesService.getAll({
+      filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId.trim())}' and statecode eq 0`,
+    }).catch(() => ({ data: [] })),
+  ]);
 
   const process = data.processes.find(
     (p) => p.dev_tablevirtualizationprocessid === processId,
@@ -131,9 +143,6 @@ export const getCourseDetail = async (
     (p) => p._dev_tablevirtualizationprocess_value === processId,
   );
 
-  const activityTemplatesResult =
-    await Dev_tableactivitytemplatesService.getAll();
-
   return mapCourseDetail({
     process,
     course,
@@ -141,110 +150,10 @@ export const getCourseDetail = async (
     faculty,
     phases,
     activities: data.activities,
-    activityTemplates: activityTemplatesResult.data ?? [],
+    activityTemplates: data.activityTemplates,
     assignRoles: data.assignRoles,
+    deliverables: deliverablesRes.data ?? [],
   });
-};
-
-/**
- * Actividades de auditoría filtradas por alcance del usuario.
- * El líder ve todas; los demás solo procesos donde tienen asignación.
- */
-export const getHistoryForUser = async (
-  userEmail: string,
-  userRole: string,
-): Promise<HistoryEntry[]> => {
-  const [data, activityTemplatesResult] = await Promise.all([
-    fetchBaseData(),
-    Dev_tableactivitytemplatesService.getAll(),
-  ]);
-  const activityTemplates = activityTemplatesResult.data ?? [];
-
-  const mapEntries = (activities: typeof data.activities) =>
-    mapHistoryEntries(
-      activities,
-      data.processes,
-      data.courses,
-      data.phases,
-      activityTemplates,
-      data.assignRoles,
-    );
-
-  if (isLeaderRole(userRole) || isDideDesignerRole(userRole)) {
-    return mapEntries(data.activities);
-  }
-
-  const courses = mapCoursesForUser({
-    ...data,
-    userEmail,
-    userRole,
-  });
-
-  const processIds = new Set(courses.map((c) => c.processId));
-
-  const filteredActivities = data.activities.filter((activity) => {
-    const phase = data.phases.find(
-      (p) => p.dev_tablephaseid === activity._dev_tablephase_value,
-    );
-    return processIds.has(phase?._dev_tablevirtualizationprocess_value ?? "");
-  });
-
-  return mapEntries(filteredActivities);
-};
-
-/** Historial agrupado: lista de procesos + entradas de actividades. */
-export const getHistoryDataForUser = async (
-  userEmail: string,
-  userRole: string,
-): Promise<{ processes: HistoryProcess[]; entries: HistoryEntry[] }> => {
-  const data = await fetchBaseData();
-  const entries = await getHistoryForUser(userEmail, userRole);
-
-  if (isLeaderRole(userRole) || isDideDesignerRole(userRole)) {
-    const virtualizationProcesses = mapVirtualizationProcesses({
-      processes: data.processes,
-      courses: data.courses,
-      programs: data.programs,
-      faculties: data.faculties,
-      phases: data.phases,
-      activities: data.activities,
-    });
-
-    const entriesByProcess = new Map<string, HistoryEntry[]>();
-    for (const entry of entries) {
-      const current = entriesByProcess.get(entry.processId) ?? [];
-      current.push(entry);
-      entriesByProcess.set(entry.processId, current);
-    }
-
-    const processes = virtualizationProcesses
-      .map((process) => ({
-        processId: process.processId,
-        processName: process.processName,
-        courseName: process.courseName,
-        status: process.status,
-        lastModified: process.modifiedOn,
-        activityCount: entriesByProcess.get(process.processId)?.length ?? 0,
-      }))
-      .sort(
-        (a, b) =>
-          new Date(b.lastModified).getTime() -
-          new Date(a.lastModified).getTime(),
-      );
-
-    return { processes, entries };
-  }
-
-  const courses = mapCoursesForUser({
-    ...data,
-    userEmail,
-    userRole,
-  });
-
-  return {
-    processes: buildHistoryProcesses(courses, entries),
-    entries,
-  };
 };
 
 type PhaseWithFormatted = Dev_tablephases & {
@@ -312,8 +221,9 @@ const findActivityTemplateByName = async (
 const resolveActivityTemplateId = async (
   targetName: string,
   processId?: string,
+  deliverableId?: string,
 ): Promise<string> => {
-  // 1) Preferir la plantilla esperada de la fase actual del proceso
+  // 1) Preferir la plantilla esperada de la fase que corresponda a targetName
   //    (evita IDs hardcodeados incorrectos entre validador/asesor).
   if (processId) {
     const phasesResult = await Dev_tablephasesService.getAll();
@@ -322,25 +232,43 @@ const resolveActivityTemplateId = async (
         (phase) => phase._dev_tablevirtualizationprocess_value === processId,
       )
       .sort(
-        (a, b) =>
-          new Date(b.createdon ?? "").getTime() -
-          new Date(a.createdon ?? "").getTime(),
+        (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
       );
 
-    const currentPhase = processPhases[0];
-    if (currentPhase) {
+    // Si se especifica deliverableId, buscar primero la fase vinculada a ese entregable
+    if (deliverableId) {
+      const deliverablePhase = processPhases.find(
+        (p) => p._dev_tabledeliverable_value === deliverableId,
+      );
+      if (deliverablePhase) {
+        const delivLabel =
+          deliverablePhase[
+            "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
+          ] ??
+          deliverablePhase.dev_expectedactivitytemplatename ??
+          deliverablePhase.dev_namephase;
+
+        const delivTemplateId = getActivityTemplateIdFromPhase(deliverablePhase);
+        if (delivTemplateId && matchesPhaseName(delivLabel, targetName)) {
+          return delivTemplateId;
+        }
+      }
+    }
+
+    // Buscar una fase del proceso cuyo nombre esperado coincida con targetName
+    const matchingPhase = processPhases.find((phase) => {
       const currentLabel =
-        currentPhase[
+        phase[
           "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
         ] ??
-        currentPhase.dev_expectedactivitytemplatename ??
-        currentPhase.dev_namephase;
+        phase.dev_expectedactivitytemplatename ??
+        phase.dev_namephase;
+      return matchesPhaseName(currentLabel, targetName);
+    });
 
-      const currentTemplateId = getActivityTemplateIdFromPhase(currentPhase);
-      if (
-        currentTemplateId &&
-        matchesPhaseName(currentLabel, targetName)
-      ) {
+    if (matchingPhase) {
+      const currentTemplateId = getActivityTemplateIdFromPhase(matchingPhase);
+      if (currentTemplateId) {
         return currentTemplateId;
       }
     }
@@ -412,6 +340,8 @@ const runCuActivityFlow = async (params: {
   approved: boolean;
   filesJson?: string;
   observations?: string;
+  /** null = cargue de syllabus del líder (el flujo no asocia entregable). */
+  deliverableId?: string | null;
 }): Promise<void> => {
   const input: ManualTriggerInput = {
     text_1: params.processId,
@@ -424,6 +354,12 @@ const runCuActivityFlow = async (params: {
   }
   if (params.observations) {
     input.text = params.observations;
+  }
+  // Syllabus o sin entregable: "null" como texto. Resto: ID concreto del entregable.
+  if (params.deliverableId && params.deliverableId.trim()) {
+    input.text_4 = params.deliverableId.trim();
+  } else {
+    input.text_4 = "null";
   }
 
   /**
@@ -476,9 +412,7 @@ const getProcessProgressSnapshot = async (
       (phase) => phase._dev_tablevirtualizationprocess_value === processId,
     )
     .sort(
-      (a, b) =>
-        new Date(b.createdon ?? "").getTime() -
-        new Date(a.createdon ?? "").getTime(),
+      (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
     );
 
   const phaseIds = new Set(
@@ -507,7 +441,10 @@ const getProcessProgressSnapshot = async (
     latestPhaseStatus:
       latestPhase?.[
         "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
-      ]?.trim() ?? "",
+      ]?.trim() ||
+      latestPhase?.dev_expectedactivitytemplatename?.trim() ||
+      latestPhase?.dev_namephase?.trim() ||
+      "",
   };
 };
 
@@ -574,6 +511,8 @@ export const approveCourseMaterial = async (params: {
   userRole: string;
   /** Actividad en revisión: carpeta destino del Word adjunto. */
   activityId?: string;
+  /** Entregable (categoría × crédito). Preparado para flujo por material. */
+  deliverableId?: string;
   /**
    * Word obligatorio para asesor pedagógico (guía instruccional)
    * y diseñador DIDE (documento de aprobación).
@@ -585,6 +524,7 @@ export const approveCourseMaterial = async (params: {
   const templateActivityId = await resolveActivityTemplateId(
     targetPhaseName,
     params.processId,
+    params.deliverableId,
   );
 
   const requiresWordGuide =
@@ -619,6 +559,7 @@ export const approveCourseMaterial = async (params: {
     approved: true,
     filesJson: filePathsJson,
     observations: observations || undefined,
+    deliverableId: params.deliverableId,
   });
 };
 
@@ -640,6 +581,8 @@ export const returnCourseMaterial = async (params: {
   userRole: string;
   /** Actividad del material en revisión: carpeta destino de correcciones. */
   activityId?: string;
+  /** Entregable (categoría × crédito). Preparado para flujo por material. */
+  deliverableId?: string;
   comments?: string;
   files?: File[];
 }): Promise<void> => {
@@ -651,6 +594,7 @@ export const returnCourseMaterial = async (params: {
   const templateActivityId = await resolveActivityTemplateId(
     targetPhaseName,
     params.processId,
+    params.deliverableId,
   );
 
   const comments = assertSafeDescription(params.comments ?? "", {
@@ -674,6 +618,7 @@ export const returnCourseMaterial = async (params: {
     approved: false,
     filesJson: filePathsJson,
     observations: comments || undefined,
+    deliverableId: params.deliverableId,
   });
 };
 
@@ -753,6 +698,8 @@ export const createVirtualizationProcess = async (params: {
   /** Nombre base escrito por el usuario (sin semestre ni código). */
   processName: string;
   courseId: string;
+  /** Créditos del proceso (fl-dev-cu-virtualization-process → number). */
+  credits: number;
   leaderEmail: string;
   authorEmail: string;
   validatorEmail: string;
@@ -766,6 +713,11 @@ export const createVirtualizationProcess = async (params: {
     params.processName,
     "El nombre del proceso",
   );
+
+  const credits = Math.trunc(Number(params.credits));
+  if (!Number.isFinite(credits) || credits < 1) {
+    throw new Error("Los créditos deben ser un número entero mayor o igual a 1.");
+  }
 
   const leaderEmail = validateOrganizationEmail(params.leaderEmail);
   const authorEmail = validateOrganizationEmail(params.authorEmail);
@@ -833,6 +785,7 @@ export const createVirtualizationProcess = async (params: {
         text_1: JSON.stringify(assignedRoles),
         text_2: params.courseId,
         text_3: "0",
+        number: credits,
       }),
     {
       actionLabel: "creación de proceso",
@@ -903,6 +856,11 @@ export const getProcessForEdit = async (
     processName: process.dev_nameprocess?.trim() ?? "",
     courseId,
     courseName: course?.dev_namecourse?.trim() ?? "Sin nombre",
+    credits:
+      typeof process.dev_credits === "number" &&
+      Number.isFinite(process.dev_credits)
+        ? process.dev_credits
+        : 0,
     leaderEmail: emailForRole(leaderRoleId),
     authorEmail: emailForRole(authorRoleId),
     validatorEmail: emailForRole(validatorRoleId),
@@ -916,6 +874,8 @@ export const updateVirtualizationProcess = async (params: {
   /** Nombre completo final del proceso (incluye semestre y código). */
   processName: string;
   courseId: string;
+  /** Créditos del proceso (fl-dev-cu-virtualization-process → number). */
+  credits: number;
   leaderEmail: string;
   authorEmail: string;
   validatorEmail: string;
@@ -938,6 +898,11 @@ export const updateVirtualizationProcess = async (params: {
     params.processName,
     "El nombre del proceso",
   );
+
+  const credits = Math.trunc(Number(params.credits));
+  if (!Number.isFinite(credits) || credits < 1) {
+    throw new Error("Los créditos deben ser un número entero mayor o igual a 1.");
+  }
 
   const leaderEmail = validateOrganizationEmail(params.leaderEmail);
   const authorEmail = validateOrganizationEmail(params.authorEmail);
@@ -986,6 +951,7 @@ export const updateVirtualizationProcess = async (params: {
         text_1: JSON.stringify(assignedRoles),
         text_2: params.courseId,
         text_3: processId, // id-process
+        number: credits,
       }),
     {
       actionLabel: "actualización de proceso",
@@ -1026,6 +992,10 @@ export const uploadCourseMaterial = async (params: {
   description: string;
   processId: string;
   files: File[];
+  /**
+   * ID del entregable que se carga (incluyendo syllabus).
+   */
+  deliverableId?: string | null;
 }): Promise<void> => {
   const activityName = assertSafeTitle(
     params.activityName,
@@ -1035,26 +1005,41 @@ export const uploadCourseMaterial = async (params: {
     label: "La descripción",
   });
   const files = assertSafeFiles(params.files, { required: true });
+  const deliverableId = params.deliverableId ? params.deliverableId.trim() : null;
 
-  const data = await fetchBaseData();
-
-  const phases = data.phases
-    .filter((p) => p._dev_tablevirtualizationprocess_value === params.processId)
-    .sort(
-      (a, b) =>
-        new Date(b.createdon ?? "").getTime() -
-        new Date(a.createdon ?? "").getTime(),
-    );
-
-  const currentPhase = phases[0];
-  if (!currentPhase) {
-    throw new Error("No se encontró una fase activa para este proceso");
+  if (!deliverableId) {
+    throw new Error("Debes seleccionar el tipo de material a cargar.");
   }
 
-  const templateActivityId =
-    currentPhase._dev_expectedactivitytemplate_value ?? "";
+  let isSyllabus = false;
+  try {
+    const delivRes = await Dev_tabledeliverablesService.get(deliverableId);
+    const deliv = delivRes.data;
+    if (deliv) {
+      const normName = (deliv.dev_namedeliverable || "").toLowerCase();
+      const normCat = (deliv.dev_tablecategorytemplatename || "").toLowerCase();
+      isSyllabus =
+        normName.includes("syllabus") ||
+        normCat.includes("syllabus") ||
+        (deliv.dev_creditnumber === 0 && normName.startsWith("syll"));
+    }
+  } catch {
+    isSyllabus = activityName.toLowerCase().includes("syllabus");
+  }
+
+  const targetPhaseName = isSyllabus
+    ? PROCESS_PHASES.LEADER_SYLLABUS
+    : PROCESS_PHASES.AUTHOR_UPLOAD;
+
+  const templateActivityId = await resolveActivityTemplateId(
+    targetPhaseName,
+    params.processId,
+  );
+
   if (!templateActivityId) {
-    throw new Error("No se encontró la actividad esperada para esta fase");
+    throw new Error(
+      `No se encontró la plantilla de actividad esperada para "${targetPhaseName}".`,
+    );
   }
 
   const tempUploadResults = await uploadTempFiles(files, {
@@ -1071,5 +1056,6 @@ export const uploadCourseMaterial = async (params: {
     approved: false,
     filesJson: JSON.stringify(tempUploadResults),
     observations,
+    deliverableId,
   });
 };

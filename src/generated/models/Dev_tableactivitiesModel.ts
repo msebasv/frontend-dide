@@ -15,7 +15,9 @@ export const Dev_tableactivitiesstatuscode = {
   775730003: 'Poraprobar',
   775730004: 'Aprobado',
   775730005: 'Porcorregir',
-  775730006: 'Noaprobado'
+  775730006: 'Noaprobado',
+  775730007: 'Revisadoaprobado',
+  775730008: 'Revisadonoaprobado'
 } as const;
 export type Dev_tableactivitiesstatuscode = keyof typeof Dev_tableactivitiesstatuscode;
 
@@ -23,6 +25,7 @@ export interface Dev_tableactivitiesBase {
   dev_activityname?: string;
   dev_documents?: string;
   dev_observations?: string;
+  dev_pendingapprover?: number;
   dev_tableactivityid: string;
   "dev_tableactivitytemplate@odata.bind": string;
   "dev_tablephase@odata.bind": string;

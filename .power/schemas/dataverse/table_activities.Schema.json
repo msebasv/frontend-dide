@@ -97,6 +97,13 @@
           "x-ms-schema-name": "dev_observations",
           "maxLength": 100
         },
+        "dev_pendingapprover": {
+          "type": "string",
+          "title": "pending-approver",
+          "x-ms-dataverse-attribute": "dev_pendingapprover",
+          "x-ms-dataverse-type": "IntegerType",
+          "x-ms-schema-name": "dev_pendingapprover"
+        },
         "dev_tableactivityid": {
           "type": "string",
           "title": "table-activity",
@@ -333,7 +340,9 @@
             "Por aprobar",
             "Aprobado",
             "Por corregir",
-            "No aprobado"
+            "No aprobado",
+            "Revisado aprobado",
+            "Revisado no aprobado"
           ],
           "x-ms-enum-values": [
             1,
@@ -343,9 +352,13 @@
             775730003,
             775730004,
             775730005,
-            775730006
+            775730006,
+            775730007,
+            775730008
           ],
           "Color": [
+            null,
+            null,
             null,
             null,
             null,

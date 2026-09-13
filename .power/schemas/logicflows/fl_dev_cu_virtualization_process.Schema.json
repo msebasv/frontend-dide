@@ -92,13 +92,20 @@
               "type": "string",
               "x-ms-content-hint": "TEXT",
               "x-ms-dynamically-added": true
+            },
+            "number": {
+              "description": "Please enter a number",
+              "title": "credits",
+              "type": "number",
+              "x-ms-content-hint": "NUMBER",
+              "x-ms-dynamically-added": true
             }
           },
           "required": [
             "text",
             "text_1",
             "text_2",
-            "text_3"
+            "number"
           ]
         }
       },

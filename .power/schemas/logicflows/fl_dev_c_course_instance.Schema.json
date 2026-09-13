@@ -54,8 +54,17 @@
               }
             ],
             "responses": {
-              "202": {
-                "description": "Accepted"
+              "200": {
+                "description": "Ok",
+                "schema": {
+                  "$ref": "#/definitions/ResponseActionOutput"
+                }
+              },
+              "default": {
+                "description": "The Flow Response.",
+                "schema": {
+                  "type": "object"
+                }
               }
             }
           }
@@ -84,6 +93,24 @@
             "text",
             "text_1"
           ]
+        },
+        "ResponseActionOutput": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "title": "message",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
+            },
+            "status-code": {
+              "title": "status-code",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
+            }
+          },
+          "additionalProperties": {}
         }
       },
       "basePath": "/apim/logicflows"

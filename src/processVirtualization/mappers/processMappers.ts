@@ -13,12 +13,13 @@ import type { Dev_tableactivities } from "../../generated/models/Dev_tableactivi
 import type { Dev_tableassignroles } from "../../generated/models/Dev_tableassignrolesModel";
 
 import type { VirtualizationProcess } from "../types/process.types";
-import { getLatestDate } from "../../global/utils/dateUtils";
+import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
 import { resolveProcessSemester } from "../../global/utils/semesterUtils";
 import {
   canonicalizeUserRole,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
+import { isLeaderSyllabusStatus } from "../../courses/mappers/courseMappers";
 
 type AssignRoleWithFormatted = Dev_tableassignroles & {
   "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"?: string;
@@ -162,15 +163,16 @@ export const mapVirtualizationProcesses = ({
         ) as PhaseWithFormattedValue[]) ?? [];
 
       const lastPhase = [...processPhases].sort(
-        (a, b) =>
-          new Date(b.createdon ?? "").getTime() -
-          new Date(a.createdon ?? "").getTime(),
+        (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
       )[0];
 
       const activityName =
         lastPhase?.[
           "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
-        ] ?? "";
+        ]?.trim() ||
+        lastPhase?.dev_expectedactivitytemplatename?.trim() ||
+        lastPhase?.dev_namephase?.trim() ||
+        "";
 
       const processId = process.dev_tablevirtualizationprocessid;
       const phaseIds = new Set(
@@ -215,6 +217,7 @@ export const mapVirtualizationProcesses = ({
         advisorLabel: assignees?.advisor?.label ?? "",
         leaderEmail: assignees?.leader?.email ?? "",
         leaderLabel: assignees?.leader?.label ?? "",
+        canUploadSyllabus: isLeaderSyllabusStatus(activityName),
       };
     })
     .sort(

@@ -60,12 +60,12 @@ export const exportStatisticsPdf = ({
   doc.line(margin, y, pageWidth - margin, y);
   y += 8;
 
-  const { metrics } = statistics;
+  const { metrics, deliverableMetrics } = statistics;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(15, 45, 75);
-  doc.text("Indicadores clave", margin, y);
+  doc.text("Indicadores clave (procesos)", margin, y);
   y += 4;
 
   autoTable(doc, {
@@ -82,6 +82,32 @@ export const exportStatisticsPdf = ({
       ["Promedio actividades / proceso", String(metrics.avgActivitiesPerProcess)],
       ["Procesos este mes", String(metrics.processesThisMonth)],
       ["Actividad este mes", String(metrics.activitiesThisMonth)],
+    ],
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [15, 45, 75], textColor: 255 },
+    alternateRowStyles: { fillColor: [245, 248, 252] },
+  });
+
+  y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+    .finalY + 10;
+
+  ensureSpace(40);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(15, 45, 75);
+  doc.text("Indicadores clave (entregables)", margin, y);
+  y += 4;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: margin, right: margin },
+    head: [["Indicador", "Valor"]],
+    body: [
+      ["Total entregables", String(deliverableMetrics.totalDeliverables)],
+      ["Pendientes", String(deliverableMetrics.pending)],
+      ["En revisión", String(deliverableMetrics.inReview)],
+      ["Aprobados", String(deliverableMetrics.approved)],
+      ["Avance de entregables", `${deliverableMetrics.completionRate}%`],
     ],
     styles: { fontSize: 9, cellPadding: 2.5 },
     headStyles: { fillColor: [15, 45, 75], textColor: 255 },
@@ -155,6 +181,23 @@ export const exportStatisticsPdf = ({
     "Actividades por rol",
     ["Rol", "Cantidad"],
     statistics.activitiesByRole.map((item) => [item.role, item.count]),
+  );
+
+  addSection(
+    "Distribución de entregables por estado",
+    ["Estado", "Cantidad"],
+    statistics.deliverableDistribution.map((item) => [item.shortName, item.value]),
+  );
+
+  addSection(
+    "Entregables por facultad",
+    ["Facultad", "Total", "En progreso", "Aprobados"],
+    statistics.deliverableFacultyDistribution.map((item) => [
+      item.name,
+      item.total,
+      item.inProgress,
+      item.completed,
+    ]),
   );
 
   const pageCount = doc.getNumberOfPages();

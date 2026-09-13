@@ -81,6 +81,15 @@
           "x-ms-dataverse-primary-name": true,
           "maxLength": 850
         },
+        "dev_namecoursenormalized": {
+          "type": "string",
+          "title": "name-course-normalized",
+          "x-ms-dataverse-attribute": "dev_namecoursenormalized",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "dev_namecoursenormalized",
+          "required": true,
+          "maxLength": 100
+        },
         "dev_tablecourseinstanceid": {
           "type": "string",
           "title": "table-course-instance",
@@ -342,6 +351,7 @@
       "required": [
         "createdbyyominame",
         "createdonbehalfbyyominame",
+        "dev_namecoursenormalized",
         "dev_tablecourseinstanceid",
         "modifiedbyyominame",
         "modifiedonbehalfbyyominame",

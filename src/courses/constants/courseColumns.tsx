@@ -1,18 +1,24 @@
-import {
-  IoEyeOutline,
-  IoCloudUploadOutline,
-} from "react-icons/io5";
+import { IoEyeOutline } from "react-icons/io5";
 
 import ActionButton from "../../global/components/actionButton";
 import type { Course } from "../types/course.types";
 import type { Column } from "../../global/components/dataTable";
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
+import CourseProcessStatusSummary from "../components/courseProcessStatusSummary";
 import { formatDateTime } from "../../global/utils/dateUtils";
-import { formatDomainLabel } from "../../global/utils/textUtils";
 
 type CourseColumnRole = "author" | "validator" | "advisor" | "designer";
 
+const viewerRoleLabel: Record<CourseColumnRole, string> = {
+  author: "Autor de asignatura",
+  validator: "Validador disciplinar",
+  advisor: "Asesor pedagógico",
+  designer: "Diseñador DIDE",
+};
+
 export const getCourseColumns = (role: CourseColumnRole): Column<Course>[] => {
+  const viewerRole = viewerRoleLabel[role];
+
   const baseColumns: Column<Course>[] = [
     {
       key: "processName",
@@ -33,23 +39,22 @@ export const getCourseColumns = (role: CourseColumnRole): Column<Course>[] => {
   baseColumns.push(
     {
       key: "status",
-      header: "Estado",
-      render: (row) => <ProcessStatus status={row.status} />,
+      header: "Pendiente para ti",
+      render: (row) =>
+        row.phaseBreakdown ? (
+          <CourseProcessStatusSummary
+            breakdown={row.phaseBreakdown}
+            viewerRole={viewerRole}
+          />
+        ) : (
+          <ProcessStatus status={row.status} />
+        ),
     },
     {
       key: "modifiedOn",
       header: "Última modificación",
       render: (row) => (
         <span className="text-xs text-muted">{formatDateTime(row.modifiedOn)}</span>
-      ),
-    },
-    {
-      key: "currentRole",
-      header: "Rol actual",
-      render: (row) => (
-        <span className="text-xs font-medium text-muted">
-          {formatDomainLabel(row.currentRole)}
-        </span>
       ),
     },
     {
@@ -69,14 +74,6 @@ export const getCourseColumns = (role: CourseColumnRole): Column<Course>[] => {
 
         return (
           <div className="flex flex-wrap gap-1.5">
-            {role === "author" && row.canUpload && (
-              <ActionButton
-                to={`/courses/${row.processId}/upload`}
-                icon={<IoCloudUploadOutline size={13} />}
-                label="Cargar"
-                variant="upload"
-              />
-            )}
             <ActionButton
               to={`/courses/${row.processId}`}
               icon={<IoEyeOutline size={13} />}

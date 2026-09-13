@@ -14,16 +14,24 @@ import type { FacultyStat } from "../types/statistics.types";
 
 interface FacultyBarChartProps {
   data: FacultyStat[];
+  title?: string;
+  subtitle?: string;
+  completedLabel?: string;
+  inProgressLabel?: string;
 }
 
 const CustomTooltip = ({
   active,
   payload,
   label,
+  completedLabel = "Completados",
+  inProgressLabel = "En progreso",
 }: {
   active?: boolean;
   payload?: { value: number; dataKey: string; color: string }[];
   label?: string;
+  completedLabel?: string;
+  inProgressLabel?: string;
 }) => {
   if (!active || !payload?.length) return null;
 
@@ -33,7 +41,7 @@ const CustomTooltip = ({
       {payload.map((entry) => (
         <p key={entry.dataKey} className="text-xs text-muted">
           <span style={{ color: entry.color }}>●</span>{" "}
-          {entry.dataKey === "completed" ? "Completados" : "En progreso"}:{" "}
+          {entry.dataKey === "completed" ? completedLabel : inProgressLabel}:{" "}
           {entry.value}
         </p>
       ))}
@@ -41,14 +49,17 @@ const CustomTooltip = ({
   );
 };
 
-function FacultyBarChart({ data }: FacultyBarChartProps) {
+function FacultyBarChart({
+  data,
+  title = "Procesos por facultad",
+  subtitle = "Comparativa de avance por unidad académica",
+  completedLabel = "Completados",
+  inProgressLabel = "En progreso",
+}: FacultyBarChartProps) {
   const chartData = data.slice(0, 6);
 
   return (
-    <ChartCard
-      title="Procesos por facultad"
-      subtitle="Comparativa de avance por unidad académica"
-    >
+    <ChartCard title={title} subtitle={subtitle}>
       {chartData.length > 0 ? (
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={chartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -69,11 +80,18 @@ function FacultyBarChart({ data }: FacultyBarChartProps) {
               axisLine={false}
               tickLine={false}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip
+              content={
+                <CustomTooltip
+                  completedLabel={completedLabel}
+                  inProgressLabel={inProgressLabel}
+                />
+              }
+            />
             <Legend
               formatter={(value) => (
                 <span className="text-xs text-gray-600">
-                  {value === "completed" ? "Completados" : "En progreso"}
+                  {value === "completed" ? completedLabel : inProgressLabel}
                 </span>
               )}
             />

@@ -19,6 +19,7 @@ export interface Dev_tablephasesBase {
   dev_expectedactivity?: number;
   "dev_expectedactivitytemplate@odata.bind": string;
   dev_namephase?: string;
+  "dev_tabledeliverable@odata.bind"?: string;
   dev_tablephaseid: string;
   "dev_tablephasetemplate@odata.bind": string;
   "dev_tablevirtualizationprocess@odata.bind"?: string;
@@ -39,6 +40,7 @@ export interface Dev_tablephases extends Dev_tablephasesBase {
   createdonbehalfbyname?: string;
   createdonbehalfbyyominame: string;
   dev_expectedactivitytemplatename?: string;
+  dev_tabledeliverablename?: string;
   dev_tablephasetemplatename?: string;
   dev_tablevirtualizationprocessname?: string;
   modifiedbyname?: string;
@@ -58,6 +60,8 @@ export interface Dev_tablephases extends Dev_tablephasesBase {
   _createdonbehalfby_value?: string;
   dev_expectedactivitytemplate?: object;
   _dev_expectedactivitytemplate_value?: string;
+  dev_tabledeliverable?: object;
+  _dev_tabledeliverable_value?: string;
   dev_tablephasetemplate?: object;
   _dev_tablephasetemplate_value?: string;
   dev_tablevirtualizationprocess?: object;

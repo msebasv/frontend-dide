@@ -18,6 +18,8 @@ interface ButtonProps {
   disabled?: boolean;
 
   className?: string;
+
+  title?: string;
 }
 
 function Button({
@@ -32,6 +34,8 @@ function Button({
   disabled,
 
   className,
+
+  title,
 }: ButtonProps) {
   const baseStyles = `
     inline-flex
@@ -47,6 +51,7 @@ function Button({
     <HeadlessButton
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={clsx(
         baseStyles,
         buttonVariants[variant],

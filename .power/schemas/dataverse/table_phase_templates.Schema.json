@@ -136,6 +136,38 @@
           "x-ms-dataverse-type": "IntegerType",
           "x-ms-schema-name": "dev_order"
         },
+        "dev_scope": {
+          "type": "string",
+          "title": "scope",
+          "x-ms-dataverse-attribute": "dev_scope",
+          "x-ms-dataverse-type": "PicklistType",
+          "x-ms-schema-name": "dev_scope",
+          "required": true,
+          "enum": [
+            "Proceso",
+            "Entregable"
+          ],
+          "x-ms-enum-values": [
+            775730000,
+            775730001
+          ],
+          "Color": [
+            null,
+            null
+          ],
+          "x-ms-optionsetmetadataid": "2ec2d240-679f-f111-b8de-002248e028e8",
+          "x-ms-isGlobal": true,
+          "x-ms-optionsetdisplayname": "dev_scope",
+          "x-ms-optionSetType": "Picklist"
+        },
+        "dev_scopename": {
+          "type": "string",
+          "title": "dev_scopename",
+          "x-ms-dataverse-attribute": "dev_scopename",
+          "x-ms-dataverse-type": "VirtualType",
+          "x-ms-schema-name": "dev_scopeName",
+          "x-ms-read-only": true
+        },
         "dev_tablephasetemplateid": {
           "type": "string",
           "title": "table-phase-template",
@@ -382,6 +414,7 @@
         "createdbyyominame",
         "createdonbehalfbyyominame",
         "dev_conditionactivity",
+        "dev_scope",
         "dev_tablephasetemplateid",
         "modifiedbyyominame",
         "modifiedonbehalfbyyominame",

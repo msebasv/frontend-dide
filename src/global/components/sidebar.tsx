@@ -1,6 +1,9 @@
 import clsx from "clsx";
 import { FaChevronLeft, FaTimes } from "react-icons/fa";
 
+import logoUnbosque from "../../assets/brand/logounbosque.png?inline";
+import logoDide from "../../assets/brand/logodide.png?inline";
+
 interface SidebarProps {
   children: React.ReactNode;
   isOpen: boolean;
@@ -26,7 +29,7 @@ const Sidebar = ({
           )}
         >
           <img
-            src="/brand/logounbosque.png?v=3"
+            src={logoUnbosque}
             alt="Universidad El Bosque"
             width={280}
             height={83}
@@ -95,7 +98,7 @@ const Sidebar = ({
           )}
         >
           <img
-            src="/brand/logodide.png?v=3"
+            src={logoDide}
             alt="DiDE · División de Innovación Digital en Educación"
             width={280}
             height={42}

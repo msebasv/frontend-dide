@@ -10,6 +10,24 @@ export type ActorProgressCode =
   | "waiting"
   | "na";
 
+/** Avance de un entregable (categoría × crédito) dentro del proceso. */
+export interface DeliverableTrackingItem {
+  id: string;
+  name: string;
+  creditNumber: number;
+  /** General | Crédito / Unidad N */
+  creditLabel: string;
+  phase: string;
+  phaseShort: string;
+  authorStatus: ActorProgressCode;
+  authorStatusLabel: string;
+  validatorStatus: ActorProgressCode;
+  validatorStatusLabel: string;
+  advisorStatus: ActorProgressCode;
+  advisorStatusLabel: string;
+  activityCount: number;
+}
+
 export interface ProcessTrackingRow {
   processId: string;
   processName: string;
@@ -33,6 +51,8 @@ export interface ProcessTrackingRow {
   modifiedOn: string;
   /** Ruta de detalle según el rol que consulta. */
   detailPath: string;
+  /** Entregables del proceso agrupables por General / crédito. */
+  deliverables: DeliverableTrackingItem[];
 }
 
 export interface ProcessTrackingSummary {

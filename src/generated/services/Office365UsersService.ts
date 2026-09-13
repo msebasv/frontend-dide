@@ -343,9 +343,9 @@ export class Office365UsersService {
    * Send an HTTP request
    * Construct a Microsoft Graph REST API request to invoke. These segments are supported: 1st segement: /me, /users/<userId> 2nd segment: messages, mailFolders, events, calendar, calendars, outlook, inferenceClassification. Learn more: https://docs.microsoft.com/en-us/graph/use-the-api.
    */
-  public static async HttpRequest(Uri: string, Method: string, Body?: string, ContentType?: string, CustomHeader1?: string, CustomHeader2?: string, CustomHeader3?: string, CustomHeader4?: string, CustomHeader5?: string): Promise<IOperationResult<ObjectWithoutType>> {
-    const params: { Uri: string, Method: string, Body?: string, ContentType?: string, CustomHeader1?: string, CustomHeader2?: string, CustomHeader3?: string, CustomHeader4?: string, CustomHeader5?: string } = { Uri, Method, Body, ContentType, CustomHeader1, CustomHeader2, CustomHeader3, CustomHeader4, CustomHeader5 };
-    const result = await Office365UsersService.client.executeAsync<{ Uri: string, Method: string, Body?: string, ContentType?: string, CustomHeader1?: string, CustomHeader2?: string, CustomHeader3?: string, CustomHeader4?: string, CustomHeader5?: string }, ObjectWithoutType>(
+  public static async HttpRequest(Uri: string, Method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', Body?: string, ContentType?: string, CustomHeader1?: string, CustomHeader2?: string, CustomHeader3?: string, CustomHeader4?: string, CustomHeader5?: string): Promise<IOperationResult<ObjectWithoutType>> {
+    const params: { Uri: string, Method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', Body?: string, ContentType?: string, CustomHeader1?: string, CustomHeader2?: string, CustomHeader3?: string, CustomHeader4?: string, CustomHeader5?: string } = { Uri, Method, Body, ContentType, CustomHeader1, CustomHeader2, CustomHeader3, CustomHeader4, CustomHeader5 };
+    const result = await Office365UsersService.client.executeAsync<{ Uri: string, Method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', Body?: string, ContentType?: string, CustomHeader1?: string, CustomHeader2?: string, CustomHeader3?: string, CustomHeader4?: string, CustomHeader5?: string }, ObjectWithoutType>(
       {
         connectorOperation: {
           tableName: Office365UsersService.dataSourceName,

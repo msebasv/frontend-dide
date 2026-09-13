@@ -23,6 +23,7 @@ export type Dev_tableactivitytemplatesstatuscode = keyof typeof Dev_tableactivit
 
 export interface Dev_tableactivitytemplatesBase {
   dev_activityname?: string;
+  dev_approver?: number;
   dev_order?: number;
   dev_requiredocument?: boolean;
   dev_tableactivitytemplateid: string;

@@ -65,6 +65,7 @@ function CreateProcess() {
   const [authorEmail, setAuthorEmail] = useState("");
   const [validatorEmail, setValidatorEmail] = useState("");
   const [advisorEmail, setAdvisorEmail] = useState("");
+  const [credits, setCredits] = useState("");
 
   const [roleIds, setRoleIds] = useState({
     leader: "",
@@ -80,6 +81,11 @@ function CreateProcess() {
   const authorCheck = validateOrganizationEmail(authorEmail);
   const validatorCheck = validateOrganizationEmail(validatorEmail);
   const advisorCheck = validateOrganizationEmail(advisorEmail);
+  const creditsNumber = Number(credits);
+  const creditsValid =
+    credits.trim() !== "" &&
+    Number.isInteger(creditsNumber) &&
+    creditsNumber >= 1;
 
   const namePreview = processNameCheck.ok
     ? buildProcessDisplayName(processNameCheck.value, existingProcessNames)
@@ -130,6 +136,7 @@ function CreateProcess() {
     Boolean(selectedFaculty) &&
     Boolean(selectedProgram) &&
     Boolean(selectedCourse) &&
+    creditsValid &&
     leaderCheck.ok &&
     authorCheck.ok &&
     validatorCheck.ok &&
@@ -222,6 +229,7 @@ function CreateProcess() {
           createdProcessId = await createVirtualizationProcess({
             processName: processNameCheck.value,
             courseId: selectedCourse.value,
+            credits: creditsNumber,
             leaderEmail: leaderCheck.value,
             authorEmail: authorCheck.value,
             validatorEmail: validatorCheck.value,
@@ -375,6 +383,26 @@ function CreateProcess() {
               />
             </FormField>
           </div>
+
+          <FormField
+            label="Créditos"
+            required
+            error={
+              credits.trim() && !creditsValid
+                ? "Ingresa un número entero mayor o igual a 1."
+                : undefined
+            }
+            hint="Cantidad de créditos del proceso de virtualización."
+          >
+            <InputText
+              type="number"
+              value={credits}
+              onChange={setCredits}
+              placeholder="Ej. 3"
+              invalid={Boolean(credits.trim() && !creditsValid)}
+              disabled={submitting}
+            />
+          </FormField>
 
           <div className="border-t pt-5">
             <h3 className="mb-4 text-sm font-semibold text-primary">

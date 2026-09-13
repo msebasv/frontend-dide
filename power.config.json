@@ -10,18 +10,6 @@
   "localAppUrl": "http://localhost:3000",
   "logoPath": "Default",
   "connectionReferences": {
-    "52d0de73-f63c-488d-903f-b5a0f7624231": {
-      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
-      "displayName": "Logic flows",
-      "dataSources": [
-        "fl_dev_c_course_instance"
-      ],
-      "workflowDetails": {
-        "workflowEntityId": "fc6a42ca-6526-f111-88b4-002248df1759",
-        "workflowDisplayName": "fl-dev-c-course-instance",
-        "workflowName": "1296a6a4-5ec2-422d-bd71-a3f9d1c3bc58"
-      }
-    },
     "eb4877c0-64fa-4267-b7e8-3b97f6aa6b21": {
       "id": "/providers/Microsoft.PowerApps/apis/shared_office365users",
       "displayName": "Office 365 Users",
@@ -35,7 +23,8 @@
       "displayName": "SharePoint",
       "dataSources": [
         "sharepointonline",
-        "documents"
+        "documents",
+        "sharepointonline_1"
       ],
       "dataSets": {
         "https://unbosqueeduco.sharepoint.com/sites/development-dide": {
@@ -47,7 +36,7 @@
         }
       }
     },
-    "3433b3a9-ea73-42e9-b629-a6a7c4bdd259": {
+    "7a7ef52e-56f0-4cde-a6d0-3080febcc3b4": {
       "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
       "displayName": "Logic flows",
       "dataSources": [
@@ -56,13 +45,34 @@
       "workflowDetails": {
         "workflowEntityId": "30934191-8938-f111-88b5-002248df1759",
         "workflowDisplayName": "fl-dev-c-temp-folder",
-        "workflowName": "d7e250ad-d92c-4342-bbbf-2affa9536fe5",
-        "dependencies": {
-          "shared_sharepointonline-1": "62d2e942-642b-4203-bc6a-ff2d7a8d911d"
-        }
+        "workflowName": "eb461ec7-5704-e193-2bf7-fa0312f69917"
       }
     },
-    "263ce059-3258-4dec-b86c-f0e72034c6c3": {
+    "b140d9b2-589a-42a6-acdd-d25d1bb91f85": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_cu_template_category"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "0660f31f-ed99-f111-b8dc-002248e028e8",
+        "workflowDisplayName": "fl-dev-cu-template-category",
+        "workflowName": "152e5729-0bde-fa3d-fcc6-1efbf7558abe"
+      }
+    },
+    "ec6d348f-4edb-49c9-a8d0-76c278b468f9": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_c_course_instance"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "fc6a42ca-6526-f111-88b4-002248df1759",
+        "workflowDisplayName": "fl-dev-c-course-instance",
+        "workflowName": "a6f97ede-a2b8-b61d-ef40-9297f6eab1f6"
+      }
+    },
+    "8e6533f7-d9bb-491f-a74c-1213653c17a8": {
       "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
       "displayName": "Logic flows",
       "dataSources": [
@@ -71,13 +81,10 @@
       "workflowDetails": {
         "workflowEntityId": "3c0b931f-bc2c-f111-88b5-002248df1759",
         "workflowDisplayName": "fl-dev-cu-activity",
-        "workflowName": "3fc1603b-ca41-4a41-9893-a296a7544c77",
-        "dependencies": {
-          "shared_sharepointonline-1": "62d2e942-642b-4203-bc6a-ff2d7a8d911d"
-        }
+        "workflowName": "80d31781-ca02-90b1-a6aa-d5b4218b78a2"
       }
     },
-    "eb77b000-f1e4-4c4e-ad55-1c3c1cfce212": {
+    "e8a5aa3d-9549-4270-8322-ecd78126fcbd": {
       "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
       "displayName": "Logic flows",
       "dataSources": [
@@ -86,7 +93,7 @@
       "workflowDetails": {
         "workflowEntityId": "356fa1c2-8341-f111-bec7-002248df1759",
         "workflowDisplayName": "fl-dev-cu-virtualization-process",
-        "workflowName": "7be286ea-1218-409b-a108-04e504d1166c"
+        "workflowName": "9dc31007-0e98-decf-f8c9-da7d9e6a46c6"
       }
     }
   },
@@ -146,6 +153,16 @@
         "table_roles": {
           "entitySetName": "dev_tableroles",
           "logicalName": "dev_tablerole",
+          "isHidden": false
+        },
+        "table_category_templates": {
+          "entitySetName": "dev_tablecategorytemplates",
+          "logicalName": "dev_tablecategorytemplate",
+          "isHidden": false
+        },
+        "table_deliverables": {
+          "entitySetName": "dev_tabledeliverables",
+          "logicalName": "dev_tabledeliverable",
           "isHidden": false
         }
       },

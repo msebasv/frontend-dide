@@ -15,6 +15,7 @@ export type Dev_tablecourseinstancesstatuscode = keyof typeof Dev_tablecourseins
 
 export interface Dev_tablecourseinstancesBase {
   dev_namecourse?: string;
+  dev_namecoursenormalized: string;
   dev_tablecourseinstanceid: string;
   "dev_tableprogram@odata.bind"?: string;
   importsequencenumber?: number;

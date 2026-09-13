@@ -103,7 +103,8 @@
           "title": "table-role",
           "x-ms-dataverse-attribute": "dev_tablerole",
           "x-ms-dataverse-type": "LookupType",
-          "x-ms-schema-name": "dev_tablerole"
+          "x-ms-schema-name": "dev_tablerole",
+          "required": true
         },
         "dev_tablerolename": {
           "type": "string",
@@ -359,6 +360,7 @@
         "createdbyyominame",
         "createdonbehalfbyyominame",
         "dev_tableleaderusersid",
+        "dev_tablerole",
         "modifiedbyyominame",
         "modifiedonbehalfbyyominame",
         "ownerid",

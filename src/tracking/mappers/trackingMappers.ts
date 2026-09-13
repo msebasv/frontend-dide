@@ -8,6 +8,8 @@ import type { Dev_table_programs } from "../../generated/models/Dev_table_progra
 import type { Dev_table_faculties } from "../../generated/models/Dev_table_facultiesModel";
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import type { Dev_tableactivities } from "../../generated/models/Dev_tableactivitiesModel";
+import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
+import type { Dev_tableactivitytemplates } from "../../generated/models/Dev_tableactivitytemplatesModel";
 
 import {
   PHASE_SHORT_LABELS,
@@ -16,14 +18,17 @@ import {
   canonicalizeUserRole,
   isLeaderRole,
 } from "../../global/constants/domainConstants";
-import { getLatestDate } from "../../global/utils/dateUtils";
+import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
 import {
   formatActivityStatus,
   isAdvisorRole,
+  isLeaderSyllabusStatus,
   resolveActivityStatusRaw,
 } from "../../courses/mappers/courseMappers";
+import { isSyllabusDeliverable } from "../../courses/services/deliverableService";
 import type {
   ActorProgressCode,
+  DeliverableTrackingItem,
   ProcessTrackingRow,
   ProcessTrackingSummary,
 } from "../types/tracking.types";
@@ -51,11 +56,14 @@ const matchPhase = (status: string, target: string): boolean =>
 
 const ACTOR_STATUS_LABELS: Record<ActorProgressCode, string> = {
   pending: "Pendiente",
-  done: "Listo",
+  done: "Completado",
   returned: "Devuelto",
-  waiting: "Aún no le toca",
+  waiting: "En espera",
   na: "—",
 };
+
+const creditLabelFor = (creditNumber: number): string =>
+  creditNumber === 0 ? "General" : `Crédito / Unidad ${creditNumber}`;
 
 const resolvePerson = (
   assignRole: AssignRoleWithFormatted,
@@ -76,20 +84,29 @@ const resolvePerson = (
   return { email: email.toLowerCase(), label };
 };
 
-const getCurrentPhase = (phases: PhaseWithFormatted[]): string => {
+const getCurrentPhase = (
+  phases: PhaseWithFormatted[],
+  templatesMap?: Map<string, Dev_tableactivitytemplates>,
+): string => {
   const lastPhase = [...phases].sort(
-    (a, b) =>
-      new Date(b.createdon ?? "").getTime() -
-      new Date(a.createdon ?? "").getTime(),
+    (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
   )[0];
 
-  return (
-    lastPhase?.[
-      "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
-    ]?.trim() ||
-    lastPhase?.dev_expectedactivitytemplatename?.trim() ||
-    PROCESS_PHASES.UNKNOWN
-  );
+  const odata = lastPhase?.[
+    "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
+  ]?.trim();
+  if (odata) return odata;
+
+  const rawName = lastPhase?.dev_expectedactivitytemplatename?.trim();
+  if (rawName) return rawName;
+
+  const templateId = lastPhase?._dev_expectedactivitytemplate_value;
+  if (templateId && templatesMap) {
+    const templateName = templatesMap.get(templateId)?.dev_activityname?.trim();
+    if (templateName) return templateName;
+  }
+
+  return lastPhase?.dev_namephase?.trim() || PROCESS_PHASES.UNKNOWN;
 };
 
 const isReturnedLabel = (label: string): boolean => {
@@ -110,6 +127,10 @@ const deriveActorStatuses = (
   validator: ActorProgressCode;
   advisor: ActorProgressCode;
 } => {
+  if (isLeaderSyllabusStatus(phase)) {
+    return { author: "waiting", validator: "waiting", advisor: "waiting" };
+  }
+
   if (matchPhase(phase, PROCESS_PHASES.COMPLETED)) {
     return { author: "done", validator: "done", advisor: "done" };
   }
@@ -139,6 +160,114 @@ const deriveActorStatuses = (
   return { author: "na", validator: "na", advisor: "na" };
 };
 
+const formatActorLabels = (
+  phase: string,
+  statuses: ReturnType<typeof deriveActorStatuses>,
+  hasAuthorMaterial: boolean,
+  hasReturnedMaterial: boolean,
+): {
+  authorStatus: ActorProgressCode;
+  authorStatusLabel: string;
+  validatorStatus: ActorProgressCode;
+  validatorStatusLabel: string;
+  advisorStatus: ActorProgressCode;
+  advisorStatusLabel: string;
+} => {
+  let authorStatus = statuses.author;
+  let authorStatusLabel = ACTOR_STATUS_LABELS[authorStatus];
+
+  if (
+    matchPhase(phase, PROCESS_PHASES.AUTHOR_UPLOAD) &&
+    !hasAuthorMaterial &&
+    !hasReturnedMaterial
+  ) {
+    authorStatus = "pending";
+    authorStatusLabel = "Pendiente";
+  } else if (
+    authorStatus === "pending" &&
+    matchPhase(phase, PROCESS_PHASES.AUTHOR_UPLOAD)
+  ) {
+    authorStatusLabel = "Pendiente";
+  } else if (authorStatus === "returned") {
+    authorStatusLabel = "Devuelto";
+  }
+
+  return {
+    authorStatus,
+    authorStatusLabel,
+    validatorStatus: statuses.validator,
+    validatorStatusLabel: ACTOR_STATUS_LABELS[statuses.validator],
+    advisorStatus: statuses.advisor,
+    advisorStatusLabel: ACTOR_STATUS_LABELS[statuses.advisor],
+  };
+};
+
+const buildDeliverableTracking = (params: {
+  deliverable: Dev_tabledeliverables;
+  processPhases: PhaseWithFormatted[];
+  activities: Dev_tableactivities[];
+  templatesMap?: Map<string, Dev_tableactivitytemplates>;
+}): DeliverableTrackingItem => {
+  const { deliverable, processPhases, activities, templatesMap } = params;
+  const deliverableId = deliverable.dev_tabledeliverableid;
+  const name = deliverable.dev_namedeliverable?.trim() || "Entregable";
+  const creditNumber =
+    typeof deliverable.dev_creditnumber === "number"
+      ? deliverable.dev_creditnumber
+      : Number(deliverable.dev_creditnumber) || 0;
+  const isSyllabus = isSyllabusDeliverable({ name });
+
+  const linkedPhases = processPhases.filter((phase) => {
+    const phaseDeliverableId = phase._dev_tabledeliverable_value ?? "";
+    if (phaseDeliverableId === deliverableId) return true;
+    if (
+      deliverable._dev_tablephasecurrent_value &&
+      deliverable._dev_tablephasecurrent_value === phase.dev_tablephaseid
+    ) {
+      return true;
+    }
+    // Syllabus: fases sin deliverable (cargue con null).
+    if (isSyllabus && !phaseDeliverableId) return true;
+    return false;
+  });
+
+  const phase = linkedPhases.length
+    ? getCurrentPhase(linkedPhases, templatesMap)
+    : PROCESS_PHASES.UNKNOWN;
+  const phaseIds = new Set(linkedPhases.map((item) => item.dev_tablephaseid));
+  const deliverableActivities = activities.filter((activity) =>
+    phaseIds.has(activity._dev_tablephase_value ?? ""),
+  );
+
+  const hasAuthorMaterial = deliverableActivities.length > 0;
+  const hasReturnedMaterial = deliverableActivities.some((activity) =>
+    isReturnedLabel(formatActivityStatus(resolveActivityStatusRaw(activity))),
+  );
+
+  const statuses = deriveActorStatuses(
+    phase,
+    hasAuthorMaterial,
+    hasReturnedMaterial,
+  );
+  const labels = formatActorLabels(
+    phase,
+    statuses,
+    hasAuthorMaterial,
+    hasReturnedMaterial,
+  );
+
+  return {
+    id: deliverableId,
+    name,
+    creditNumber,
+    creditLabel: creditLabelFor(creditNumber),
+    phase,
+    phaseShort: PHASE_SHORT_LABELS[phase] ?? phase,
+    ...labels,
+    activityCount: deliverableActivities.length,
+  };
+};
+
 export const buildProcessTrackingRows = (params: {
   processes: Dev_tablevirtualizationprocesses[];
   courses: Dev_tablecourseinstances[];
@@ -146,6 +275,8 @@ export const buildProcessTrackingRows = (params: {
   faculties: Dev_table_faculties[];
   phases: Dev_tablephases[];
   activities: Dev_tableactivities[];
+  deliverables: Dev_tabledeliverables[];
+  activityTemplates?: Dev_tableactivitytemplates[];
   assignRoles: AssignRoleWithFormatted[];
   userEmail: string;
   userRole: string;
@@ -157,10 +288,21 @@ export const buildProcessTrackingRows = (params: {
     faculties,
     phases,
     activities,
+    deliverables,
+    activityTemplates,
     assignRoles,
     userEmail,
     userRole,
   } = params;
+
+  const templatesMap = activityTemplates
+    ? new Map(
+        activityTemplates.map((template) => [
+          template.dev_tableactivitytemplateid,
+          template,
+        ]),
+      )
+    : undefined;
 
   const coursesMap = new Map(
     courses.map((course) => [course.dev_tablecourseinstanceid, course]),
@@ -179,6 +321,17 @@ export const buildProcessTrackingRows = (params: {
     const current = phasesByProcess.get(processId) ?? [];
     current.push(phase as PhaseWithFormatted);
     phasesByProcess.set(processId, current);
+  }
+
+  const deliverablesByProcess = new Map<string, Dev_tabledeliverables[]>();
+  for (const deliverable of deliverables) {
+    if (deliverable.statecode !== 0) continue;
+    const processId =
+      deliverable._dev_tablevirtualizationprocess_value?.trim() ?? "";
+    if (!processId) continue;
+    const current = deliverablesByProcess.get(processId) ?? [];
+    current.push(deliverable);
+    deliverablesByProcess.set(processId, current);
   }
 
   const assigneesByProcess = new Map<
@@ -235,7 +388,7 @@ export const buildProcessTrackingRows = (params: {
       const program = programsMap.get(course?._dev_tableprogram_value ?? "");
       const faculty = facultiesMap.get(program?._dev_table_faculty_value ?? "");
       const processPhases = phasesByProcess.get(processId) ?? [];
-      const phase = getCurrentPhase(processPhases);
+      const phase = getCurrentPhase(processPhases, templatesMap);
       const phaseIds = new Set(
         processPhases.map((item) => item.dev_tablephaseid),
       );
@@ -257,27 +410,30 @@ export const buildProcessTrackingRows = (params: {
         hasAuthorMaterial,
         hasReturnedMaterial,
       );
+      const labels = formatActorLabels(
+        phase,
+        statuses,
+        hasAuthorMaterial,
+        hasReturnedMaterial,
+      );
 
-      // En fase de autor sin materiales: etiqueta más explícita
-      let authorStatus = statuses.author;
-      let authorStatusLabel = ACTOR_STATUS_LABELS[authorStatus];
-      if (
-        matchPhase(phase, PROCESS_PHASES.AUTHOR_UPLOAD) &&
-        !hasAuthorMaterial &&
-        !hasReturnedMaterial
-      ) {
-        authorStatus = "pending";
-        authorStatusLabel = "Sin cargar";
-      } else if (authorStatus === "pending" && matchPhase(phase, PROCESS_PHASES.AUTHOR_UPLOAD)) {
-        authorStatusLabel = "Pendiente de cargar";
-      } else if (authorStatus === "returned") {
-        authorStatusLabel = "Devuelto / debe recargar";
-      } else if (
-        authorStatus === "pending" &&
-        matchPhase(phase, PROCESS_PHASES.VALIDATOR_REVIEW)
-      ) {
-        authorStatusLabel = ACTOR_STATUS_LABELS.pending;
-      }
+      const processDeliverables = (
+        deliverablesByProcess.get(processId) ?? []
+      )
+        .map((deliverable) =>
+          buildDeliverableTracking({
+            deliverable,
+            processPhases,
+            activities,
+            templatesMap,
+          }),
+        )
+        .sort((a, b) => {
+          if (a.creditNumber !== b.creditNumber) {
+            return a.creditNumber - b.creditNumber;
+          }
+          return a.name.localeCompare(b.name, "es");
+        });
 
       const modifiedOn =
         getLatestDate(
@@ -297,25 +453,15 @@ export const buildProcessTrackingRows = (params: {
         phaseShort: PHASE_SHORT_LABELS[phase] ?? phase,
         authorEmail: assignees.author?.email ?? "",
         authorLabel: assignees.author?.label ?? "Sin asignar",
-        authorStatus,
-        authorStatusLabel,
+        ...labels,
         validatorEmail: assignees.validator?.email ?? "",
         validatorLabel: assignees.validator?.label ?? "Sin asignar",
-        validatorStatus: statuses.validator,
-        validatorStatusLabel:
-          statuses.validator === "pending"
-            ? "Pendiente de revisar"
-            : ACTOR_STATUS_LABELS[statuses.validator],
         advisorEmail: assignees.advisor?.email ?? "",
         advisorLabel: assignees.advisor?.label ?? "Sin asignar",
-        advisorStatus: statuses.advisor,
-        advisorStatusLabel:
-          statuses.advisor === "pending"
-            ? "Pendiente de asesorar"
-            : ACTOR_STATUS_LABELS[statuses.advisor],
         materialCount,
         modifiedOn,
         detailPath: detailPathFor(processId),
+        deliverables: processDeliverables,
       } satisfies ProcessTrackingRow;
     })
     .filter((row): row is ProcessTrackingRow => row !== null)
