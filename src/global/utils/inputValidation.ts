@@ -1,6 +1,6 @@
 /**
  * Validación y sanitización de entradas de usuario.
- * Permite letras con tildes, guiones y puntuación académica básica;
+ * Permite letras con tildes, números y puntuación académica básica;
  * bloquea scripts, HTML y caracteres de control.
  */
 
@@ -59,11 +59,11 @@ const DANGEROUS_PATTERNS: RegExp[] = [
   /%3c/i,
 ];
 
-/** Títulos / nombres: solo letras (con tildes), números, espacios y guiones. */
-const TITLE_ALLOWED = /^[\p{L}\p{N}\s\-]+$/u;
+/** Títulos / nombres: letras, números, espacios y puntuación (sin / ni guiones tipográficos – —). */
+const TITLE_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#!?*%@]+$/u;
 
-/** Descripciones / comentarios: igual + comillas, saltos de línea y signos frecuentes. */
-const DESCRIPTION_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()/&°'"¿¡+#\n\r!?*%@]+$/u;
+/** Descripciones / comentarios: igual + saltos de línea (sin / ni guiones tipográficos – —). */
+const DESCRIPTION_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#\n\r!?*%@]+$/u;
 
 export interface ValidationResult {
   ok: boolean;
@@ -86,6 +86,9 @@ export const normalizeInput = (
   options?: { multiline?: boolean },
 ): string => {
   let next = value.replace(CONTROL_CHARS, "").replace(WEIRD_SPACES, " ");
+
+  // Quita guiones tipográficos (– — −) y barras /.
+  next = next.replace(/[\u2013\u2014\u2212/]/g, " ");
 
   if (!options?.multiline) {
     next = next.replace(/[\n\r]/g, " ");
@@ -137,7 +140,7 @@ export const validateTitle = (
   if (containsDangerousContent(value) || !TITLE_ALLOWED.test(value)) {
     return {
       ok: false,
-      message: `${label} contiene caracteres no permitidos. Se permiten letras, tildes, números y guiones.`,
+      message: `${label} contiene caracteres no permitidos. Se permiten letras, tildes, números y puntuación habitual.`,
       value,
     };
   }

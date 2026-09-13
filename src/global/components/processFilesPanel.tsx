@@ -4,6 +4,7 @@ import {
   IoFolderOpenOutline,
   IoOpenOutline,
 } from "react-icons/io5";
+import clsx from "clsx";
 
 import Button from "./button";
 import LoadingState from "./loadingState";
@@ -15,6 +16,7 @@ import {
   getProcessFileKey,
   listProcessFiles,
 } from "../../courses/services/processFileService";
+import { fileBelongsToActivity } from "../../courses/services/deliverableService";
 import { getUserFriendlySharePointMessage } from "../../courses/errors/sharePointSetupError";
 import type { ProcessFile } from "../../courses/types/course.types";
 
@@ -50,11 +52,29 @@ function ProcessFilesPanel({
       try {
         setLoading(true);
         setError("");
-        const data = await listProcessFiles(folderBase, processId, activityId);
+        // Misma resolución para todos los roles: GUID completo o carpeta vNN-estado-prefijo
+        let data = await listProcessFiles(folderBase, processId, activityId);
         if (cancelled) return;
 
-        setFiles(data);
-        setSelectedFileKey(data[0] ? getProcessFileKey(data[0]) : "");
+        if (data.length === 0 && activityId) {
+          const allFiles = await listProcessFiles(folderBase, processId);
+          if (cancelled) return;
+          data = allFiles.filter((file) =>
+            fileBelongsToActivity(
+              file.connectorPath || file.path || "",
+              activityId,
+            ),
+          );
+        }
+
+        const sorted = [...data].sort((a, b) => {
+          const va = a.versionNumber ?? 0;
+          const vb = b.versionNumber ?? 0;
+          if (vb !== va) return vb - va;
+          return a.name.localeCompare(b.name, "es");
+        });
+        setFiles(sorted);
+        setSelectedFileKey(sorted[0] ? getProcessFileKey(sorted[0]) : "");
       } catch (loadError) {
         if (!cancelled) {
           setError(getUserFriendlySharePointMessage(loadError));
@@ -171,30 +191,55 @@ function ProcessFilesPanel({
               {files.map((file) => {
                 const fileKey = getProcessFileKey(file);
                 const isSelected = selectedFileKey === fileKey;
+                const versionLabel =
+                  file.versionNumber != null
+                    ? `V${String(file.versionNumber).padStart(2, "0")}`
+                    : null;
 
                 return (
                   <li key={fileKey}>
                     <button
                       type="button"
                       onClick={() => setSelectedFileKey(fileKey)}
-                      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-all ${
+                      className={clsx(
+                        "flex w-full items-start gap-3 px-4 py-2.5 text-left text-sm transition-all",
                         isSelected
                           ? "border-l-[3px] border-l-primary bg-primary/5"
-                          : "hover:bg-gray-50/80"
-                      }`}
+                          : "hover:bg-gray-50/80",
+                      )}
                     >
                       <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                        className={clsx(
+                          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
                           isSelected
                             ? "bg-primary/10 text-primary"
-                            : "bg-gray-100 text-muted"
-                        }`}
+                            : "bg-gray-100 text-muted",
+                        )}
                       >
                         <IoDocumentTextOutline size={16} />
                       </div>
-                      <span className="min-w-0 truncate font-medium text-primary">
-                        {file.name}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-primary">
+                          {file.name}
+                        </span>
+                        {(versionLabel || file.versionStatusLabel) && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {versionLabel && (
+                              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                {versionLabel}
+                              </span>
+                            )}
+                            {file.versionStatusLabel && (
+                              <span
+                                className="truncate text-[10px] text-muted"
+                                title={file.versionFolder}
+                              >
+                                {file.versionStatusLabel}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </button>
                   </li>
                 );
@@ -221,15 +266,14 @@ function ProcessFilesPanel({
                   onClick={() => openInSharePoint(selectedFile)}
                 >
                   <IoOpenOutline size={14} />
-                  <span className="sm:hidden">SharePoint</span>
-                  <span className="hidden sm:inline">Abrir en SharePoint</span>
+                  Abrir en SharePoint
                 </Button>
               ) : null}
             </div>
 
             <div className="p-3 sm:p-5">
               {!selectedFile ? (
-                <div className="flex h-64 flex-col items-center justify-center gap-2">
+                <div className="flex h-56 flex-col items-center justify-center gap-2">
                   <IoDocumentTextOutline className="text-gray-300" size={32} />
                   <p className="text-sm text-muted">
                     Selecciona un archivo para ver la vista previa
@@ -244,7 +288,7 @@ function ProcessFilesPanel({
                   mimeType={previewMimeType}
                 />
               ) : (
-                <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-gray-50/50 px-6 text-center">
+                <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-gray-50/50 px-6 text-center">
                   <IoDocumentTextOutline className="text-gray-300" size={32} />
                   <p className="text-sm text-muted">
                     Abre el archivo en SharePoint para revisarlo.

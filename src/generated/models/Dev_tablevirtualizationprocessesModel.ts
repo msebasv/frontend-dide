@@ -14,6 +14,8 @@ export const Dev_tablevirtualizationprocessesstatuscode = {
 export type Dev_tablevirtualizationprocessesstatuscode = keyof typeof Dev_tablevirtualizationprocessesstatuscode;
 
 export interface Dev_tablevirtualizationprocessesBase {
+  dev_closeready?: boolean;
+  dev_credits: number;
   dev_folderbase?: string;
   dev_nameprocess?: string;
   "dev_previousprocess@odata.bind"?: string;
@@ -36,6 +38,7 @@ export interface Dev_tablevirtualizationprocesses extends Dev_tablevirtualizatio
   createdon?: string;
   createdonbehalfbyname?: string;
   createdonbehalfbyyominame: string;
+  dev_closereadyname?: string;
   dev_previousprocessname?: string;
   dev_tablecoursename?: string;
   modifiedbyname?: string;

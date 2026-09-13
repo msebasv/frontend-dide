@@ -14,4 +14,12 @@ export interface ManualTriggerInput {
   text?: string;
   // Please select yes or no
   boolean?: boolean;
+  // Please enter your input
+  text_4?: string;
+}
+
+export interface ResponseActionOutput {
+  success?: boolean;
+  code_status?: string;
+  message?: string;
 }

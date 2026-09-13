@@ -105,6 +105,22 @@
           "x-ms-dataverse-primary-name": true,
           "maxLength": 850
         },
+        "dev_tabledeliverable": {
+          "type": "string",
+          "title": "table-deliverable",
+          "x-ms-dataverse-attribute": "dev_tabledeliverable",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "dev_tabledeliverable"
+        },
+        "dev_tabledeliverablename": {
+          "type": "string",
+          "title": "dev_tabledeliverablename",
+          "x-ms-dataverse-attribute": "dev_tabledeliverablename",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "dev_tabledeliverableName",
+          "x-ms-read-only": true,
+          "maxLength": 850
+        },
         "dev_tablephaseid": {
           "type": "string",
           "title": "table-phase",

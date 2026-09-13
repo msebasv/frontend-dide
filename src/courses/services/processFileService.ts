@@ -11,6 +11,10 @@ import {
   getUserFriendlySharePointMessage,
   isSharePointNotFoundError,
 } from "../errors/sharePointSetupError";
+import {
+  extractActivityVersionMetaFromPath,
+  fileBelongsToActivity,
+} from "./deliverableService";
 import type { ProcessFile } from "../types/course.types";
 
 const LIBRARY_CANDIDATES = [
@@ -182,6 +186,21 @@ const buildMetadataPaths = (
   ]);
 };
 
+const enrichProcessFileVersionMeta = (file: ProcessFile): ProcessFile => {
+  const meta = extractActivityVersionMetaFromPath(
+    file.connectorPath || file.path || file.previewUrl || "",
+  );
+  if (!meta) return file;
+
+  return {
+    ...file,
+    versionFolder: meta.folderName,
+    versionNumber: meta.version,
+    versionStatusLabel: meta.statusLabel,
+    activityIdPrefix: meta.activityIdPrefix,
+  };
+};
+
 const mapSharePointItems = (
   items: SharePointBlobItem[],
   siteUrl: string,
@@ -206,7 +225,7 @@ const mapSharePointItems = (
         pathFromSharePointLink(previewUrl, siteUrl, name) ||
         toConnectorFilePath(serverPath, folderPath, name, siteUrl);
 
-      return {
+      return enrichProcessFileVersionMeta({
         name,
         path: serverPath,
         connectorPath,
@@ -214,7 +233,7 @@ const mapSharePointItems = (
         siteUrl,
         // Solo Identifier nativo de SharePoint (no fabricar rutas codificadas).
         fileId: item["{Identifier}"] || getItemId(item),
-      };
+      });
     })
     .filter((file) => file.name && file.name !== "Archivo sin nombre");
 
@@ -581,7 +600,7 @@ const mapDocumentLibraryItem = (
   );
   const previewUrl = item["{Link}"];
 
-  return {
+  return enrichProcessFileVersionMeta({
     name: trimmedName,
     path: toServerRelativeFilePath(fullPath || folderPath, trimmedName, siteUrl),
     connectorPath,
@@ -590,7 +609,7 @@ const mapDocumentLibraryItem = (
     fileId: item["{Identifier}"],
     driveItemId: item["{DriveItemId}"],
     listItemId: item.ID,
-  };
+  });
 };
 
 const listProcessFilesFromDocumentsLibrary = async (
@@ -751,7 +770,10 @@ export const listProcessFiles = async (
     if (documentLibraryFiles.length > 0) {
       const filtered = activityId
         ? documentLibraryFiles.filter((file) =>
-            file.path.toLowerCase().includes(`/${activityId.toLowerCase()}/`),
+            fileBelongsToActivity(
+              file.connectorPath || file.path || "",
+              activityId,
+            ),
           )
         : documentLibraryFiles;
 
@@ -782,11 +804,9 @@ export const listProcessFiles = async (
 
   const filterByActivity = (files: ProcessFile[]): ProcessFile[] => {
     if (!activityId) return files;
-    const needle = `/${activityId.toLowerCase()}`;
-    return files.filter((file) => {
-      const path = file.path.toLowerCase();
-      return path.includes(`${needle}/`) || path.endsWith(needle);
-    });
+    return files.filter((file) =>
+      fileBelongsToActivity(file.connectorPath || file.path || "", activityId),
+    );
   };
 
   for (const libraryName of libraries) {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mappers del módulo de cursos.
  *
  * Responsabilidad: transformar registros de Dataverse (procesos, fases,
@@ -17,6 +17,7 @@ import type { Dev_table_programs } from "../../generated/models/Dev_table_progra
 import type { Dev_table_faculties } from "../../generated/models/Dev_table_facultiesModel";
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import type { Dev_tableactivitytemplates } from "../../generated/models/Dev_tableactivitytemplatesModel";
+import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 import {
   Dev_tableactivitiesstatuscode,
   type Dev_tableactivities,
@@ -28,18 +29,22 @@ import type {
   CourseMaterial,
   DashboardMetrics,
 } from "../types/course.types";
-import type { HistoryEntry, HistoryProcess } from "../../history/types/history.types";
-import { getLatestDate } from "../../global/utils/dateUtils";
+import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import {
   ACTIVITY_STATUS_LABELS,
   canonicalizeUserRole,
+  isLeaderRole,
   PENDING_APPROVAL_PHASES,
   PROCESS_PHASES,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
+import { buildPhaseBreakdownFromDeliverables } from "../utils/phaseBreakdown";
+import { formatDeliverableState } from "../services/deliverableService";
+import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 
 /** Re-exportaciones para compatibilidad con imports existentes. */
+export const LEADER_SYLLABUS_STATUS = PROCESS_PHASES.LEADER_SYLLABUS;
 export const AUTHOR_UPLOAD_STATUS = PROCESS_PHASES.AUTHOR_UPLOAD;
 export const VALIDATOR_STATUS = PROCESS_PHASES.VALIDATOR_REVIEW;
 export const ADVISOR_STATUS = PROCESS_PHASES.ADVISOR_REVIEW;
@@ -49,9 +54,20 @@ const COMPLETED_STATUS = PROCESS_PHASES.COMPLETED;
 
 const normalizeRole = (role: string): string => role.trim().toLowerCase();
 
+const normalizePhaseLabel = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+
 /** Determina si el rol activo corresponde al autor de asignatura. */
 export const isAuthorRole = (role: string): boolean =>
   normalizeRole(role) === normalizeRole(USER_ROLES.AUTHOR);
+
+/** Líder de virtualización (no incluye admin / coordinador DIDE). */
+export const isVirtualizationLeaderRole = (role: string): boolean =>
+  canonicalizeUserRole(role) === USER_ROLES.LEADER;
 
 /** Determina si el rol activo corresponde al validador disciplinar. */
 export const isValidatorRole = (role: string): boolean =>
@@ -66,23 +82,131 @@ export const isDideDesignerRole = (role: string): boolean =>
   normalizeRole(role) === normalizeRole(USER_ROLES.DIDE_DESIGNER);
 
 /**
- * Indica si el autor puede cargar material en la fase actual del proceso.
+ * Fase en la que el líder debe cargar el syllabus.
+ * Canónico en Dataverse: "Cargue Syllabus".
+ * También acepta variantes históricas (p. ej. "Syllabus Completado y Aprobado").
+ */
+export const isLeaderSyllabusStatus = (status: string): boolean => {
+  const normalized = normalizePhaseLabel(status);
+  if (!normalized) return false;
+
+  if (normalized === normalizePhaseLabel(COMPLETED_STATUS)) return false;
+
+  if (normalized === normalizePhaseLabel(LEADER_SYLLABUS_STATUS)) return true;
+
+  if (
+    normalized.includes("cargue syllabus") ||
+    normalized.includes("carga syllabus") ||
+    normalized.includes("cargue de syllabus") ||
+    normalized.includes("carga de syllabus") ||
+    normalized.includes("syllabus completado")
+  ) {
+    return true;
+  }
+
+  // "Syllabus (Líder)" u otras etiquetas cortas de UI
+  if (
+    normalized === "syllabus" ||
+    normalized.startsWith("syllabus (") ||
+    normalized.startsWith("syllabus lider")
+  ) {
+    return true;
+  }
+
+  // Variante histórica: "Syllabus Completado y Aprobado"
+  return (
+    normalized.includes("syllabus") &&
+    normalized.includes("aprobado") &&
+    !normalized.includes("proceso finalizado")
+  );
+};
+
+/**
+ * Indica si el usuario puede cargar material en la fase actual.
+ * - Autor: cargue de documentos por el autor.
+ * - Líder / gestión: fase de syllabus (el flujo avanza al autor).
  */
 export const canUserUploadStatus = (
   userRole: string,
   status: string,
-): boolean => isAuthorRole(userRole) && status === AUTHOR_UPLOAD_STATUS;
+): boolean =>
+  (isAuthorRole(userRole) &&
+    normalizePhaseLabel(status) === normalizePhaseLabel(AUTHOR_UPLOAD_STATUS)) ||
+  (isLeaderRole(userRole) && isLeaderSyllabusStatus(status));
 
 /**
- * Indica si el usuario puede validar en la fase actual del proceso.
+ * Indica si el usuario puede validar en la fase actual del proceso o de un entregable.
  * Solo el validador (fase validador) o el asesor (fase asesor) pueden actuar.
  */
 export const canUserValidateStatus = (
   userRole: string,
   status: string,
-): boolean =>
-  (isValidatorRole(userRole) && status === VALIDATOR_STATUS) ||
-  (isAdvisorRole(userRole) && status === ADVISOR_STATUS);
+): boolean => {
+  const norm = normalizePhaseLabel(status);
+  if (isValidatorRole(userRole)) {
+    return (
+      norm === normalizePhaseLabel(VALIDATOR_STATUS) ||
+      norm.includes("evaluador disciplinar") ||
+      norm.includes("validador")
+    );
+  }
+  if (isAdvisorRole(userRole)) {
+    return (
+      norm === normalizePhaseLabel(ADVISOR_STATUS) ||
+      norm.includes("asesor pedagogico") ||
+      norm.includes("asesoria")
+    );
+  }
+  return false;
+};
+
+/**
+ * Evalúa las acciones de validación (Aprobar / Devolver) para un rol
+ * según el estado específico de un entregable o categoría.
+ * "Etapa 2 aprobada" no habilita al validador; "Etapa 3" activa sí al asesor.
+ */
+export const canRoleValidateDeliverable = (
+  userRole: string,
+  stateLabel: string,
+): { canApprove: boolean; canReturn: boolean; isValidationPhase: boolean } => {
+  const norm = normalizePhaseLabel(stateLabel);
+
+  if (isValidatorRole(userRole)) {
+    const isEtapa2Active =
+      (norm.includes("etapa 2") || norm.includes("etapa2")) &&
+      !norm.includes("aprobad");
+    const isMatch =
+      norm === normalizePhaseLabel(VALIDATOR_STATUS) ||
+      norm.includes("evaluador disciplinar") ||
+      (norm.includes("validador") && !norm.includes("aprobad")) ||
+      isEtapa2Active;
+    return { canApprove: isMatch, canReturn: isMatch, isValidationPhase: isMatch };
+  }
+
+  if (isAdvisorRole(userRole)) {
+    const isEtapa3Active =
+      (norm.includes("etapa 3") || norm.includes("etapa3")) &&
+      !norm.includes("aprobad");
+    const isMatch =
+      norm === normalizePhaseLabel(ADVISOR_STATUS) ||
+      norm.includes("asesor pedagogico") ||
+      norm.includes("asesoria") ||
+      isEtapa3Active;
+    return { canApprove: isMatch, canReturn: isMatch, isValidationPhase: isMatch };
+  }
+
+  if (isDideDesignerRole(userRole)) {
+    const isMatch =
+      norm === normalizePhaseLabel(DIDE_STATUS) ||
+      norm.includes("confirmacion dide") ||
+      norm.includes("disenador dide") ||
+      norm.includes("revision dide") ||
+      (norm.includes("dide") && !norm.includes("coordinador"));
+    return { canApprove: isMatch, canReturn: false, isValidationPhase: isMatch };
+  }
+
+  return { canApprove: false, canReturn: false, isValidationPhase: false };
+};
 
 const isDideConfirmationStatus = (status: string): boolean => {
   const normalized = normalizeActivityLabel(status);
@@ -197,27 +321,56 @@ type AssignRoleWithFormatted = Dev_tableassignroles & {
   "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"?: string;
 };
 
-type PhaseWithFormatted = Dev_tablephases & {
+export type PhaseWithFormatted = Dev_tablephases & {
   "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
 };
 
-/** Obtiene el estado visible del proceso a partir de su fase más reciente. */
-const getCurrentStatus = (phases: PhaseWithFormatted[]): string => {
+/**
+ * Extrae de forma resiliente el nombre de la plantilla esperada de una fase.
+ * Prioridad:
+ * 1) @OData.Community.Display.V1.FormattedValue
+ * 2) dev_expectedactivitytemplatename
+ * 3) Búsqueda por ID en templatesMap (lookup GUID)
+ * 4) dev_namephase
+ */
+export const getPhaseExpectedActivityName = (
+  phase?: PhaseWithFormatted,
+  templatesMap?: Map<string, Dev_tableactivitytemplates>,
+): string => {
+  if (!phase) return PROCESS_PHASES.UNKNOWN;
+
+  const odata = phase[
+    "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
+  ]?.trim();
+  if (odata) return odata;
+
+  const rawName = phase.dev_expectedactivitytemplatename?.trim();
+  if (rawName) return rawName;
+
+  const templateId = phase._dev_expectedactivitytemplate_value;
+  if (templateId && templatesMap) {
+    const templateName = templatesMap.get(templateId)?.dev_activityname?.trim();
+    if (templateName) return templateName;
+  }
+
+  return phase.dev_namephase?.trim() || PROCESS_PHASES.UNKNOWN;
+};
+
+/** Obtiene el estado visible del proceso a partir de su fase más reciente (por modifiedon o createdon). */
+export const getCurrentStatus = (
+  phases: PhaseWithFormatted[],
+  templatesMap?: Map<string, Dev_tableactivitytemplates>,
+): string => {
   const lastPhase = [...phases].sort(
-    (a, b) =>
-      new Date(b.createdon ?? "").getTime() -
-      new Date(a.createdon ?? "").getTime(),
+    (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
   )[0];
 
-  return (
-    lastPhase?.[
-      "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
-    ] ?? PROCESS_PHASES.UNKNOWN
-  );
+  return getPhaseExpectedActivityName(lastPhase, templatesMap);
 };
 
 /** Traduce el estado del proceso al rol responsable en lenguaje de negocio. */
 const getCurrentRole = (status: string): string => {
+  if (isLeaderSyllabusStatus(status)) return USER_ROLES.LEADER;
   if (status === AUTHOR_UPLOAD_STATUS) return USER_ROLES.AUTHOR;
   if (status === VALIDATOR_STATUS) return USER_ROLES.VALIDATOR;
   if (status === ADVISOR_STATUS) return USER_ROLES.ADVISOR;
@@ -267,6 +420,8 @@ interface MapCoursesParams {
   faculties: Dev_table_faculties[];
   phases: Dev_tablephases[];
   activities: Dev_tableactivities[];
+  activityTemplates?: Dev_tableactivitytemplates[];
+  deliverables?: Dev_tabledeliverables[];
   userEmail: string;
   userRole: string;
 }
@@ -283,9 +438,15 @@ export const mapCoursesForUser = ({
   faculties,
   phases,
   activities,
+  activityTemplates,
+  deliverables = [],
   userEmail,
   userRole,
 }: MapCoursesParams): Course[] => {
+  const templatesMap = activityTemplates
+    ? new Map(activityTemplates.map((t) => [t.dev_tableactivitytemplateid, t]))
+    : undefined;
+
   const processesMap = new Map(
     processes.map((p) => [p.dev_tablevirtualizationprocessid, p]),
   );
@@ -308,6 +469,30 @@ export const mapCoursesForUser = ({
     phasesByProcess.set(processId, current);
   }
 
+  const deliverablesByProcess = new Map<string, Dev_tabledeliverables[]>();
+  for (const deliverable of deliverables) {
+    const processId =
+      deliverable._dev_tablevirtualizationprocess_value?.trim() ?? "";
+    if (!processId) continue;
+    const list = deliverablesByProcess.get(processId) ?? [];
+    list.push(deliverable);
+    deliverablesByProcess.set(processId, list);
+  }
+
+  const resolveDeliverableStateLabel = (row: Dev_tabledeliverables): string => {
+    const formatted = (
+      row as Dev_tabledeliverables & {
+        "dev_deliverablestate@OData.Community.Display.V1.FormattedValue"?: string;
+      }
+    )["dev_deliverablestate@OData.Community.Display.V1.FormattedValue"]?.trim();
+
+    if (formatted) return formatDeliverableState(formatted);
+    if (row.dev_deliverablestatename?.trim()) {
+      return formatDeliverableState(row.dev_deliverablestatename);
+    }
+    return formatDeliverableState(row.dev_deliverablestate);
+  };
+
   const authorByProcess = new Map<string, string>();
   for (const assignRole of assignRoles) {
     const roleName =
@@ -328,8 +513,33 @@ export const mapCoursesForUser = ({
     const program = programsMap.get(course?._dev_tableprogram_value ?? "");
     const faculty = facultiesMap.get(program?._dev_table_faculty_value ?? "");
     const processPhases = phasesByProcess.get(processId) ?? [];
-    const status = getCurrentStatus(processPhases);
+    const status = getCurrentStatus(processPhases, templatesMap);
     const currentRole = getCurrentRole(status);
+    const processDeliverables = deliverablesByProcess.get(processId) ?? [];
+    const phaseBreakdown = buildPhaseBreakdownFromDeliverables(
+      status,
+      processDeliverables.map((row) => ({
+        stateLabel: resolveDeliverableStateLabel(row),
+        name: row.dev_namedeliverable ?? "",
+      })),
+    );
+    const activeBuckets = Object.values(phaseBreakdown.counts).filter(
+      (count) => (count ?? 0) > 0,
+    ).length;
+
+    const hasAnyPhaseForRole = processPhases.some((phase) => {
+      const pStatus = getPhaseExpectedActivityName(phase, templatesMap);
+      return (
+        canUserValidateStatus(userRole, pStatus) ||
+        canUserFinalizeStatus(userRole, pStatus)
+      );
+    });
+
+    const canUpload = canUserUploadStatus(userRole, status);
+    const canValidate =
+      canUserValidateStatus(userRole, status) || hasAnyPhaseForRole;
+    const canFinalize =
+      canUserFinalizeStatus(userRole, status) || hasAnyPhaseForRole;
 
     return {
       processId,
@@ -339,16 +549,17 @@ export const mapCoursesForUser = ({
       facultyName: faculty?.dev_namefaculty ?? "",
       authorName: authorByProcess.get(processId) ?? "—",
       status,
-      currentRole,
+      currentRole: activeBuckets > 1 ? "Varios" : currentRole,
       modifiedOn: getProcessModifiedOn(
         processId,
         phases,
         activities,
         process.modifiedon,
       ),
-      canUpload: canUserUploadStatus(userRole, status),
-      canValidate: canUserValidateStatus(userRole, status),
-      canFinalize: canUserFinalizeStatus(userRole, status),
+      canUpload,
+      canValidate,
+      canFinalize,
+      phaseBreakdown,
     };
   };
 
@@ -387,6 +598,7 @@ interface MapCourseDetailParams {
   activities: Dev_tableactivities[];
   activityTemplates?: Dev_tableactivitytemplates[];
   assignRoles?: AssignRoleWithFormatted[];
+  deliverables?: Dev_tabledeliverables[];
 }
 
 const normalizeActivityLabel = (value: string): string =>
@@ -417,8 +629,7 @@ const isReviewTemplateName = (name: string): boolean => {
     normalized === normalizeActivityLabel(DIDE_STATUS) ||
     normalized.includes("revision y aprobacion") ||
     normalized.includes("confirmacion dide") ||
-    normalized.includes("revision dide") ||
-    normalized.includes("syllabus completado")
+    normalized.includes("revision dide")
   );
 };
 
@@ -564,8 +775,16 @@ export const mapCourseDetail = ({
   activities,
   activityTemplates = [],
   assignRoles = [],
+  deliverables = [],
 }: MapCourseDetailParams): CourseDetail => {
-  const status = getCurrentStatus(phases);
+  const templatesMap = new Map(
+    activityTemplates.map((template) => [
+      template.dev_tableactivitytemplateid,
+      template,
+    ]),
+  );
+
+  const status = getCurrentStatus(phases, templatesMap);
   const currentRole = getCurrentRole(status);
   const processId = process.dev_tablevirtualizationprocessid;
 
@@ -576,12 +795,6 @@ export const mapCourseDetail = ({
   const reviewTemplateIds = collectReviewTemplateIds(
     phases,
     activityTemplates,
-  );
-  const templatesMap = new Map(
-    activityTemplates.map((template) => [
-      template.dev_tableactivitytemplateid,
-      template,
-    ]),
   );
 
   const personByProcessRole = new Map<string, AssignedPersonInfo>();
@@ -612,26 +825,61 @@ export const mapCourseDetail = ({
     phaseIds.has(activity._dev_tablephase_value ?? ""),
   );
 
-  const authorUploadsSorted = processActivities
-    .filter((activity) =>
-      isAuthorUploadActivity(
-        activity,
-        authorTemplateIds,
-        reviewTemplateIds,
-      ),
-    )
-    .sort(
+  const authorUploads = processActivities.filter((activity) =>
+    isAuthorUploadActivity(
+      activity,
+      authorTemplateIds,
+      reviewTemplateIds,
+    ),
+  );
+
+  const phaseById = new Map(
+    phases.map((phase) => [phase.dev_tablephaseid, phase]),
+  );
+
+  // Agrupar las cargas de autor por categoría / entregable para que cada archivo
+  // tenga su propia numeración de versión independiente (V1, V2, etc.)
+  const authorUploadsByDeliverable = new Map<string, Dev_tableactivities[]>();
+  for (const activity of authorUploads) {
+    const phase = phaseById.get(activity._dev_tablephase_value ?? "");
+    let deliverableKey = phase?._dev_tabledeliverable_value?.trim();
+
+    if (!deliverableKey && deliverables.length > 0) {
+      const actName = (activity.dev_activityname || "").toLowerCase();
+      const isSyllabus = actName.includes("syllabus");
+      const matched = deliverables.find((d) => {
+        const dName = (d.dev_namedeliverable || "").toLowerCase();
+        if (isSyllabus && dName.includes("syllabus")) return true;
+        return dName && (actName.includes(dName) || dName.includes(actName));
+      });
+      if (matched) {
+        deliverableKey = matched.dev_tabledeliverableid;
+      }
+    }
+
+    if (!deliverableKey) {
+      deliverableKey =
+        (activity.dev_activityname || "").trim().toLowerCase() ||
+        activity._dev_tablephase_value ||
+        "general";
+    }
+
+    const list = authorUploadsByDeliverable.get(deliverableKey) ?? [];
+    list.push(activity);
+    authorUploadsByDeliverable.set(deliverableKey, list);
+  }
+
+  const versionByActivityId = new Map<string, number>();
+  for (const list of authorUploadsByDeliverable.values()) {
+    list.sort(
       (a, b) =>
         new Date(a.createdon ?? 0).getTime() -
         new Date(b.createdon ?? 0).getTime(),
     );
-
-  const versionByActivityId = new Map(
-    authorUploadsSorted.map((activity, index) => [
-      activity.dev_tableactivityid,
-      index + 1,
-    ]),
-  );
+    list.forEach((activity, index) => {
+      versionByActivityId.set(activity.dev_tableactivityid, index + 1);
+    });
+  }
 
   // Todas las actividades del proceso (cargues + revisiones), más recientes primero.
   const materials: CourseMaterial[] = [...processActivities]
@@ -657,6 +905,22 @@ export const mapCourseDetail = ({
         performedByRole,
         personByProcessRole,
       );
+      const phaseId = activity._dev_tablephase_value ?? "";
+      const phase = phaseById.get(phaseId);
+
+      let deliverableId = phase?._dev_tabledeliverable_value ?? "";
+      if (!deliverableId && deliverables.length > 0) {
+        const actName = (activity.dev_activityname || "").toLowerCase();
+        const isSyllabus = actName.includes("syllabus");
+        const matched = deliverables.find((d) => {
+          const dName = (d.dev_namedeliverable || "").toLowerCase();
+          if (isSyllabus && dName.includes("syllabus")) return true;
+          return dName && (actName.includes(dName) || dName.includes(actName));
+        });
+        if (matched) {
+          deliverableId = matched.dev_tabledeliverableid;
+        }
+      }
 
       return {
         activityId: activity.dev_tableactivityid,
@@ -669,6 +933,8 @@ export const mapCourseDetail = ({
         performedBy: actor.name,
         performedByEmail: actor.email,
         performedByRole,
+        phaseId,
+        deliverableId,
         createdOn: activity.createdon ?? "",
         modifiedOn: activity.modifiedon ?? activity.createdon ?? "",
       };
@@ -697,17 +963,6 @@ const getFormattedLookup = (
   return typeof value === "string" ? value.trim() : "";
 };
 
-/** Quita prefijos "Estado" / "Estado de" / "Estado del" del nombre de actividad. */
-const cleanHistoryActionLabel = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) return trimmed;
-
-  const withoutPrefix = trimmed
-    .replace(/^estado(\s+de(l)?)?\s+/i, "")
-    .trim();
-
-  return withoutPrefix || trimmed;
-};
 
 const resolveHistoryRole = (
   activity: Dev_tableactivities,
@@ -762,12 +1017,6 @@ const toAssignedPerson = (
   return { name, email };
 };
 
-const formatAssignedPersonLabel = (person: AssignedPersonInfo): string => {
-  if (person.name && person.email && person.name !== person.email) {
-    return `${person.name} (${person.email})`;
-  }
-  return person.name || person.email || "—";
-};
 
 const findAssignedPerson = (
   processId: string,
@@ -827,173 +1076,6 @@ const resolveHistoryActor = (
   return { name: fallback, email: "" };
 };
 
-const resolveHistoryUser = (
-  activity: Dev_tableactivities,
-  processId: string,
-  roleName: string,
-  personByProcessRole: Map<string, AssignedPersonInfo>,
-): string =>
-  formatAssignedPersonLabel(
-    resolveHistoryActor(activity, processId, roleName, personByProcessRole),
-  );
-
-export const mapHistoryEntries = (
-  activities: Dev_tableactivities[],
-  processes: Dev_tablevirtualizationprocesses[],
-  courses: Dev_tablecourseinstances[],
-  phases: Dev_tablephases[],
-  activityTemplates: Dev_tableactivitytemplates[] = [],
-  assignRoles: AssignRoleWithFormatted[] = [],
-): HistoryEntry[] => {
-  const processesMap = new Map(
-    processes.map((p) => [p.dev_tablevirtualizationprocessid, p]),
-  );
-  const coursesMap = new Map(
-    courses.map((c) => [c.dev_tablecourseinstanceid, c]),
-  );
-  const phasesMap = new Map(phases.map((p) => [p.dev_tablephaseid, p]));
-  const templatesMap = new Map(
-    activityTemplates.map((template) => [
-      template.dev_tableactivitytemplateid,
-      template,
-    ]),
-  );
-
-  const personByProcessRole = new Map<string, AssignedPersonInfo>();
-  for (const assignRole of assignRoles) {
-    const processId = assignRole._dev_tablevirtualizationprocess_value ?? "";
-    const roleName =
-      assignRole[
-        "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"
-      ]?.trim() ||
-      assignRole.dev_tablerolename?.trim() ||
-      "";
-    const person = toAssignedPerson(assignRole);
-    if (!processId || !roleName || (!person.name && !person.email)) continue;
-    const canonicalRole = canonicalizeUserRole(roleName);
-    personByProcessRole.set(`${processId}::${normalizeRole(roleName)}`, person);
-    personByProcessRole.set(
-      `${processId}::${normalizeRole(canonicalRole)}`,
-      person,
-    );
-  }
-
-  const phasesWithFormatted = phases as PhaseWithFormatted[];
-  const authorTemplateIds = collectAuthorUploadTemplateIds(
-    phasesWithFormatted,
-    activityTemplates,
-  );
-  const reviewTemplateIds = collectReviewTemplateIds(
-    phasesWithFormatted,
-    activityTemplates,
-  );
-
-  const activitiesByProcess = new Map<string, Dev_tableactivities[]>();
-  for (const activity of activities) {
-    const phase = phasesMap.get(activity._dev_tablephase_value ?? "");
-    const processId = phase?._dev_tablevirtualizationprocess_value ?? "";
-    if (!processId) continue;
-    const current = activitiesByProcess.get(processId) ?? [];
-    current.push(activity);
-    activitiesByProcess.set(processId, current);
-  }
-
-  const versionByActivityId = new Map<string, number>();
-  for (const processActivities of activitiesByProcess.values()) {
-    const authorUploadsSorted = processActivities
-      .filter((activity) =>
-        isAuthorUploadActivity(
-          activity,
-          authorTemplateIds,
-          reviewTemplateIds,
-        ),
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.createdon ?? 0).getTime() -
-          new Date(b.createdon ?? 0).getTime(),
-      );
-
-    authorUploadsSorted.forEach((activity, index) => {
-      versionByActivityId.set(activity.dev_tableactivityid, index + 1);
-    });
-  }
-
-  return activities
-    .map((activity) => {
-      const phase = phasesMap.get(activity._dev_tablephase_value ?? "");
-      const processId = phase?._dev_tablevirtualizationprocess_value ?? "";
-      const process = processesMap.get(processId);
-      const course = coursesMap.get(process?._dev_tablecourse_value ?? "");
-      const template = templatesMap.get(
-        activity._dev_tableactivitytemplate_value ?? "",
-      );
-      const isAuthorUpload =
-        versionByActivityId.has(activity.dev_tableactivityid);
-      const templateRole = resolveHistoryRole(activity, template);
-      const role = isAuthorUpload ? USER_ROLES.AUTHOR : templateRole;
-      const templateLabel =
-        getActivityTemplateDisplayName(activity) ||
-        template?.dev_activityname?.trim() ||
-        "";
-
-      return {
-        id: activity.dev_tableactivityid,
-        processId,
-        processName: process?.dev_nameprocess ?? "—",
-        courseName: course?.dev_namecourse ?? "—",
-        action: cleanHistoryActionLabel(
-          activity.dev_activityname?.trim() ||
-            templateLabel ||
-            "Sin nombre",
-        ),
-        role,
-        user: resolveHistoryUser(
-          activity,
-          processId,
-          role,
-          personByProcessRole,
-        ),
-        date: activity.createdon ?? "",
-        modifiedOn: activity.modifiedon ?? activity.createdon ?? "",
-        comments: activity.dev_observations ?? "",
-        status: resolveActivityStatusRaw(activity),
-        version: versionByActivityId.get(activity.dev_tableactivityid),
-        folderBase: process?.dev_folderbase ?? "",
-        documents: activity.dev_documents ?? "",
-      };
-    })
-    .sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-};
-
-export const buildHistoryProcesses = (
-  courses: Course[],
-  entries: HistoryEntry[],
-): HistoryProcess[] => {
-  const entriesByProcess = new Map<string, HistoryEntry[]>();
-
-  for (const entry of entries) {
-    const current = entriesByProcess.get(entry.processId) ?? [];
-    current.push(entry);
-    entriesByProcess.set(entry.processId, current);
-  }
-
-  return courses
-    .map((course) => ({
-      processId: course.processId,
-      processName: course.processName,
-      courseName: course.courseName,
-      status: course.status,
-      lastModified: course.modifiedOn,
-      activityCount: entriesByProcess.get(course.processId)?.length ?? 0,
-    }))
-    .sort(
-      (a, b) =>
-        new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime(),
-    );
-};
 
 export const computeMetrics = (courses: Course[]): DashboardMetrics => {
   const completed = courses.filter((c) => c.status === COMPLETED_STATUS).length;

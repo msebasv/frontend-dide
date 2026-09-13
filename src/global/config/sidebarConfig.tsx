@@ -5,10 +5,9 @@
  * El Layout filtra esta lista con `currentRole` del AuthContext.
  * `variants` permite personalizar el texto según el rol (ej. "Mis Cursos" → "Cursos por validar").
  */
-import { IoHomeOutline, IoStatsChartOutline, IoPeopleOutline, IoIdCardOutline, IoListOutline } from "react-icons/io5";
+import { IoHomeOutline, IoStatsChartOutline, IoPeopleOutline, IoIdCardOutline, IoListOutline, IoAlbumsOutline } from "react-icons/io5";
 import { RiGraduationCapLine } from "react-icons/ri";
 import { GoWorkflow } from "react-icons/go";
-import { IoTimeOutline } from "react-icons/io5";
 import { HiOutlineAcademicCap } from "react-icons/hi2";
 import { USER_ROLES } from "../constants/domainConstants";
 
@@ -62,14 +61,14 @@ export const sidebarConfig: SidebarItemConfig[] = [
     path: "/my-courses",
     variants: {
       [USER_ROLES.VALIDATOR]: "Cursos por validar",
-      [USER_ROLES.ADVISOR]: "Cursos por asesorar",
+      [USER_ROLES.ADVISOR]: "Cursos pendientes",
       [USER_ROLES.DIDE_DESIGNER]: "Cursos por aprobar",
     },
   },
   {
     text: "Procesos de Virtualización",
     icon: <GoWorkflow size={20} />,
-    roles: [...MANAGEMENT_ROLES],
+    roles: [USER_ROLES.LEADER, USER_ROLES.ADMIN],
     path: "/virtualization-processes",
   },
   {
@@ -112,23 +111,15 @@ export const sidebarConfig: SidebarItemConfig[] = [
     path: "/admin/people",
   },
   {
+    text: "Entregables",
+    icon: <IoAlbumsOutline size={20} />,
+    roles: [USER_ROLES.ADMIN, USER_ROLES.DIDE_COORDINATOR],
+    path: "/admin/categories",
+  },
+  {
     text: "Usuarios líderes",
     icon: <IoPeopleOutline size={20} />,
     roles: [USER_ROLES.ADMIN],
     path: "/admin/leader-users",
-  },
-  {
-    text: "Historial",
-    icon: <IoTimeOutline size={20} />,
-    roles: [
-      USER_ROLES.AUTHOR,
-      USER_ROLES.LEADER,
-      USER_ROLES.DIDE_COORDINATOR,
-      USER_ROLES.ADMIN,
-      USER_ROLES.VALIDATOR,
-      USER_ROLES.ADVISOR,
-      USER_ROLES.DIDE_DESIGNER,
-    ],
-    path: "/history",
   },
 ];

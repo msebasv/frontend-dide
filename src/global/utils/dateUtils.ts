@@ -34,3 +34,20 @@ export const getLatestDate = (...dates: (string | undefined)[]): string => {
 
   return new Date(Math.max(...timestamps)).toISOString();
 };
+
+/**
+ * Retorna el timestamp numérico más reciente entre modifiedon y createdon de un registro Dataverse.
+ * Esencial para fases y entregables que se actualizan in-place (cambio de expected-activity).
+ */
+export const getRecordTimestamp = (record?: {
+  modifiedon?: string;
+  createdon?: string;
+}): number => {
+  if (!record) return 0;
+  const mod = record.modifiedon ? new Date(record.modifiedon).getTime() : 0;
+  const cre = record.createdon ? new Date(record.createdon).getTime() : 0;
+  return Math.max(
+    Number.isNaN(mod) ? 0 : mod,
+    Number.isNaN(cre) ? 0 : cre,
+  );
+};

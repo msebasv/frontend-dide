@@ -21,6 +21,11 @@ export interface SharePointBlobItem {
   FileLeafRef?: string;
 }
 
+/**
+ * Adaptador con params por objeto para SharePoint.
+ * El SDK regenera SharePointService con firma posicional; este wrapper
+ * mantiene estable processFileService.
+ */
 export class SharePointOnlineService {
   private static readonly dataSourceName = "sharepointonline";
 

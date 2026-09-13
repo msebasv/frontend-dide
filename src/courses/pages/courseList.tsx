@@ -41,7 +41,7 @@ const CourseList = () => {
     <div>
       <PageHeader
         title="Mis Cursos"
-        description="Procesos de virtualización asignados a tu rol"
+        description="Procesos asignados a tu rol. La columna muestra cuántos materiales te tocan atender."
         badge="Gestión académica"
       />
 

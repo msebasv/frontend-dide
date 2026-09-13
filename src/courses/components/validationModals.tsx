@@ -23,6 +23,8 @@ interface ValidationModalsProps {
   showApprove: boolean;
   showReturn: boolean;
   materialName?: string;
+  /** Categoría / entregable del material en revisión (maqueta por material). */
+  deliverableLabel?: string;
   /**
    * Exige Word al aprobar:
    * - advisor: guía instruccional → Confirmación DIDE
@@ -40,6 +42,7 @@ function ValidationModals({
   showApprove,
   showReturn,
   materialName,
+  deliverableLabel,
   instructionalGuideFor,
   onCloseApprove,
   onCloseReturn,
@@ -121,6 +124,9 @@ function ValidationModals({
   };
 
   const materialLabel = materialName ? `"${materialName}"` : "este material";
+  const scopeHint = deliverableLabel
+    ? ` Esta decisión aplica solo a la categoría «${deliverableLabel}».`
+    : " Esta decisión aplica solo a este material.";
 
   return (
     <>
@@ -135,7 +141,7 @@ function ValidationModals({
         <FormBusyOverlay busy={loading} message="Aprobando material...">
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              ¿Confirmas la aprobación de {materialLabel}?
+              ¿Confirmas la aprobación de {materialLabel}?{scopeHint}
             </p>
             <p className="text-sm text-gray-600">{approveDescription}</p>
 
@@ -194,8 +200,9 @@ function ValidationModals({
         <FormBusyOverlay busy={loading} message="Devolviendo material...">
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Indica las observaciones para devolver {materialLabel}. Puedes
-              adjuntar archivos con las correcciones sugeridas para el autor.
+              Indica las observaciones para devolver {materialLabel}.
+              {scopeHint} Puedes adjuntar archivos con las correcciones
+              sugeridas para el autor.
             </p>
 
             <FormField

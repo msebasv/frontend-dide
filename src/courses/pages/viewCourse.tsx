@@ -1,21 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
-import {
-  IoTimeOutline,
-  IoCheckmarkCircle,
-  IoCloudUploadOutline,
-  IoReturnDownBackOutline,
-} from "react-icons/io5";
+import { useParams, useLocation } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import LoadingState from "../../global/components/loadingState";
-import Button from "../../global/components/button";
 import FeedbackModal from "../../global/components/feedbackModal";
 
 import { useAuth } from "../../global/hooks/useAuth";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useCourseDetail } from "../hooks/useCourseDetail";
-import CourseDetailView from "../components/courseDetailView";
+import CourseDetailView, {
+  type MaterialValidationContext,
+} from "../components/courseDetailView";
 import ValidationModals from "../components/validationModals";
 import {
   approveCourseMaterial,
@@ -23,10 +18,10 @@ import {
 } from "../services/courseService";
 import {
   canUserFinalizeStatus,
-  canUserUploadStatus,
   canUserValidateStatus,
   isAdvisorRole,
   isDideDesignerRole,
+  isValidatorRole,
 } from "../mappers/courseMappers";
 import type { CourseMaterial } from "../types/course.types";
 
@@ -40,6 +35,7 @@ const ViewCourse = () => {
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [materialToValidate, setMaterialToValidate] =
     useState<CourseMaterial | null>(null);
+  const [deliverableLabel, setDeliverableLabel] = useState<string | undefined>();
   const [showApprove, setShowApprove] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -67,37 +63,41 @@ const ViewCourse = () => {
     });
   }, [detail]);
 
+  const isValidationUserRole =
+    isValidatorRole(currentRole) ||
+    isAdvisorRole(currentRole) ||
+    isDideDesignerRole(currentRole);
+
   const canValidate = useMemo(
     () =>
-      detail ? canUserValidateStatus(currentRole, detail.status) : false,
-    [currentRole, detail],
+      isValidationUserRole ||
+      (detail ? canUserValidateStatus(currentRole, detail.status) : false),
+    [isValidationUserRole, currentRole, detail],
   );
 
   const canFinalize = useMemo(
     () =>
-      detail ? canUserFinalizeStatus(currentRole, detail.status) : false,
+      isDideDesignerRole(currentRole) ||
+      (detail ? canUserFinalizeStatus(currentRole, detail.status) : false),
     [currentRole, detail],
   );
 
-  const canUpload = useMemo(
-    () => (detail ? canUserUploadStatus(currentRole, detail.status) : false),
-    [currentRole, detail],
-  );
+  const clearValidationTarget = () => {
+    setMaterialToValidate(null);
+    setDeliverableLabel(undefined);
+  };
 
-  const selectedMaterial =
-    detail?.materials.find(
-      (material) => material.activityId === selectedActivityId,
-    ) ?? null;
-
-  const handleApproveRequest = () => {
-    if (!selectedMaterial) return;
-    setMaterialToValidate(selectedMaterial);
+  const handleApproveRequest = (context: MaterialValidationContext) => {
+    setSelectedActivityId(context.material.activityId);
+    setMaterialToValidate(context.material);
+    setDeliverableLabel(context.deliverableName);
     setShowApprove(true);
   };
 
-  const handleReturnRequest = () => {
-    if (!selectedMaterial) return;
-    setMaterialToValidate(selectedMaterial);
+  const handleReturnRequest = (context: MaterialValidationContext) => {
+    setSelectedActivityId(context.material.activityId);
+    setMaterialToValidate(context.material);
+    setDeliverableLabel(context.deliverableName);
     setShowReturn(true);
   };
 
@@ -118,6 +118,7 @@ const ViewCourse = () => {
             processId,
             userRole: currentRole,
             activityId: materialToValidate.activityId,
+            deliverableId: materialToValidate.deliverableId || undefined,
             files,
           }),
         {
@@ -126,7 +127,7 @@ const ViewCourse = () => {
           errorTitle: "No se pudo aprobar el material",
           onSuccess: () => {
             setShowApprove(false);
-            setMaterialToValidate(null);
+            clearValidationTarget();
           },
           onSuccessClose: () => {
             void loadDetail(processId);
@@ -149,6 +150,7 @@ const ViewCourse = () => {
             processId,
             userRole: currentRole,
             activityId: materialToValidate.activityId,
+            deliverableId: materialToValidate.deliverableId || undefined,
             comments,
             files,
           }),
@@ -159,7 +161,7 @@ const ViewCourse = () => {
           errorTitle: "No se pudo devolver el material",
           onSuccess: () => {
             setShowReturn(false);
-            setMaterialToValidate(null);
+            clearValidationTarget();
           },
           onSuccessClose: () => {
             void loadDetail(processId);
@@ -180,94 +182,30 @@ const ViewCourse = () => {
       <PageHeader
         title="Ver Curso"
         description={
-          canValidate
-            ? `${detail.courseName} — Revisa el material y emite tu calificación`
-            : canFinalize
-              ? `${detail.courseName} — Revisa el material y aprueba el proceso`
-              : canUpload
-                ? `${detail.courseName} — Puedes cargar el material académico de este proceso`
-                : detail.courseName
+          detail.programName
+            ? `${detail.courseName} · ${detail.programName}`
+            : detail.courseName
         }
         backTo="/my-courses"
-        badge={
-          canValidate
-            ? "Validación pendiente"
-            : canFinalize
-              ? "Aprobación pendiente"
-              : canUpload
-                ? "Carga pendiente"
-                : undefined
-        }
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {canValidate && (
-              <>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={handleReturnRequest}
-                  disabled={!selectedMaterial || submitting}
-                >
-                  <IoReturnDownBackOutline size={16} />
-                  Devolver
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleApproveRequest}
-                  disabled={!selectedMaterial || submitting}
-                >
-                  <IoCheckmarkCircle size={16} />
-                  Aprobar
-                </Button>
-              </>
-            )}
-            {canFinalize && (
-              <Button
-                size="sm"
-                onClick={handleApproveRequest}
-                disabled={!selectedMaterial || submitting}
-              >
-                <IoCheckmarkCircle size={16} />
-                Aprobar
-              </Button>
-            )}
-            {canUpload && processId && (
-              <Link to={`/courses/${processId}/upload`}>
-                <Button size="sm">
-                  <IoCloudUploadOutline size={16} />
-                  Cargar material
-                </Button>
-              </Link>
-            )}
-            <Link to={`/history/${processId}`}>
-              <Button variant="secondary" size="sm">
-                <IoTimeOutline size={16} />
-                Ver historial
-              </Button>
-            </Link>
-          </div>
-        }
       />
-
-      {(canValidate || canFinalize) && selectedMaterial && (
-        <p className="-mt-4 mb-6 text-xs text-muted">
-          Material en revisión:{" "}
-          <span className="font-medium text-primary">{selectedMaterial.name}</span>
-        </p>
-      )}
 
       <CourseDetailView
         detail={detail}
         isValidationMode={canValidate || canFinalize}
+        canApprove={canValidate || canFinalize}
+        canReturn={canValidate}
+        actionsDisabled={submitting}
         selectedMaterialId={selectedActivityId}
         onSelectedMaterialChange={setSelectedActivityId}
-        historyLink={`/history/${processId}`}
+        onApproveRequest={handleApproveRequest}
+        onReturnRequest={handleReturnRequest}
       />
 
       <ValidationModals
         showApprove={showApprove}
         showReturn={showReturn}
         materialName={materialToValidate?.name}
+        deliverableLabel={deliverableLabel}
         instructionalGuideFor={
           isDideDesignerRole(currentRole)
             ? "designer"
@@ -277,11 +215,11 @@ const ViewCourse = () => {
         }
         onCloseApprove={() => {
           setShowApprove(false);
-          setMaterialToValidate(null);
+          clearValidationTarget();
         }}
         onCloseReturn={() => {
           setShowReturn(false);
-          setMaterialToValidate(null);
+          clearValidationTarget();
         }}
         onConfirmApprove={handleApprove}
         onConfirmReturn={handleReturn}

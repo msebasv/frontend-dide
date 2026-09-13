@@ -173,6 +173,11 @@ export const useStatistics = (userEmail = "", userRole = "") => {
     [filteredSource],
   );
 
+  const filteredDeliverables = useMemo(
+    () => filteredSource?.deliverables ?? [],
+    [filteredSource],
+  );
+
   const userWorkload: UserWorkloadStat[] = useMemo(
     () => buildUserWorkloadStats(filteredProcesses),
     [filteredProcesses],
@@ -201,6 +206,7 @@ export const useStatistics = (userEmail = "", userRole = "") => {
   return {
     statistics,
     filteredProcesses,
+    filteredDeliverables,
     userWorkload,
     loading,
     loadStatistics,

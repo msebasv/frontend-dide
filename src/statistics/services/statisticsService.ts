@@ -8,11 +8,14 @@ import { Dev_table_facultiesService } from "../../generated/services/Dev_table_f
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
 import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
 import { Dev_tableassignrolesService } from "../../generated/services/Dev_tableassignrolesService";
+import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
 import type { Dev_tableactivities } from "../../generated/models/Dev_tableactivitiesModel";
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import type { Dev_tablevirtualizationprocesses } from "../../generated/models/Dev_tablevirtualizationprocessesModel";
+import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 import { mapVirtualizationProcesses } from "../../processVirtualization/mappers/processMappers";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
+import { formatDeliverableState } from "../../courses/services/deliverableService";
 import {
   matchesPeriodFilter,
   type PeriodFilter,
@@ -26,6 +29,7 @@ import { formatDomainLabel } from "../../global/utils/textUtils";
 import { buildLeaderStatistics } from "../mappers/statisticsMappers";
 import type {
   LeaderStatistics,
+  StatisticsDeliverableRow,
   StatisticsDimensionFilters,
   StatisticsFilterOption,
   StatisticsFilterOptions,
@@ -42,6 +46,7 @@ export interface StatisticsSource {
   rawProcesses: Dev_tablevirtualizationprocesses[];
   activities: Dev_tableactivities[];
   phases: Dev_tablephases[];
+  deliverables: StatisticsDeliverableRow[];
 }
 
 const STATUS_FILTER_ORDER = [
@@ -57,6 +62,65 @@ const uniqueSorted = (values: string[]): string[] =>
     (a, b) => a.localeCompare(b, "es"),
   );
 
+const normalizeCreditNumber = (value: unknown): number => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.trunc(numeric);
+};
+
+const resolveDeliverableStateLabel = (row: Dev_tabledeliverables): string => {
+  const formatted = (
+    row as Dev_tabledeliverables & {
+      "dev_deliverablestate@OData.Community.Display.V1.FormattedValue"?: string;
+    }
+  )["dev_deliverablestate@OData.Community.Display.V1.FormattedValue"]?.trim();
+
+  if (formatted) return formatDeliverableState(formatted);
+  if (row.dev_deliverablestatename?.trim()) {
+    return formatDeliverableState(row.dev_deliverablestatename);
+  }
+  return formatDeliverableState(row.dev_deliverablestate);
+};
+
+const mapStatisticsDeliverables = (
+  rows: Dev_tabledeliverables[],
+  processes: VirtualizationProcess[],
+): StatisticsDeliverableRow[] => {
+  const processById = new Map(
+    processes.map((process) => [process.processId, process]),
+  );
+
+  return rows
+    .map((row) => {
+      const processId = row._dev_tablevirtualizationprocess_value ?? "";
+      const process = processById.get(processId);
+      if (!process) return null;
+
+      const creditNumber = normalizeCreditNumber(row.dev_creditnumber);
+      return {
+        id: row.dev_tabledeliverableid,
+        name: row.dev_namedeliverable?.trim() || "Entregable",
+        creditNumber,
+        creditLabel:
+          creditNumber === 0 ? "General" : `Crédito / Unidad ${creditNumber}`,
+        stateLabel: resolveDeliverableStateLabel(row),
+        processId,
+        processName: process.processName,
+        courseName: process.courseName,
+        facultyName: process.facultyName,
+        programName: process.programName,
+        modifiedOn: row.modifiedon || row.createdon || "",
+      } satisfies StatisticsDeliverableRow;
+    })
+    .filter((row): row is StatisticsDeliverableRow => Boolean(row))
+    .sort(
+      (a, b) =>
+        a.processName.localeCompare(b.processName, "es") ||
+        a.creditNumber - b.creditNumber ||
+        a.name.localeCompare(b.name, "es"),
+    );
+};
+
 export const getStatisticsSource = async (): Promise<StatisticsSource> => {
   const [
     processesResult,
@@ -66,6 +130,7 @@ export const getStatisticsSource = async (): Promise<StatisticsSource> => {
     phasesResult,
     activitiesResult,
     assignRolesResult,
+    deliverablesResult,
   ] = await Promise.all([
     Dev_tablevirtualizationprocessesService.getAll(),
     Dev_tablecourseinstancesService.getAll(),
@@ -74,6 +139,9 @@ export const getStatisticsSource = async (): Promise<StatisticsSource> => {
     Dev_tablephasesService.getAll(),
     Dev_tableactivitiesService.getAll(),
     Dev_tableassignrolesService.getAll(),
+    Dev_tabledeliverablesService.getAll({
+      filter: "statecode eq 0",
+    }).catch(() => ({ data: [] })),
   ]);
 
   const rawProcesses = processesResult.data ?? [];
@@ -90,7 +158,12 @@ export const getStatisticsSource = async (): Promise<StatisticsSource> => {
     assignRoles: assignRolesResult.data ?? [],
   });
 
-  return { processes, rawProcesses, activities, phases };
+  const deliverables = mapStatisticsDeliverables(
+    deliverablesResult.data ?? [],
+    processes,
+  );
+
+  return { processes, rawProcesses, activities, phases, deliverables };
 };
 
 /** Limita el universo de procesos según el rol (asignados vs global). */
@@ -124,8 +197,11 @@ export const applyStatisticsScope = (
   const activities = source.activities.filter((activity) =>
     phaseIds.has(activity._dev_tablephase_value ?? ""),
   );
+  const deliverables = source.deliverables.filter((item) =>
+    processIds.has(item.processId),
+  );
 
-  return { processes, rawProcesses, phases, activities };
+  return { processes, rawProcesses, phases, activities, deliverables };
 };
 
 const matchesDimensionFilters = (
@@ -199,12 +275,16 @@ export const filterStatisticsSource = (
   const activities = source.activities.filter((activity) =>
     phaseIds.has(activity._dev_tablephase_value ?? ""),
   );
+  const deliverables = source.deliverables.filter((item) =>
+    processIds.has(item.processId),
+  );
 
   return {
     processes: filteredProcesses,
     rawProcesses,
     phases,
     activities,
+    deliverables,
   };
 };
 
@@ -280,6 +360,7 @@ export const buildStatisticsFromSource = (
     filtered.rawProcesses,
     filtered.activities,
     filtered.phases,
+    filtered.deliverables,
   );
 };
 

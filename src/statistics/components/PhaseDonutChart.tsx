@@ -15,14 +15,19 @@ interface PhaseDonutChartProps {
   /** Al hacer clic en una fase, filtra el detalle de procesos. */
   onPhaseClick?: (phaseName: string) => void;
   activePhases?: string[];
+  title?: string;
+  subtitle?: string;
+  unitLabel?: string;
 }
 
 const CustomTooltip = ({
   active,
   payload,
+  unitLabel = "proceso",
 }: {
   active?: boolean;
   payload?: { payload: PhaseStat }[];
+  unitLabel?: string;
 }) => {
   if (!active || !payload?.length) return null;
 
@@ -32,7 +37,8 @@ const CustomTooltip = ({
     <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-[var(--shadow-card)]">
       <p className="text-xs font-semibold text-primary">{item.shortName}</p>
       <p className="text-xs text-muted">
-        {item.value} proceso{item.value !== 1 ? "s" : ""}
+        {item.value} {unitLabel}
+        {item.value !== 1 ? "s" : ""}
       </p>
     </div>
   );
@@ -42,20 +48,21 @@ function PhaseDonutChart({
   data,
   onPhaseClick,
   activePhases = [],
+  title = "Distribución por fase",
+  subtitle,
+  unitLabel = "proceso",
 }: PhaseDonutChartProps) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const hasData = total > 0;
   const activeSet = new Set(activePhases);
+  const resolvedSubtitle =
+    subtitle ??
+    (onPhaseClick
+      ? "Clic en una fase para ver los procesos de ese estado"
+      : "Estado actual de los procesos de virtualización");
 
   return (
-    <ChartCard
-      title="Distribución por fase"
-      subtitle={
-        onPhaseClick
-          ? "Clic en una fase para ver los procesos de ese estado"
-          : "Estado actual de los procesos de virtualización"
-      }
-    >
+    <ChartCard title={title} subtitle={resolvedSubtitle}>
       {hasData ? (
         <ResponsiveContainer width="100%" height={280}>
           <PieChart>
@@ -91,7 +98,7 @@ function PhaseDonutChart({
                 );
               })}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} />
             <Legend
               verticalAlign="bottom"
               iconType="circle"

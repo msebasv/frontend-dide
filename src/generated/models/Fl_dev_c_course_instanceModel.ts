@@ -9,3 +9,8 @@ export interface ManualTriggerInput {
   // Please enter your input
   text_1: string;
 }
+
+export interface ResponseActionOutput {
+  message?: string;
+  status_code?: string;
+}

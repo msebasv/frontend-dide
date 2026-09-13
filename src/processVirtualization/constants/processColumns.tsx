@@ -1,10 +1,15 @@
-import { IoCreateOutline, IoEyeOutline } from "react-icons/io5";
+import {
+  IoCloudUploadOutline,
+  IoCreateOutline,
+  IoEyeOutline,
+} from "react-icons/io5";
 
 import ActionButton from "../../global/components/actionButton";
 import type { VirtualizationProcess } from "../types/process.types";
 import type { Column } from "../../global/components/dataTable";
 import { ProcessStatus } from "../components/processStatus";
 import { formatDateTime } from "../../global/utils/dateUtils";
+import { isLeaderSyllabusStatus } from "../../courses/mappers/courseMappers";
 
 export const virtualizationProcessColumns: Column<VirtualizationProcess>[] = [
   {
@@ -41,21 +46,34 @@ export const virtualizationProcessColumns: Column<VirtualizationProcess>[] = [
   {
     key: "processId",
     header: "Acciones",
-    render: (row) => (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <ActionButton
-          to={`/virtualization-processes/${row.processId}`}
-          icon={<IoEyeOutline size={13} />}
-          label="Ver"
-          variant="view"
-        />
-        <ActionButton
-          to={`/virtualization-processes/${row.processId}/edit`}
-          icon={<IoCreateOutline size={13} />}
-          label="Editar"
-          variant="edit"
-        />
-      </div>
-    ),
+    render: (row) => {
+      const canUploadSyllabus =
+        row.canUploadSyllabus || isLeaderSyllabusStatus(row.status);
+
+      return (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {canUploadSyllabus && (
+            <ActionButton
+              to={`/courses/${row.processId}/upload`}
+              icon={<IoCloudUploadOutline size={13} />}
+              label="Cargar syllabus"
+              variant="upload"
+            />
+          )}
+          <ActionButton
+            to={`/virtualization-processes/${row.processId}`}
+            icon={<IoEyeOutline size={13} />}
+            label="Ver"
+            variant="view"
+          />
+          <ActionButton
+            to={`/virtualization-processes/${row.processId}/edit`}
+            icon={<IoCreateOutline size={13} />}
+            label="Editar"
+            variant="edit"
+          />
+        </div>
+      );
+    },
   },
 ];

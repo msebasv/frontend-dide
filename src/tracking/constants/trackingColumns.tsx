@@ -75,7 +75,7 @@ export const getTrackingColumns = (): Column<ProcessTrackingRow>[] => [
   },
   {
     key: "validatorStatusLabel",
-    header: "Validador",
+    header: "Validador Disciplinar",
     render: (row) => (
       <div className="min-w-0 space-y-1">
         <p className="truncate text-xs text-muted">{row.validatorLabel}</p>

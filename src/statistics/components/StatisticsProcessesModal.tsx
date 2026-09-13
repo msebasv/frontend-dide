@@ -1,5 +1,4 @@
-import { IoEyeOutline, IoListOutline, IoTimeOutline } from "react-icons/io5";
-import { Link } from "react-router-dom";
+import { IoEyeOutline, IoListOutline } from "react-icons/io5";
 
 import ActionButton from "../../global/components/actionButton";
 import DataTable, { type Column } from "../../global/components/dataTable";
@@ -104,22 +103,12 @@ function StatisticsProcessesModal({
       key: "processId",
       header: "Acciones",
       render: (row) => (
-        <div className="flex flex-wrap gap-1.5">
-          <ActionButton
-            to={detailPath(row.processId)}
-            icon={<IoEyeOutline size={13} />}
-            label="Ver"
-            variant="view"
-          />
-          <Link
-            to={`/history/${row.processId}`}
-            onClick={(event) => event.stopPropagation()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-semibold text-muted transition-all duration-150 hover:border-primary/20 hover:bg-primary/5 hover:text-primary"
-          >
-            <IoTimeOutline size={13} />
-            Historial
-          </Link>
-        </div>
+        <ActionButton
+          to={detailPath(row.processId)}
+          icon={<IoEyeOutline size={13} />}
+          label="Ver"
+          variant="view"
+        />
       ),
     },
   ];

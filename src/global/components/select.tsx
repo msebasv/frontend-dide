@@ -10,17 +10,25 @@ import { FaCheck } from "react-icons/fa6";
 
 import clsx from "clsx";
 
-interface Option {
+export interface SelectOption {
   label: string;
   value: string;
+  disabled?: boolean;
+  hint?: string;
+  badge?: {
+    text: string;
+    variant?: "success" | "warning" | "neutral" | "info";
+  };
 }
 
+export type Option = SelectOption;
+
 interface SelectProps {
-  options: Option[];
+  options: SelectOption[];
 
-  value: Option | null;
+  value: SelectOption | null;
 
-  onChange: (value: Option | null) => void;
+  onChange: (value: SelectOption | null) => void;
 
   placeholder?: string;
   disabled?: boolean;
@@ -67,19 +75,50 @@ function Select({
             <ListboxOption
               key={option.value}
               value={option}
-              className="group flex cursor-pointer items-center gap-2 px-3 py-2 text-sm data-focus:bg-primary/10"
+              disabled={option.disabled}
+              className={clsx(
+                "group flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm",
+                "data-focus:bg-primary/10",
+                "data-disabled:cursor-not-allowed data-disabled:opacity-60 data-disabled:bg-gray-50",
+              )}
             >
-              {({ selected }) => (
-                <>
-                  <FaCheck
-                    className={clsx(
-                      "h-3 w-3 shrink-0 text-primary",
-                      selected ? "visible" : "invisible",
-                    )}
-                  />
-
-                  <span className="min-w-0">{option.label}</span>
-                </>
+              {({ selected, disabled: optionDisabled }) => (
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <FaCheck
+                      className={clsx(
+                        "h-3 w-3 shrink-0 text-primary",
+                        selected ? "visible" : "invisible",
+                      )}
+                    />
+                    <span
+                      className={clsx(
+                        "min-w-0 truncate",
+                        optionDisabled ? "text-muted" : "text-primary font-normal",
+                      )}
+                    >
+                      {option.label}
+                    </span>
+                  </div>
+                  {option.badge && (
+                    <span
+                      className={clsx(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        option.badge.variant === "success" &&
+                          "bg-emerald-100 text-emerald-800",
+                        option.badge.variant === "warning" &&
+                          "bg-amber-100 text-amber-900",
+                        option.badge.variant === "info" &&
+                          "bg-blue-100 text-blue-800",
+                        (!option.badge.variant ||
+                          option.badge.variant === "neutral") &&
+                          "bg-gray-100 text-gray-700",
+                      )}
+                    >
+                      {option.badge.text}
+                    </span>
+                  )}
+                </div>
               )}
             </ListboxOption>
           ))}

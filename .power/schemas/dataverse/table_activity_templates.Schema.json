@@ -81,6 +81,13 @@
           "x-ms-dataverse-primary-name": true,
           "maxLength": 850
         },
+        "dev_approver": {
+          "type": "string",
+          "title": "approver",
+          "x-ms-dataverse-attribute": "dev_approver",
+          "x-ms-dataverse-type": "IntegerType",
+          "x-ms-schema-name": "dev_approver"
+        },
         "dev_order": {
           "type": "string",
           "title": "order",

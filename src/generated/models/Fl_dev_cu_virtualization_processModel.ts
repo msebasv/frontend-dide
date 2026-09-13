@@ -4,12 +4,14 @@
  */
 
 export interface ManualTriggerInput {
-  // process-name
+  // Please enter your input
   text: string;
-  // assigned-role
+  // Please enter your input
   text_1: string;
-  // course
+  // Please enter your input
   text_2: string;
-  // id-process ("0" = crear, GUID = actualizar)
-  text_3: string;
+  // Please enter your input
+  text_3?: string;
+  // Please enter a number
+  number: number;
 }

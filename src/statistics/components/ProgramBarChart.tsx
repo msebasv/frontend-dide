@@ -14,6 +14,9 @@ import type { ProgramStat } from "../types/statistics.types";
 
 interface ProgramBarChartProps {
   data: ProgramStat[];
+  title?: string;
+  subtitle?: string;
+  unitLabel?: string;
 }
 
 const BAR_COLORS = [
@@ -31,10 +34,12 @@ const CustomTooltip = ({
   active,
   payload,
   label,
+  unitLabel = "proceso",
 }: {
   active?: boolean;
   payload?: { value: number }[];
   label?: string;
+  unitLabel?: string;
 }) => {
   if (!active || !payload?.length) return null;
 
@@ -42,18 +47,21 @@ const CustomTooltip = ({
     <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-[var(--shadow-card)]">
       <p className="text-xs font-semibold text-primary">{label}</p>
       <p className="text-xs text-muted">
-        {payload[0].value} proceso{payload[0].value !== 1 ? "s" : ""}
+        {payload[0].value} {unitLabel}
+        {payload[0].value !== 1 ? "s" : ""}
       </p>
     </div>
   );
 };
 
-function ProgramBarChart({ data }: ProgramBarChartProps) {
+function ProgramBarChart({
+  data,
+  title = "Top programas",
+  subtitle = "Programas con mayor cantidad de procesos activos",
+  unitLabel = "proceso",
+}: ProgramBarChartProps) {
   return (
-    <ChartCard
-      title="Top programas"
-      subtitle="Programas con mayor cantidad de procesos activos"
-    >
+    <ChartCard title={title} subtitle={subtitle}>
       {data.length > 0 ? (
         <ResponsiveContainer width="100%" height={280}>
           <BarChart
@@ -77,7 +85,10 @@ function ProgramBarChart({ data }: ProgramBarChartProps) {
               axisLine={false}
               tickLine={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f1f5f9" }} />
+            <Tooltip
+              content={<CustomTooltip unitLabel={unitLabel} />}
+              cursor={{ fill: "#f1f5f9" }}
+            />
             <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={22}>
               {data.map((entry, index) => (
                 <Cell

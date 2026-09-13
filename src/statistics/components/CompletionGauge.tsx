@@ -6,18 +6,24 @@ interface CompletionGaugeProps {
   rate: number;
   completed: number;
   total: number;
+  title?: string;
+  subtitle?: string;
 }
 
-function CompletionGauge({ rate, completed, total }: CompletionGaugeProps) {
+function CompletionGauge({
+  rate,
+  completed,
+  total,
+  title = "Tasa de finalización",
+  subtitle = "Procesos completados sobre el total",
+}: CompletionGaugeProps) {
   const chartData = [{ name: "Completados", value: rate, fill: "#86c127" }];
 
   return (
     <Card className="flex h-full flex-col items-center justify-center" padding="md">
       <div className="mb-2 text-center">
-        <h3 className="text-sm font-semibold text-primary">Tasa de finalización</h3>
-        <p className="mt-0.5 text-xs text-muted">
-          Procesos completados sobre el total
-        </p>
+        <h3 className="text-sm font-semibold text-primary">{title}</h3>
+        <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
       </div>
 
       <div className="relative h-[200px] w-full">

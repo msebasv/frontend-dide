@@ -8,6 +8,8 @@ export interface ProcessEditData {
   processName: string;
   courseId: string;
   courseName: string;
+  /** Número de créditos del proceso. */
+  credits: number;
   leaderEmail: string;
   authorEmail: string;
   validatorEmail: string;
@@ -42,4 +44,6 @@ export interface VirtualizationProcess {
   leaderEmail: string;
   /** Etiqueta visible del líder (nombre o correo). */
   leaderLabel: string;
+  /** true si el proceso está en fase de carga de syllabus del líder. */
+  canUploadSyllabus: boolean;
 }

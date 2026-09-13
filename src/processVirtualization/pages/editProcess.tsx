@@ -51,6 +51,7 @@ function EditProcess() {
   const [authorEmail, setAuthorEmail] = useState("");
   const [validatorEmail, setValidatorEmail] = useState("");
   const [advisorEmail, setAdvisorEmail] = useState("");
+  const [credits, setCredits] = useState("");
   const [roleIds, setRoleIds] = useState({
     leader: "",
     author: "",
@@ -65,6 +66,11 @@ function EditProcess() {
   const authorCheck = validateOrganizationEmail(authorEmail);
   const validatorCheck = validateOrganizationEmail(validatorEmail);
   const advisorCheck = validateOrganizationEmail(advisorEmail);
+  const creditsNumber = Number(credits);
+  const creditsValid =
+    credits.trim() !== "" &&
+    Number.isInteger(creditsNumber) &&
+    creditsNumber >= 1;
 
   const namePreview =
     processNameCheck.ok && semester && code
@@ -76,6 +82,7 @@ function EditProcess() {
   const formIsValid =
     processNameCheck.ok &&
     Boolean(selectedCourse) &&
+    creditsValid &&
     leaderCheck.ok &&
     authorCheck.ok &&
     validatorCheck.ok &&
@@ -112,6 +119,9 @@ function EditProcess() {
           label: editData.courseName,
           value: editData.courseId,
         });
+        setCredits(
+          editData.credits > 0 ? String(editData.credits) : "",
+        );
         setLeaderEmail(editData.leaderEmail);
         setAuthorEmail(editData.authorEmail);
         setValidatorEmail(editData.validatorEmail);
@@ -171,6 +181,7 @@ function EditProcess() {
             processId,
             processName: namePreview,
             courseId: selectedCourse.value,
+            credits: creditsNumber,
             leaderEmail: leaderCheck.value,
             authorEmail: authorCheck.value,
             validatorEmail: validatorCheck.value,
@@ -295,6 +306,26 @@ function EditProcess() {
               onChange={() => undefined}
               placeholder="Curso"
               disabled
+            />
+          </FormField>
+
+          <FormField
+            label="Créditos"
+            required
+            error={
+              credits.trim() && !creditsValid
+                ? "Ingresa un número entero mayor o igual a 1."
+                : undefined
+            }
+            hint="Cantidad de créditos del proceso de virtualización."
+          >
+            <InputText
+              type="number"
+              value={credits}
+              onChange={setCredits}
+              placeholder="Ej. 3"
+              invalid={Boolean(credits.trim() && !creditsValid)}
+              disabled={submitting}
             />
           </FormField>
 
