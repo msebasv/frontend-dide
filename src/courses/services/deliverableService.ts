@@ -10,8 +10,10 @@ import {
 import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
 import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
+import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import { escapeODataString } from "../../global/utils/inputValidation";
 import { getRecordTimestamp } from "../../global/utils/dateUtils";
+import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 import type { CourseMaterial, ProcessFile } from "../types/course.types";
 
 export interface ProcessDeliverableItem {
@@ -240,11 +242,16 @@ export const getDeliverableUploadStatus = (
   return {
     kind: "pending",
     canUpload: true,
-    label: "Pendiente",
-    badgeText: "Pendiente",
+    label: isSyllabusProcessActivity(deliverable.stateLabel)
+      ? PROCESS_PHASES.LEADER_SYLLABUS
+      : "Pendiente",
+    badgeText: isSyllabusProcessActivity(deliverable.stateLabel)
+      ? "Cargue Syllabus"
+      : "Pendiente",
     badgeVariant: "neutral",
-    detailMessage:
-      "Este material aún no ha sido cargado. Está disponible para su primera entrega.",
+    detailMessage: isSyllabusProcessActivity(deliverable.stateLabel)
+      ? "El líder debe cargar el syllabus para iniciar el flujo del proceso."
+      : "Este material aún no ha sido cargado. Está disponible para su primera entrega.",
   };
 };
 
@@ -706,6 +713,50 @@ const resolveDeliverableStateLabel = (row: Dev_tabledeliverables): string => {
   return formatDeliverableState(row.dev_deliverablestate);
 };
 
+const resolvePhaseExpectedActivity = (
+  phase: Dev_tablephases,
+  templatesMap: Map<string, { dev_activityname?: string }>,
+): string =>
+  (
+    phase as Dev_tablephases & {
+      "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
+    }
+  )[
+    "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
+  ]?.trim() ||
+  phase.dev_expectedactivitytemplatename?.trim() ||
+  templatesMap.get(phase._dev_expectedactivitytemplate_value ?? "")
+    ?.dev_activityname?.trim() ||
+  "";
+
+const isGenericPendingState = (label: string): boolean => {
+  const norm = label.trim().toLowerCase();
+  return (
+    !norm ||
+    norm === "pendiente" ||
+    norm === "sin estado" ||
+    norm === "no iniciado" ||
+    norm.includes("etapa")
+  );
+};
+
+const isSyllabusProcessActivity = (activityName: string): boolean => {
+  const norm = activityName
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+  if (!norm) return false;
+  if (norm === PROCESS_PHASES.LEADER_SYLLABUS.toLowerCase()) return true;
+  return (
+    norm.includes("syllabus") &&
+    (norm.includes("cargue") ||
+      norm.includes("carga") ||
+      norm === "syllabus" ||
+      norm.startsWith("syllabus ("))
+  );
+};
+
 export const listProcessDeliverableGroups = async (
   processId: string,
 ): Promise<ProcessDeliverableGroup[]> => {
@@ -726,6 +777,14 @@ export const listProcessDeliverableGroups = async (
   const templatesMap = new Map(
     (templatesResult.data ?? []).map((t) => [t.dev_tableactivitytemplateid, t]),
   );
+
+  // Estado actual del proceso (fase más reciente): alinea detalle con la tabla.
+  const processCurrentActivity =
+    [...phases]
+      .sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a))
+      .map((phase) => resolvePhaseExpectedActivity(phase, templatesMap))
+      .find((name) => Boolean(name)) ?? "";
+  const isProcessInSyllabus = isSyllabusProcessActivity(processCurrentActivity);
 
   const items: ProcessDeliverableItem[] = (deliverablesResult.data ?? []).map((row) => {
     const creditNumber = normalizeCreditNumber(row.dev_creditnumber);
@@ -755,27 +814,28 @@ export const listProcessDeliverableGroups = async (
 
     const latestPhase = linkedPhases[0];
     const phaseExpectedActivity = latestPhase
-      ? (
-          (latestPhase as unknown as Record<string, unknown>)[
-            "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
-          ]?.toString().trim() ||
-          latestPhase.dev_expectedactivitytemplatename?.trim() ||
-          templatesMap.get(latestPhase._dev_expectedactivitytemplate_value ?? "")?.dev_activityname?.trim() ||
-          ""
-        )
+      ? resolvePhaseExpectedActivity(latestPhase, templatesMap)
       : "";
 
-    // Si dev_deliverablestate es genérico/pendiente pero la fase ya avanzó a una actividad esperada
-    // (ej. "Revisión y aprobación evaluador disciplinar"), reflejar la actividad pendiente de la fase.
     const rawStateLabel = resolveDeliverableStateLabel(row);
-    const stateLabel =
-      phaseExpectedActivity &&
-      (!rawStateLabel ||
-        rawStateLabel === "Pendiente" ||
-        rawStateLabel === "Sin estado" ||
-        rawStateLabel.toLowerCase().includes("etapa"))
-        ? phaseExpectedActivity
-        : rawStateLabel || phaseExpectedActivity || "Sin estado";
+    const isSyllabus = isSyllabusDeliverable({ name });
+
+    // Syllabus en fase de proceso "Cargue Syllabus": la fase a menudo no trae
+    // lookup al entregable, y Dataverse deja deliverable-state en "Pendiente".
+    // Usar el estado del proceso para que el detalle coincida con la tabla.
+    let stateLabel: string;
+    if (isProcessInSyllabus && isSyllabus) {
+      stateLabel = PROCESS_PHASES.LEADER_SYLLABUS;
+    } else {
+      const effectivePhaseActivity =
+        phaseExpectedActivity ||
+        (isSyllabus ? processCurrentActivity : "");
+
+      stateLabel =
+        effectivePhaseActivity && isGenericPendingState(rawStateLabel)
+          ? effectivePhaseActivity
+          : rawStateLabel || effectivePhaseActivity || "Sin estado";
+    }
 
     return {
       id: row.dev_tabledeliverableid,
