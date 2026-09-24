@@ -23,6 +23,8 @@ import { useAuth } from "../../global/hooks/useAuth";
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import {
   FIELD_LIMITS,
+  GUIDE_FILE_EXTENSIONS,
+  GUIDE_FILE_TYPES,
   validateDescription,
   validateFiles,
   validateTitle,
@@ -40,11 +42,15 @@ import {
   type ProcessDeliverableItem,
 } from "../services/deliverableService";
 import {
+  hasAssignedDideDesigner,
+  hasAssignedValidator,
+  isAdvisorGuideUploadStatus,
+  isAdvisorRole,
   isAuthorRole,
   isLeaderSyllabusStatus,
   isVirtualizationLeaderRole,
 } from "../mappers/courseMappers";
-import { isLeaderRole } from "../../global/constants/domainConstants";
+import { isLeaderRole, PROCESS_PHASES } from "../../global/constants/domainConstants";
 
 type ScopeType = "general" | "credit";
 
@@ -64,7 +70,7 @@ const UploadCourse = () => {
   const [deliverablesLoading, setDeliverablesLoading] = useState(true);
   const [deliverablesError, setDeliverablesError] = useState("");
 
-  // Selectores de ámbito y crédito
+  // Selectores de ámbito y unidad
   const [selectedScope, setSelectedScope] = useState<ScopeType>("general");
   const [selectedCreditNumber, setSelectedCreditNumber] = useState<number>(1);
   const [selectedDeliverableId, setSelectedDeliverableId] = useState("");
@@ -74,6 +80,8 @@ const UploadCourse = () => {
     isVirtualizationLeaderRole(currentRole) ||
     (isLeaderRole(currentRole) &&
       Boolean(detail && isLeaderSyllabusStatus(detail.status)));
+
+  const isAdvisorGuideUpload = isAdvisorRole(currentRole);
 
   const backTo = location.pathname.includes("/virtualization-processes/")
     ? `/virtualization-processes/${processId}`
@@ -86,12 +94,17 @@ const UploadCourse = () => {
     const map = new Map<string, DeliverableUploadStatusInfo>();
     const materials = detail?.materials ?? [];
     for (const item of deliverables) {
-      map.set(item.id, getDeliverableUploadStatus(item, materials));
+      map.set(
+        item.id,
+        getDeliverableUploadStatus(item, materials, {
+          processStatus: detail?.status,
+        }),
+      );
     }
     return map;
-  }, [deliverables, detail?.materials]);
+  }, [deliverables, detail?.materials, detail?.status]);
 
-  // Créditos disponibles en los entregables del proceso
+  // Unidades disponibles en los entregables del proceso
   const availableCreditNumbers = useMemo(() => {
     const numbers = deliverables
       .filter((item) => item.creditNumber > 0)
@@ -105,14 +118,14 @@ const UploadCourse = () => {
   );
   const hasCreditDeliverables = availableCreditNumbers.length > 0;
 
-  // Opciones para el selector de Ámbito (General / Por crédito)
+  // Opciones para el selector de Ámbito (General / Por unidad)
   const scopeOptions: SelectOption[] = useMemo(() => {
     const list: SelectOption[] = [];
     if (hasGeneralDeliverables) {
       list.push({ value: "general", label: "General" });
     }
     if (hasCreditDeliverables) {
-      list.push({ value: "credit", label: "Por crédito" });
+      list.push({ value: "credit", label: "Por unidad" });
     }
     return list;
   }, [hasGeneralDeliverables, hasCreditDeliverables]);
@@ -120,11 +133,11 @@ const UploadCourse = () => {
   const selectedScopeOption =
     scopeOptions.find((opt) => opt.value === selectedScope) ?? scopeOptions[0] ?? null;
 
-  // Opciones para el selector de Crédito
+  // Opciones para el selector de Unidad
   const creditOptions: SelectOption[] = useMemo(() => {
     return availableCreditNumbers.map((num) => ({
       value: String(num),
-      label: `Crédito / Unidad ${num}`,
+      label: `Unidad ${num}`,
     }));
   }, [availableCreditNumbers]);
 
@@ -133,7 +146,7 @@ const UploadCourse = () => {
     creditOptions[0] ??
     null;
 
-  // Entregables acotados al ámbito y crédito activos
+  // Entregables acotados al ámbito y unidad activos
   const scopedDeliverables = useMemo(() => {
     if (isLeaderUpload) return deliverables;
     if (selectedScope === "general") {
@@ -181,22 +194,14 @@ const UploadCourse = () => {
     });
   }, [isLeaderUpload, deliverables, deliverableStatusMap]);
 
-  // Opciones del selector de material (con badges visuales y bloqueo de duplicados)
-  const deliverableOptions: SelectOption[] = useMemo(() => {
-    const list = hideUploaded
-      ? scopedWithStatus.filter((s) => s.status.canUpload)
-      : scopedWithStatus;
-
-    return list.map(({ item, status }) => ({
-      value: item.id,
-      label: item.name,
-      disabled: !status.canUpload,
-      badge: {
-        text: status.badgeText,
-        variant: status.badgeVariant,
-      },
-    }));
-  }, [scopedWithStatus, hideUploaded]);
+  // Materiales visibles en los recuadros de selección.
+  const visibleDeliverables = useMemo(
+    () =>
+      hideUploaded
+        ? scopedWithStatus.filter((entry) => entry.status.canUpload)
+        : scopedWithStatus,
+    [scopedWithStatus, hideUploaded],
+  );
 
   // Para el líder, si selectedDeliverableId aún no se ha seteado, busca el entregable de Syllabus
   const effectiveDeliverableId = useMemo(() => {
@@ -208,11 +213,6 @@ const UploadCourse = () => {
     }
     return "";
   }, [selectedDeliverableId, isLeaderUpload, deliverables]);
-
-  const selectedDeliverableOption =
-    deliverableOptions.find(
-      (option) => option.value === effectiveDeliverableId,
-    ) ?? null;
 
   const selectedDeliverable =
     deliverables.find((item) => item.id === effectiveDeliverableId) ?? null;
@@ -236,7 +236,11 @@ const UploadCourse = () => {
   const descriptionCheck = validateDescription(description, {
     label: "La descripción",
   });
-  const filesCheck = validateFiles(files, { required: true });
+  const filesCheck = validateFiles(files, {
+    required: true,
+    maxFiles: isAdvisorGuideUpload ? 1 : undefined,
+    allowedExtensions: isAdvisorGuideUpload ? GUIDE_FILE_EXTENSIONS : undefined,
+  });
 
   const formIsValid =
     resourceNameCheck.ok &&
@@ -266,9 +270,14 @@ const UploadCourse = () => {
         if (cancelled) return;
 
         // Líder: solo el entregable Syllabus (por nombre).
-        // Autor: resto de entregables (Guión general, por crédito, etc.).
+        // Asesor: entregables en "Cargar Guión instruccional".
+        // Autor: resto de entregables (Guión general, por unidad, etc.).
         const available = filterDeliverablesForUpload(groups, {
           syllabusOnly: isLeaderUpload,
+        }).filter((item) => {
+          if (!isAdvisorGuideUpload) return true;
+          // Solo entregables en "Cargar Guión instruccional".
+          return isAdvisorGuideUploadStatus(item.stateLabel);
         });
         setDeliverables(available);
 
@@ -287,6 +296,7 @@ const UploadCourse = () => {
             const st = getDeliverableUploadStatus(
               item,
               detail?.materials || [],
+              { processStatus: detail?.status },
             );
             return st.canUpload;
           }) ?? available[0];
@@ -334,7 +344,7 @@ const UploadCourse = () => {
     return () => {
       cancelled = true;
     };
-  }, [processId, isLeaderUpload, detail?.materials]);
+  }, [processId, isLeaderUpload, isAdvisorGuideUpload, detail?.materials, detail?.status]);
 
   const handleScopeChange = (option: SelectOption | null) => {
     const nextScope = (option?.value as ScopeType) ?? "general";
@@ -410,15 +420,20 @@ const UploadCourse = () => {
             processId,
             files: filesCheck.files,
             deliverableId: effectiveDeliverableId,
+            userRole: currentRole,
           }),
         {
-          successTitle: "Material cargado",
+          successTitle: isAdvisorGuideUpload
+            ? "Guión instruccional cargado"
+            : "Material cargado",
           successMessage: isLeaderUpload
             ? "El syllabus se cargó correctamente. El proceso pasó al autor de asignatura."
-            : "El recurso académico se cargó correctamente y quedó disponible para revisión.",
+            : isAdvisorGuideUpload
+              ? "El guión instruccional se registró correctamente y el material avanzará a la siguiente fase."
+              : "El recurso académico se cargó correctamente y quedó disponible para revisión.",
           errorTitle: "No se pudo cargar el material",
           errorMessage:
-            "Verifica los datos e intenta nuevamente. Si el problema persiste, contacta al administrador.",
+            "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
           onSuccessClose: () =>
             navigate(backTo, {
               replace: true,
@@ -433,6 +448,28 @@ const UploadCourse = () => {
 
   if (loading || !detail || deliverablesLoading) {
     return <LoadingState message="Cargando información del curso..." />;
+  }
+
+  if (detail.status === PROCESS_PHASES.COMPLETED) {
+    return (
+      <div>
+        <PageHeader
+          title="Cargar Material"
+          description={PROCESS_PHASES.COMPLETED}
+          backTo={backTo}
+        />
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-border bg-surface p-8 text-center shadow-[var(--shadow-card)]">
+          <p className="text-sm text-muted">
+            Este proceso ya está finalizado. Solo es posible consultarlo.
+          </p>
+          <Link to={backTo}>
+            <Button variant="primary" size="sm">
+              Volver al detalle
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const canRoleUpload =
@@ -450,7 +487,7 @@ const UploadCourse = () => {
         />
         <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-border bg-surface p-8 text-center shadow-[var(--shadow-card)]">
           <p className="text-sm text-muted">
-            Tu rol actual ({formatDomainLabel(currentRole)}) no tiene permisos
+            Su rol actual ({formatDomainLabel(currentRole)}) no tiene permisos
             para cargar materiales en este proceso.
           </p>
           <Link to={backTo}>
@@ -482,6 +519,89 @@ const UploadCourse = () => {
           <Link to={backTo}>
             <Button variant="primary" size="sm">
               Volver al detalle
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const needsValidatorForSyllabus =
+    isLeaderUpload &&
+    isLeaderSyllabusStatus(detail.status) &&
+    !hasAssignedValidator(detail.assignedRoles);
+
+  if (needsValidatorForSyllabus) {
+    const editPath = processId
+      ? `/virtualization-processes/${processId}/assign-validator`
+      : backTo;
+    return (
+      <div>
+        <PageHeader
+          title="Cargar syllabus"
+          description="Validador disciplinar pendiente"
+          backTo={backTo}
+          badge="Validador pendiente"
+        />
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-amber-200 bg-amber-50/90 p-8 text-center shadow-[var(--shadow-card)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+            <FaExclamationTriangle size={22} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold text-amber-950">
+              Asigna el validador antes de cargar el syllabus
+            </h3>
+            <p className="text-sm text-amber-900/80">
+              El líder de virtualización debe asignar el validador disciplinar
+              en el proceso. Sin esa asignación no se puede cargar el syllabus.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Link to={editPath}>
+              <Button variant="primary" size="sm">
+                Asignar validador
+              </Button>
+            </Link>
+            <Link to={backTo}>
+              <Button variant="secondary" size="sm">
+                Volver
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const needsDesignerForGuide =
+    isAdvisorGuideUpload &&
+    !hasAssignedDideDesigner(detail.assignedRoles);
+
+  if (needsDesignerForGuide) {
+    return (
+      <div>
+        <PageHeader
+          title="Cargar guión instruccional"
+          description="Asignación de Diseñador DIDE pendiente"
+          backTo={backTo}
+          badge="Asignación pendiente"
+        />
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-amber-200 bg-amber-50/90 p-8 text-center shadow-[var(--shadow-card)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+            <FaExclamationTriangle size={22} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold text-amber-950">
+              Asignación de Diseñador DIDE requerida
+            </h3>
+            <p className="text-sm text-amber-900/80">
+              La carga del guión instruccional requiere la previa asignación del
+              Diseñador DIDE por parte del Coordinador de Diseñadores.
+            </p>
+          </div>
+          <Link to={backTo}>
+            <Button variant="primary" size="sm">
+              Volver
             </Button>
           </Link>
         </div>
@@ -532,12 +652,12 @@ const UploadCourse = () => {
             <h3 className="text-base font-semibold text-primary">
               {isLeaderUpload
                 ? "El syllabus ya fue cargado"
-                : "No tienes materiales pendientes de carga"}
+                : "No hay materiales pendientes de carga"}
             </h3>
             <p className="text-sm text-muted">
               {isLeaderUpload
                 ? "El syllabus de este proceso ya se encuentra registrado y en avance del flujo."
-                : "Todos los entregables asignados a tu rol para este proceso ya han sido enviados o se encuentran en revisión. Puedes hacer seguimiento al estado de cada categoría en el detalle del curso."}
+                : "Todos los entregables asignados a su rol para este proceso ya fueron enviados o se encuentran en revisión. Puede hacer seguimiento al estado de cada categoría en el detalle del curso."}
             </p>
           </div>
           <Link to={backTo}>
@@ -553,11 +673,19 @@ const UploadCourse = () => {
   return (
     <div>
       <PageHeader
-        title={isLeaderUpload ? "Cargar syllabus" : "Cargar Material"}
+        title={
+          isLeaderUpload
+            ? "Cargar syllabus"
+            : isAdvisorGuideUpload
+              ? PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD
+              : "Cargar Material"
+        }
         description={
           isLeaderUpload
             ? "El líder de virtualización solo puede cargar el syllabus de este proceso"
-            : "Selecciona el crédito o ámbito general y el material correspondiente para cargar."
+            : isAdvisorGuideUpload
+              ? "Adjunte el guión instruccional en formato Word para el material seleccionado."
+              : "Seleccione la unidad o el ámbito general y el material correspondiente para cargar."
         }
         backTo={backTo}
       />
@@ -609,67 +737,38 @@ const UploadCourse = () => {
               </FormField>
             ) : (
               <>
-                {/* 1. Selección de Ámbito (General vs Por crédito) y Crédito */}
+                {/* 1. Selección de Ámbito (General vs Por unidad) y Unidad */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField
                     label="Ámbito de entrega"
                     required
-                    hint="Elige si el material aplica de forma general o por unidad de crédito."
+                    hint="Elija si el material aplica de forma general o por unidad."
                   >
                     <Select
                       options={scopeOptions}
                       value={selectedScopeOption}
                       onChange={handleScopeChange}
-                      placeholder="Selecciona el ámbito"
+                      placeholder="Seleccione el ámbito"
                       disabled={submitting || scopeOptions.length <= 1}
                     />
                   </FormField>
 
                   {selectedScope === "credit" && (
                     <FormField
-                      label="Crédito / Unidad"
+                      label="Unidad"
                       required
-                      hint="Selecciona el crédito al cual pertenece el material."
+                      hint="Seleccione la unidad a la que pertenece el material."
                     >
                       <Select
                         options={creditOptions}
                         value={selectedCreditOption}
                         onChange={handleCreditChange}
-                        placeholder="Selecciona el crédito"
+                        placeholder="Seleccione la unidad"
                         disabled={submitting || creditOptions.length === 0}
                       />
                     </FormField>
                   )}
                 </div>
-
-                {/* 2. Selector del Material específico */}
-                <FormField
-                  label="Material a cargar"
-                  required
-                  hint="Los materiales ya cargados o aprobados se muestran bloqueados para evitar entregas duplicadas."
-                  error={
-                    deliverablesError ||
-                    (!deliverables.length
-                      ? "No hay entregables configurados en este proceso."
-                      : undefined)
-                  }
-                >
-                  <Select
-                    options={deliverableOptions}
-                    value={selectedDeliverableOption}
-                    onChange={handleSelectDeliverable}
-                    placeholder={
-                      allScopedLoaded
-                        ? "Todos los materiales de este ámbito ya están cargados"
-                        : "Selecciona el material a cargar"
-                    }
-                    disabled={
-                      submitting ||
-                      deliverableOptions.length === 0 ||
-                      allScopedLoaded
-                    }
-                  />
-                </FormField>
 
                 {/* Alerta si todos los materiales del ámbito están listos */}
                 {allScopedLoaded && (
@@ -683,7 +782,7 @@ const UploadCourse = () => {
                         Todos los materiales de{" "}
                         {selectedScope === "general"
                           ? "General"
-                          : `Crédito ${selectedCreditNumber}`}{" "}
+                          : `Unidad ${selectedCreditNumber}`}{" "}
                         ya están cargados
                       </p>
                       <p className="mt-0.5 text-emerald-800">
@@ -710,7 +809,7 @@ const UploadCourse = () => {
                       <p className="mt-0.5 text-amber-900">
                         {selectedDeliverableStatus.latestMaterial?.description
                           ? `Observaciones del validador disciplinar: "${selectedDeliverableStatus.latestMaterial.description}"`
-                          : "Adjunta la versión corregida de este recurso académico para reanudar su validación."}
+                          : "Adjunte la versión corregida de este recurso académico para reanudar su validación."}
                       </p>
                     </div>
                   </div>
@@ -736,17 +835,23 @@ const UploadCourse = () => {
                   </div>
                 )}
 
-                {/* Resumen visual de materiales de la sección */}
+                {/* Selección del material: los recuadros son el selector */}
                 {scopedWithStatus.length > 0 && (
                   <div className="space-y-2.5 rounded-xl border border-border bg-gray-50/50 p-3.5 sm:p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-semibold text-primary">
-                        Materiales de{" "}
-                        {selectedScope === "general"
-                          ? "General"
-                          : `Crédito ${selectedCreditNumber}`}{" "}
-                        ({scopedWithStatus.length})
-                      </p>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-primary">
+                          Material a cargar ·{" "}
+                          {selectedScope === "general"
+                            ? "General"
+                            : `Unidad ${selectedCreditNumber}`}{" "}
+                          ({scopedWithStatus.length})
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted">
+                          Elige un material. Los ya cargados o aprobados quedan
+                          bloqueados para evitar entregas duplicadas.
+                        </p>
+                      </div>
                       <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-muted">
                         <input
                           type="checkbox"
@@ -759,7 +864,7 @@ const UploadCourse = () => {
                     </div>
 
                     <div className="grid gap-2 sm:grid-cols-2">
-                      {scopedWithStatus.map(({ item, status }) => {
+                      {visibleDeliverables.map(({ item, status }) => {
                         const isSelected = item.id === selectedDeliverableId;
                         return (
                           <button
@@ -811,6 +916,20 @@ const UploadCourse = () => {
                         );
                       })}
                     </div>
+
+                    {visibleDeliverables.length === 0 && (
+                      <p className="px-1 py-2 text-xs text-muted">
+                        No hay materiales por cargar en esta sección. Desmarca
+                        "Ocultar ya cargados" para ver los que están en revisión
+                        o aprobados.
+                      </p>
+                    )}
+
+                    {deliverablesError && (
+                      <p className="px-1 text-xs text-danger">
+                        {deliverablesError}
+                      </p>
+                    )}
                   </div>
                 )}
               </>
@@ -825,7 +944,9 @@ const UploadCourse = () => {
               hint={
                 isLeaderUpload
                   ? "Este cargue registra el syllabus del proceso."
-                  : "Nombre del material (ej. Guía de estudio, Guión de recurso educativo)."
+                  : isAdvisorGuideUpload
+                    ? "Nombre del guión (puede conservar el del entregable o personalizarlo)."
+                    : "Nombre del material (ej. Guía de estudio, Guión de recurso educativo)."
               }
             >
               <InputText
@@ -841,7 +962,7 @@ const UploadCourse = () => {
             <FormField
               label="Descripción del recurso"
               error={description.trim() ? descriptionCheck.message : undefined}
-              hint="Describe brevemente el contenido. Se permiten letras, números, guiones, comillas y puntuación habitual."
+              hint="Describa brevemente el contenido. Se permiten letras, números, guiones, comillas y puntuación habitual."
             >
               <TextArea
                 value={description}
@@ -854,14 +975,29 @@ const UploadCourse = () => {
             </FormField>
 
             <FormField
-              label="Archivos"
+              label={isAdvisorGuideUpload ? "Guión instruccional" : "Archivos"}
               required
-              hint="Puedes adjuntar uno o varios archivos en la misma entrega."
+              hint={
+                isAdvisorGuideUpload
+                  ? "Documento Word (.doc, .docx) o PDF con el guión instruccional."
+                  : "Puede adjuntar uno o varios archivos en la misma entrega."
+              }
             >
               <FileUpload
                 files={files}
                 onChange={setFiles}
                 required
+                multiple={!isAdvisorGuideUpload}
+                maxFiles={isAdvisorGuideUpload ? 1 : undefined}
+                accept={isAdvisorGuideUpload ? GUIDE_FILE_TYPES : undefined}
+                allowedExtensions={
+                  isAdvisorGuideUpload ? GUIDE_FILE_EXTENSIONS : undefined
+                }
+                helperText={
+                  isAdvisorGuideUpload
+                    ? "Word o PDF · máx. 25 MB"
+                    : undefined
+                }
                 disabled={submitting}
               />
             </FormField>
@@ -878,7 +1014,11 @@ const UploadCourse = () => {
                 onClick={handleSubmit}
                 disabled={submitting || !formIsValid || !canUploadSelected}
               >
-                {isLeaderUpload ? "Cargar syllabus" : "Cargar Material"}
+                {isLeaderUpload
+                  ? "Cargar syllabus"
+                  : isAdvisorGuideUpload
+                    ? "Cargar guión instruccional"
+                    : "Cargar Material"}
               </Button>
             </div>
           </div>

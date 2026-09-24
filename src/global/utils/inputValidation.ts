@@ -16,10 +16,15 @@ export const FIELD_LIMITS = {
 export const ACCEPTED_FILE_TYPES =
   ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt";
 
-/** Word únicamente (guía instruccional del asesor pedagógico). */
+/** Word únicamente (histórico). Preferir GUIDE_FILE_* para guión. */
 export const WORD_FILE_TYPES = ".doc,.docx";
 
 export const WORD_FILE_EXTENSIONS = new Set([".doc", ".docx"]);
+
+/** Guión instruccional: Word o PDF. */
+export const GUIDE_FILE_TYPES = ".doc,.docx,.pdf";
+
+export const GUIDE_FILE_EXTENSIONS = new Set([".doc", ".docx", ".pdf"]);
 
 const ALLOWED_FILE_EXTENSIONS = new Set([
   ".pdf",
@@ -64,6 +69,16 @@ const TITLE_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#!?*%@]+$/u;
 
 /** Descripciones / comentarios: igual + saltos de línea (sin / ni guiones tipográficos – —). */
 const DESCRIPTION_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#\n\r!?*%@]+$/u;
+
+/** Observaciones con URLs en texto plano (permite / ? = & # %). */
+const DESCRIPTION_WITH_URLS_ALLOWED =
+  /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#\n\r!?*%@/=?#&%]+$/u;
+
+const normalizePlainMultiline = (value: string): string =>
+  value
+    .replace(CONTROL_CHARS, "")
+    .replace(WEIRD_SPACES, " ")
+    .replace(/[\u2013\u2014\u2212]/g, "-");
 
 export interface ValidationResult {
   ok: boolean;
@@ -150,12 +165,22 @@ export const validateTitle = (
 
 export const validateDescription = (
   raw: string,
-  options?: { required?: boolean; label?: string; maxLength?: number },
+  options?: {
+    required?: boolean;
+    label?: string;
+    maxLength?: number;
+    /** Permite URLs en texto plano (diseñador DIDE). */
+    allowUrls?: boolean;
+  },
 ): ValidationResult => {
   const label = options?.label ?? "Este campo";
   const required = options?.required ?? false;
   const maxLength = options?.maxLength ?? FIELD_LIMITS.description;
-  const value = collapseMultiline(normalizeInput(raw, { multiline: true }));
+  const value = collapseMultiline(
+    options?.allowUrls
+      ? normalizePlainMultiline(raw)
+      : normalizeInput(raw, { multiline: true }),
+  );
 
   if (!value) {
     if (required) {
@@ -172,10 +197,22 @@ export const validateDescription = (
     };
   }
 
-  if (containsDangerousContent(value) || !DESCRIPTION_ALLOWED.test(value)) {
+  const allowed = options?.allowUrls
+    ? DESCRIPTION_WITH_URLS_ALLOWED
+    : DESCRIPTION_ALLOWED;
+
+  // Con URLs solo bloqueamos HTML/scripts; no caracteres tipicos de enlace.
+  const unsafe = options?.allowUrls
+    ? HTML_TAG.test(value) ||
+      DANGEROUS_PATTERNS.some((pattern) => pattern.test(value))
+    : containsDangerousContent(value);
+
+  if (unsafe || !allowed.test(value)) {
     return {
       ok: false,
-      message: `${label} contiene caracteres no permitidos. Se permiten letras, tildes, números, guiones, comillas y puntuación habitual.`,
+      message: options?.allowUrls
+        ? `${label} contiene caracteres no permitidos.`
+        : `${label} contiene caracteres no permitidos. Se permiten letras, tildes, números, guiones, comillas y puntuación habitual.`,
       value,
     };
   }
@@ -253,7 +290,7 @@ export const validateFiles = (
     if (required) {
       return {
         ok: false,
-        message: "Debes seleccionar al menos un archivo.",
+        message: "Debe seleccionar al menos un archivo.",
         files: [],
       };
     }
@@ -263,7 +300,7 @@ export const validateFiles = (
   if (files.length > maxFiles) {
     return {
       ok: false,
-      message: `Puedes subir como máximo ${maxFiles} archivos.`,
+      message: `Puede cargar como máximo ${maxFiles} archivos.`,
       files,
     };
   }
@@ -272,6 +309,12 @@ export const validateFiles = (
     const extension = getFileExtension(file.name);
 
     if (!extension || !allowedExtensions.has(extension)) {
+      const guideOnly =
+        allowedExtensions === GUIDE_FILE_EXTENSIONS ||
+        (allowedExtensions.size === 3 &&
+          allowedExtensions.has(".doc") &&
+          allowedExtensions.has(".docx") &&
+          allowedExtensions.has(".pdf"));
       const wordOnly =
         allowedExtensions === WORD_FILE_EXTENSIONS ||
         (allowedExtensions.size === 2 &&
@@ -279,9 +322,11 @@ export const validateFiles = (
           allowedExtensions.has(".docx"));
       return {
         ok: false,
-        message: wordOnly
-          ? `El archivo "${file.name}" debe ser Word (.doc o .docx).`
-          : `El archivo "${file.name}" no es un tipo permitido. Usa PDF, Office o imágenes.`,
+        message: guideOnly
+          ? `El archivo "${file.name}" debe ser Word (.doc, .docx) o PDF.`
+          : wordOnly
+            ? `El archivo "${file.name}" debe ser Word (.doc o .docx).`
+            : `El archivo "${file.name}" no es un tipo permitido. Usa PDF, Office o imágenes.`,
         files,
       };
     }
@@ -326,11 +371,12 @@ export const assertSafeTitle = (
 
 export const assertSafeDescription = (
   raw: string,
-  options?: { required?: boolean; label?: string },
+  options?: { required?: boolean; label?: string; allowUrls?: boolean },
 ): string => {
   const result = validateDescription(raw, {
     required: options?.required ?? false,
     label: options?.label ?? "Este campo",
+    allowUrls: options?.allowUrls,
   });
   if (!result.ok) throw new Error(result.message);
   return result.value;
@@ -349,10 +395,202 @@ export const assertSafeFiles = (
   return result.files;
 };
 
-/** Guía instruccional del asesor: un único Word obligatorio. */
+/** Guión instruccional del asesor: un único Word o PDF obligatorio. */
 export const assertSafeWordGuide = (files: File[]): File[] =>
   assertSafeFiles(files, {
     required: true,
     maxFiles: 1,
-    allowedExtensions: WORD_FILE_EXTENSIONS,
+    allowedExtensions: GUIDE_FILE_EXTENSIONS,
   });
+
+const HTTP_URL_PATTERN =
+  /^https?:\/\/[^\s<>"'`{}|\\^[\]]+$/i;
+
+/**
+ * Normaliza URLs sin romper barras ni query strings.
+ * (normalizeInput genérico elimina `/`, incompatible con enlaces.)
+ */
+const normalizeUrlInput = (value: string): string =>
+  value
+    .replace(CONTROL_CHARS, "")
+    .replace(WEIRD_SPACES, " ")
+    .replace(/[\n\r]/g, "")
+    .trim();
+
+/** Valida un enlace http(s) individual. */
+export const validateHttpUrl = (
+  raw: string,
+  options?: { required?: boolean; label?: string },
+): ValidationResult => {
+  const label = options?.label ?? "El enlace";
+  const required = options?.required ?? false;
+  const value = normalizeUrlInput(raw);
+
+  if (!value) {
+    if (required) {
+      return { ok: false, message: `${label} es obligatorio.`, value: "" };
+    }
+    return { ok: true, value: "" };
+  }
+
+  if (value.length > 2000) {
+    return {
+      ok: false,
+      message: `${label} es demasiado largo.`,
+      value,
+    };
+  }
+
+  // Solo bloqueamos HTML/scripts claros; las URLs necesitan : / ? & = #.
+  const hasHtmlOrScript =
+    HTML_TAG.test(value) ||
+    DANGEROUS_PATTERNS.some((pattern) => pattern.test(value));
+
+  if (hasHtmlOrScript || !HTTP_URL_PATTERN.test(value)) {
+    return {
+      ok: false,
+      message: `${label} debe ser una URL válida que empiece por http:// o https://.`,
+      value,
+    };
+  }
+
+  return { ok: true, value };
+};
+
+/**
+ * Valida la lista de enlaces audiovisuales del Diseñador DIDE.
+ * Exige al menos un enlace http(s) válido.
+ */
+export const validateAudiovisualLinks = (
+  rawLinks: string[],
+): { ok: true; links: string[] } | { ok: false; message: string; links: string[] } => {
+  const trimmed = rawLinks.map((link) => normalizeUrlInput(link));
+  const nonEmpty = trimmed.filter(Boolean);
+
+  if (nonEmpty.length === 0) {
+    return {
+      ok: false,
+      message: "Debe registrar al menos un enlace audiovisual.",
+      links: [],
+    };
+  }
+
+  if (nonEmpty.length > 20) {
+    return {
+      ok: false,
+      message: "Puede registrar un máximo de 20 enlaces.",
+      links: nonEmpty,
+    };
+  }
+
+  for (let index = 0; index < nonEmpty.length; index += 1) {
+    const link = nonEmpty[index] ?? "";
+    const check = validateHttpUrl(link, {
+      required: true,
+      label: `El enlace ${index + 1}`,
+    });
+    if (!check.ok) {
+      return {
+        ok: false,
+        message: check.message ?? `El enlace ${index + 1} no es válido.`,
+        links: nonEmpty,
+      };
+    }
+  }
+
+  return { ok: true, links: nonEmpty };
+};
+
+/**
+ * Extrae enlaces http(s) desde documents u observations de una actividad
+ * (JSON `["https://...", ...]` registrado por el diseñador DIDE).
+ */
+export const parseAudiovisualLinksFromDocuments = (
+  documents: string | undefined | null,
+): string[] => {
+  let raw = (documents ?? "").trim();
+  if (!raw) return [];
+
+  // Si vino con escapes del flujo (`[\"https://...\"]`), normalizar antes de parsear.
+  if (raw.includes('\\"') && !raw.includes('["')) {
+    raw = raw.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => String(item ?? "").trim())
+        .filter((link) => /^https?:\/\//i.test(link));
+    }
+    if (typeof parsed === "string") {
+      const nested = parseAudiovisualLinksFromDocuments(parsed);
+      if (nested.length > 0) return nested;
+      if (/^https?:\/\//i.test(parsed.trim())) return [parsed.trim()];
+    }
+  } catch {
+    if (/^https?:\/\//i.test(raw)) return [raw];
+  }
+
+  return [];
+};
+
+const HTTP_URL_IN_TEXT =
+  /https?:\/\/[^\s<>"'\)\]]+/gi;
+
+/**
+ * Extrae URLs desde texto plano (observaciones del diseñador) o JSON legacy.
+ */
+export const extractHttpLinksFromText = (
+  value: string | undefined | null,
+): string[] => {
+  const raw = (value ?? "").trim();
+  if (!raw) return [];
+
+  const fromJson = parseAudiovisualLinksFromDocuments(raw);
+  if (fromJson.length > 0) return [...new Set(fromJson)];
+
+  const matches = raw.match(HTTP_URL_IN_TEXT) ?? [];
+  return [
+    ...new Set(
+      matches
+        .map((link) => link.replace(/[.,;:!?)]+$/g, "").trim())
+        .filter(Boolean),
+    ),
+  ];
+};
+
+/**
+ * Quita las URLs del texto para dejar solo notas / comentarios.
+ * También elimina etiquetas vacías tipo "Link1:" / "Enlace 2:" que quedan
+ * cuando el diseñador solo pegó URLs bajo esos rótulos.
+ */
+export const stripHttpLinksFromText = (
+  value: string | undefined | null,
+): string => {
+  const raw = (value ?? "").trim();
+  if (!raw) return "";
+  if (parseAudiovisualLinksFromDocuments(raw).length > 0) return "";
+
+  return raw
+    .replace(HTTP_URL_IN_TEXT, " ")
+    .replace(/(?:^|\n)\s*(?:link|enlace|url)\s*\d*\s*:\s*(?=\n|$)/gi, "\n")
+    .replace(/^[ \t]*(?:link|enlace|url)\s*\d*\s*:\s*$/gim, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+};
+
+/**
+ * Devuelve los enlaces como texto JSON del array, con comillas escapadas.
+ * El flujo Power Automate concatena `observations` dentro de un `json('...')`;
+ * si mandamos `["https://..."]` crudo, el parseo falla. Hay que enviar:
+ * `[\"https://...\"]` para que el objeto compuesto quede válido y
+ * `activity.observations` sea el string `["https://..."]`.
+ */
+export const assertSafeAudiovisualLinksJson = (rawLinks: string[]): string => {
+  const result = validateAudiovisualLinks(rawLinks);
+  if (!result.ok) throw new Error(result.message);
+  return JSON.stringify(result.links).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+};

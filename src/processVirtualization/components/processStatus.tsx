@@ -1,75 +1,153 @@
 import { processStatusStyles } from "../constants/processStatusStyles";
-import { formatDomainLabel } from "../../global/utils/textUtils";
-import { PROCESS_PHASES } from "../../global/constants/domainConstants";
-import { isLeaderSyllabusStatus } from "../../courses/mappers/courseMappers";
+import {
+  formatDomainLabel,
+  normalizeComparableText,
+} from "../../global/utils/textUtils";
+import {
+  PHASE_SHORT_LABELS,
+  PROCESS_PHASES,
+} from "../../global/constants/domainConstants";
+import {
+  isAdvisorAudiovisualApprovalStatus,
+  isAdvisorGuideUploadStatus,
+  isLeaderClassroomConfirmStatus,
+  isLeaderSyllabusStatus,
+} from "../../courses/mappers/courseMappers";
 
 interface ProcessStatusProps {
   status: string;
+  /**
+   * En tablas usa PHASE_SHORT_LABELS (más compacto).
+   * En detalle deja el nombre completo de Dataverse.
+   */
+  compact?: boolean;
 }
 
-const resolveStatusStyle = (status: string): string => {
-  if (isLeaderSyllabusStatus(status)) {
-    return processStatusStyles[PROCESS_PHASES.LEADER_SYLLABUS];
+const normalizeStatusKey = normalizeComparableText;
+
+/** Resuelve la fase canónica para estilo y etiqueta corta en tablas. */
+const resolvePhaseKey = (status: string): string | undefined => {
+  if (isLeaderSyllabusStatus(status)) return PROCESS_PHASES.LEADER_SYLLABUS;
+  if (isLeaderClassroomConfirmStatus(status)) {
+    return PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM;
+  }
+  if (isAdvisorAudiovisualApprovalStatus(status)) {
+    return PROCESS_PHASES.ADVISOR_AV_APPROVAL;
+  }
+  if (isAdvisorGuideUploadStatus(status)) {
+    return PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD;
   }
 
-  if (processStatusStyles[status]) return processStatusStyles[status];
+  const lower = normalizeStatusKey(status);
+  if (
+    lower.includes("enlaces audiovisuales") ||
+    (lower.includes("registrar") && lower.includes("enlace"))
+  ) {
+    return PROCESS_PHASES.DIDE_REVIEW;
+  }
 
-  const match = Object.keys(processStatusStyles).find(
+  if (
+    lower.includes("validador disciplinar") ||
+    lower.includes("evaluador") ||
+    lower.includes("validador") ||
+    lower === normalizeStatusKey(PROCESS_PHASES.VALIDATOR_REVIEW)
+  ) {
+    return PROCESS_PHASES.VALIDATOR_REVIEW;
+  }
+
+  if (processStatusStyles[status]) return status;
+
+  const exactMatch = Object.keys(processStatusStyles).find(
     (key) => key.toLowerCase() === status.toLowerCase(),
   );
+  if (exactMatch) return exactMatch;
 
-  if (match) return processStatusStyles[match];
-
-  const lower = status.toLowerCase();
+  if (lower.includes("aprobar material audiovisual")) {
+    return PROCESS_PHASES.ADVISOR_AV_APPROVAL;
+  }
   if (
-    lower.includes("devuelto") ||
-    lower.includes("corregir") ||
-    lower.includes("rechaz")
+    lower.includes("guion instruccional") ||
+    lower.includes("guia instruccional") ||
+    lower.includes("guion instruct") ||
+    lower.includes("guia instruct")
   ) {
-    return "bg-rose-100 text-rose-900 ring-1 ring-rose-300/70";
+    return PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD;
   }
   if (
     lower.includes("aprobado") ||
     lower.includes("finaliz") ||
     lower.includes("complet")
   ) {
-    return "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-300/70";
+    return PROCESS_PHASES.COMPLETED;
   }
-  if (lower.includes("cargue") || lower.includes("autor")) {
-    return "bg-amber-100 text-amber-900 ring-1 ring-amber-300/70";
+  if (
+    lower.includes("cargue") ||
+    lower.includes("autor") ||
+    lower.includes("cargar")
+  ) {
+    return PROCESS_PHASES.AUTHOR_UPLOAD;
+  }
+  if (
+    lower.includes("asesor") ||
+    lower.includes("pedagog")
+  ) {
+    return PROCESS_PHASES.ADVISOR_REVIEW;
   }
   if (
     lower.includes("revis") ||
     lower.includes("evalua") ||
     lower.includes("valida")
   ) {
-    return "bg-sky-100 text-sky-900 ring-1 ring-sky-300/70";
+    return PROCESS_PHASES.VALIDATOR_REVIEW;
   }
 
-  return "bg-gray-50 text-gray-600 ring-1 ring-gray-200/60";
+  return undefined;
 };
 
-/** Etiqueta de UI: Dataverse puede traer "evaluador"; mostrar siempre Validador Disciplinar. */
-const toUiStatusLabel = (status: string): string =>
-  formatDomainLabel(status).replace(
-    /evaluadores?/gi,
-    "Validador Disciplinar",
-  );
+const resolveStatusStyle = (status: string): string => {
+  const phaseKey = resolvePhaseKey(status);
+  if (phaseKey && processStatusStyles[phaseKey]) {
+    return processStatusStyles[phaseKey];
+  }
 
-const resolveStatusLabel = (status: string): string => {
-  if (!status.trim()) return "Sin estado";
-  if (isLeaderSyllabusStatus(status)) return "Cargue Syllabus";
+  const lower = normalizeStatusKey(status);
+  if (
+    lower.includes("devuelto") ||
+    lower.includes("corregir") ||
+    lower.includes("rechaz")
+  ) {
+    return "bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/25";
+  }
+
+  return "bg-[#004040]/10 text-[#004040] border border-[#004040]/25";
+};
+
+/** Estado completo de Dataverse, con capitalización legible. */
+const toUiStatusLabel = (status: string): string => formatDomainLabel(status);
+
+const resolveStatusLabel = (status: string, compact: boolean): string => {
+  if (!status.trim()) return PROCESS_PHASES.UNKNOWN;
+  if (compact) {
+    const phaseKey = resolvePhaseKey(status);
+    if (phaseKey && PHASE_SHORT_LABELS[phaseKey]) {
+      return PHASE_SHORT_LABELS[phaseKey];
+    }
+  }
   return toUiStatusLabel(status);
 };
 
-export const ProcessStatus = ({ status }: ProcessStatusProps) => {
+export const ProcessStatus = ({
+  status,
+  compact = false,
+}: ProcessStatusProps) => {
   const style = resolveStatusStyle(status);
-  const label = resolveStatusLabel(status);
+  const label = resolveStatusLabel(status, compact);
+  const fullLabel = status ? toUiStatusLabel(status) : label;
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold sm:px-3 ${style}`}
-      title={status ? toUiStatusLabel(status) : label}
+      className={`inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 py-1 text-xs font-semibold sm:px-3 ${style}`}
+      title={fullLabel}
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-60" />
       <span className="min-w-0 truncate">{label}</span>

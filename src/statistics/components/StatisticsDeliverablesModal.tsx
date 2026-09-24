@@ -60,7 +60,7 @@ function StatisticsDeliverablesModal({
     {
       key: "stateLabel",
       header: "Estado",
-      render: (row) => <ProcessStatus status={row.stateLabel} />,
+      render: (row) => <ProcessStatus status={row.stateLabel} compact />,
     },
     {
       key: "modifiedOn",

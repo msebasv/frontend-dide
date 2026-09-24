@@ -16,11 +16,16 @@ import {
   PROCESS_PHASES,
   USER_ROLES,
   canonicalizeUserRole,
+  isProcessCloseReady,
   isLeaderRole,
+  isVirtualizationLeaderRole,
 } from "../../global/constants/domainConstants";
 import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
+import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
   formatActivityStatus,
+  isAdvisorAudiovisualApprovalStatus,
+  isAdvisorGuideUploadStatus,
   isAdvisorRole,
   isLeaderSyllabusStatus,
   resolveActivityStatusRaw,
@@ -44,12 +49,7 @@ type PhaseWithFormatted = Dev_tablephases & {
 const looksLikeEmail = (value: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-const normalizePhase = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+const normalizePhase = normalizeComparableText;
 
 const matchPhase = (status: string, target: string): boolean =>
   normalizePhase(status) === normalizePhase(target);
@@ -63,7 +63,7 @@ const ACTOR_STATUS_LABELS: Record<ActorProgressCode, string> = {
 };
 
 const creditLabelFor = (creditNumber: number): string =>
-  creditNumber === 0 ? "General" : `Crédito / Unidad ${creditNumber}`;
+  creditNumber === 0 ? "General" : `Unidad ${creditNumber}`;
 
 const resolvePerson = (
   assignRole: AssignRoleWithFormatted,
@@ -135,8 +135,38 @@ const deriveActorStatuses = (
     return { author: "done", validator: "done", advisor: "done" };
   }
 
+  if (
+    matchPhase(phase, PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM) ||
+    (() => {
+      const n = phase
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "");
+      return (
+        (n.includes("validacion cargue") && n.includes("aula")) ||
+        n.includes("cargue en el aula")
+      );
+    })()
+  ) {
+    return { author: "done", validator: "done", advisor: "done" };
+  }
+
+  if (
+    matchPhase(phase, PROCESS_PHASES.ADVISOR_AV_APPROVAL) ||
+    isAdvisorAudiovisualApprovalStatus(phase)
+  ) {
+    return { author: "done", validator: "done", advisor: "pending" };
+  }
+
   if (matchPhase(phase, PROCESS_PHASES.DIDE_REVIEW)) {
     return { author: "done", validator: "done", advisor: "done" };
+  }
+
+  if (
+    matchPhase(phase, PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD) ||
+    isAdvisorGuideUploadStatus(phase)
+  ) {
+    return { author: "done", validator: "done", advisor: "pending" };
   }
 
   if (matchPhase(phase, PROCESS_PHASES.ADVISOR_REVIEW)) {
@@ -207,8 +237,16 @@ const buildDeliverableTracking = (params: {
   processPhases: PhaseWithFormatted[];
   activities: Dev_tableactivities[];
   templatesMap?: Map<string, Dev_tableactivitytemplates>;
+  /** Proceso con close-ready: todos los entregables figuran finalizados. */
+  processFinalized?: boolean;
 }): DeliverableTrackingItem => {
-  const { deliverable, processPhases, activities, templatesMap } = params;
+  const {
+    deliverable,
+    processPhases,
+    activities,
+    templatesMap,
+    processFinalized = false,
+  } = params;
   const deliverableId = deliverable.dev_tabledeliverableid;
   const name = deliverable.dev_namedeliverable?.trim() || "Entregable";
   const creditNumber =
@@ -216,6 +254,27 @@ const buildDeliverableTracking = (params: {
       ? deliverable.dev_creditnumber
       : Number(deliverable.dev_creditnumber) || 0;
   const isSyllabus = isSyllabusDeliverable({ name });
+
+  if (processFinalized) {
+    const completedPhase = PROCESS_PHASES.COMPLETED;
+    const statuses = deriveActorStatuses(completedPhase, true, false);
+    const labels = formatActorLabels(
+      completedPhase,
+      statuses,
+      true,
+      false,
+    );
+    return {
+      id: deliverableId,
+      name,
+      creditNumber,
+      creditLabel: creditLabelFor(creditNumber),
+      phase: completedPhase,
+      phaseShort: PHASE_SHORT_LABELS[completedPhase] ?? completedPhase,
+      ...labels,
+      activityCount: 0,
+    };
+  }
 
   const linkedPhases = processPhases.filter((phase) => {
     const phaseDeliverableId = phase._dev_tabledeliverable_value ?? "";
@@ -340,6 +399,8 @@ export const buildProcessTrackingRows = (params: {
       author?: { email: string; label: string };
       validator?: { email: string; label: string };
       advisor?: { email: string; label: string };
+      designer?: { email: string; label: string };
+      leader?: { email: string; label: string };
     }
   >();
 
@@ -362,6 +423,8 @@ export const buildProcessTrackingRows = (params: {
     if (canonical === USER_ROLES.AUTHOR) current.author = person;
     if (canonical === USER_ROLES.VALIDATOR) current.validator = person;
     if (canonical === USER_ROLES.ADVISOR) current.advisor = person;
+    if (canonical === USER_ROLES.DIDE_DESIGNER) current.designer = person;
+    if (canonical === USER_ROLES.LEADER) current.leader = person;
 
     assigneesByProcess.set(processId, current);
   }
@@ -369,6 +432,7 @@ export const buildProcessTrackingRows = (params: {
   const email = userEmail.trim().toLowerCase();
   const globalScope = isLeaderRole(userRole);
   const advisorScope = isAdvisorRole(userRole);
+  const assignedLeaderScope = isVirtualizationLeaderRole(userRole);
 
   const detailPathFor = (processId: string) =>
     globalScope
@@ -384,11 +448,22 @@ export const buildProcessTrackingRows = (params: {
         if (assignees.advisor?.email !== email) return null;
       }
 
+      if (assignedLeaderScope && assignees.leader?.email !== email) {
+        return null;
+      }
+
       const course = coursesMap.get(process._dev_tablecourse_value ?? "");
       const program = programsMap.get(course?._dev_tableprogram_value ?? "");
       const faculty = facultiesMap.get(program?._dev_table_faculty_value ?? "");
       const processPhases = phasesByProcess.get(processId) ?? [];
-      const phase = getCurrentPhase(processPhases, templatesMap);
+      const phaseFromActivities = getCurrentPhase(processPhases, templatesMap);
+      const processClosed = isProcessCloseReady(
+        process.dev_closeready,
+        process.dev_closereadyname,
+      );
+      const phase = processClosed
+        ? PROCESS_PHASES.COMPLETED
+        : phaseFromActivities;
       const phaseIds = new Set(
         processPhases.map((item) => item.dev_tablephaseid),
       );
@@ -426,6 +501,7 @@ export const buildProcessTrackingRows = (params: {
             processPhases,
             activities,
             templatesMap,
+            processFinalized: processClosed,
           }),
         )
         .sort((a, b) => {
@@ -458,6 +534,11 @@ export const buildProcessTrackingRows = (params: {
         validatorLabel: assignees.validator?.label ?? "Sin asignar",
         advisorEmail: assignees.advisor?.email ?? "",
         advisorLabel: assignees.advisor?.label ?? "Sin asignar",
+        designerEmail: assignees.designer?.email ?? "",
+        designerLabel: assignees.designer?.label ?? "Sin asignar",
+        needsDesignerAssignment:
+          !processClosed && !assignees.designer?.email,
+        isFinalized: processClosed,
         materialCount,
         modifiedOn,
         detailPath: detailPathFor(processId),

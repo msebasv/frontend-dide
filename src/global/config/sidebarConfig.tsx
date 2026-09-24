@@ -9,7 +9,7 @@ import { IoHomeOutline, IoStatsChartOutline, IoPeopleOutline, IoIdCardOutline, I
 import { RiGraduationCapLine } from "react-icons/ri";
 import { GoWorkflow } from "react-icons/go";
 import { HiOutlineAcademicCap } from "react-icons/hi2";
-import { USER_ROLES } from "../constants/domainConstants";
+import { USER_ROLES, MANAGEMENT_ROLES } from "../constants/domainConstants";
 
 interface SidebarItemConfig {
   text: string;
@@ -19,12 +19,6 @@ interface SidebarItemConfig {
   path: string;
 }
 
-const MANAGEMENT_ROLES = [
-  USER_ROLES.LEADER,
-  USER_ROLES.DIDE_COORDINATOR,
-  USER_ROLES.ADMIN,
-] as const;
-
 export const sidebarConfig: SidebarItemConfig[] = [
   {
     text: "Inicio",
@@ -33,6 +27,7 @@ export const sidebarConfig: SidebarItemConfig[] = [
       USER_ROLES.AUTHOR,
       USER_ROLES.LEADER,
       USER_ROLES.DIDE_COORDINATOR,
+      USER_ROLES.DESIGNER_COORDINATOR,
       USER_ROLES.ADMIN,
       USER_ROLES.DIDE_DESIGNER,
       USER_ROLES.VALIDATOR,
@@ -43,6 +38,7 @@ export const sidebarConfig: SidebarItemConfig[] = [
       [USER_ROLES.AUTHOR]: "Dashboard de cursos",
       [USER_ROLES.LEADER]: "Panel de procesos",
       [USER_ROLES.DIDE_COORDINATOR]: "Panel de procesos",
+      [USER_ROLES.DESIGNER_COORDINATOR]: "Panel de diseño",
       [USER_ROLES.ADMIN]: "Panel de administración",
       [USER_ROLES.VALIDATOR]: "Panel de validación",
       [USER_ROLES.ADVISOR]: "Panel de asesoría",
@@ -62,7 +58,7 @@ export const sidebarConfig: SidebarItemConfig[] = [
     variants: {
       [USER_ROLES.VALIDATOR]: "Cursos por validar",
       [USER_ROLES.ADVISOR]: "Cursos pendientes",
-      [USER_ROLES.DIDE_DESIGNER]: "Cursos por aprobar",
+      [USER_ROLES.DIDE_DESIGNER]: "Cursos por cargar",
     },
   },
   {
@@ -70,18 +66,6 @@ export const sidebarConfig: SidebarItemConfig[] = [
     icon: <GoWorkflow size={20} />,
     roles: [USER_ROLES.LEADER, USER_ROLES.ADMIN],
     path: "/virtualization-processes",
-  },
-  {
-    text: "Estadísticas",
-    icon: <IoStatsChartOutline size={20} />,
-    roles: [...MANAGEMENT_ROLES, USER_ROLES.ADVISOR],
-    path: "/statistics",
-    variants: {
-      [USER_ROLES.ADVISOR]: "Estadísticas de mis procesos",
-      [USER_ROLES.LEADER]: "Estadísticas de mis procesos",
-      [USER_ROLES.DIDE_COORDINATOR]: "Estadísticas",
-      [USER_ROLES.ADMIN]: "Estadísticas",
-    },
   },
   {
     text: "Seguimiento",
@@ -92,6 +76,7 @@ export const sidebarConfig: SidebarItemConfig[] = [
       [USER_ROLES.ADVISOR]: "Seguimiento de mis procesos",
       [USER_ROLES.LEADER]: "Seguimiento de procesos",
       [USER_ROLES.DIDE_COORDINATOR]: "Seguimiento de procesos",
+      [USER_ROLES.DESIGNER_COORDINATOR]: "Seguimiento de procesos",
       [USER_ROLES.ADMIN]: "Seguimiento de procesos",
     },
   },
@@ -121,5 +106,19 @@ export const sidebarConfig: SidebarItemConfig[] = [
     icon: <IoPeopleOutline size={20} />,
     roles: [USER_ROLES.ADMIN],
     path: "/admin/leader-users",
+  },
+  // Estadísticas va al final del menú para todos los roles que la ven.
+  {
+    text: "Estadísticas",
+    icon: <IoStatsChartOutline size={20} />,
+    roles: [...MANAGEMENT_ROLES, USER_ROLES.ADVISOR],
+    path: "/statistics",
+    variants: {
+      [USER_ROLES.ADVISOR]: "Estadísticas de mis procesos",
+      [USER_ROLES.LEADER]: "Estadísticas de mis procesos",
+      [USER_ROLES.DIDE_COORDINATOR]: "Estadísticas",
+      [USER_ROLES.DESIGNER_COORDINATOR]: "Estadísticas",
+      [USER_ROLES.ADMIN]: "Estadísticas",
+    },
   },
 ];

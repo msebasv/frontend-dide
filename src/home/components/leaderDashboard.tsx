@@ -16,7 +16,6 @@ import PhaseDistribution from "../../global/components/phaseDistribution";
 import RecentList from "../../global/components/recentList";
 import Button from "../../global/components/button";
 import FormatsFolderButton from "../../global/components/formatsFolderButton";
-import ProgressBar from "../../global/components/progressBar";
 
 import { processStatusColors } from "../../processVirtualization/constants/processStatusStyles";
 import type { DashboardMetrics } from "../../courses/types/course.types";
@@ -24,14 +23,17 @@ import type { VirtualizationProcess } from "../../processVirtualization/types/pr
 import {
   PHASE_DISTRIBUTION_ORDER,
   PHASE_SHORT_LABELS,
+  USER_ROLES,
+  isVirtualizationLeaderRole,
 } from "../../global/constants/domainConstants";
-import { formatDomainLabel } from "../../global/utils/textUtils";
 
 interface LeaderDashboardProps {
   metrics: DashboardMetrics;
   userName: string;
   processes: VirtualizationProcess[];
   roleLabel?: string;
+  /** false para Coordinador Diseñador (solo ver / asignar diseñador). */
+  canManageProcesses?: boolean;
 }
 
 function LeaderDashboard({
@@ -39,6 +41,7 @@ function LeaderDashboard({
   userName,
   processes,
   roleLabel = "Líder de Virtualización",
+  canManageProcesses = true,
 }: LeaderDashboardProps) {
   const completionRate =
     metrics.total > 0
@@ -51,18 +54,11 @@ function LeaderDashboard({
     color: processStatusColors[label] ?? "#64748b",
   }));
 
+  // Sin estado: el detalle del proceso es el que muestra la fase real.
   const recentItems = processes.slice(0, 5).map((p) => ({
     id: p.processId,
     title: p.processName,
     subtitle: `${p.courseName} · ${p.facultyName}`,
-    badge: formatDomainLabel(
-      p.status.replace(/revisión y aprobación /i, "").slice(0, 28),
-    ),
-    badgeColor:
-      processStatusColors[p.status] ??
-      Object.entries(processStatusColors).find(
-        ([key]) => key.toLowerCase() === p.status.toLowerCase(),
-      )?.[1],
     link: `/virtualization-processes/${p.processId}`,
     icon: <IoLayersOutline size={16} />,
   }));
@@ -72,27 +68,37 @@ function LeaderDashboard({
       <DashboardHero
         userName={userName}
         role={roleLabel}
-        description="Supervisa el avance de todos los procesos, asigna roles y gestiona la virtualización de asignaturas de la Universidad El Bosque."
+        description={
+          isVirtualizationLeaderRole(roleLabel)
+            ? "Supervise el avance de los procesos en los que está asignado como líder de virtualización."
+            : canManageProcesses
+              ? "Supervise el avance de todos los procesos, asigne roles y gestione la virtualización de asignaturas de la Universidad El Bosque."
+              : "Consulte el avance de los procesos y asigne el Diseñador DIDE cuando corresponda la carga del guión instruccional."
+        }
       >
-        <Link to="/virtualization-processes/create">
-          <Button size="sm">
-            <IoAddCircleOutline size={16} />
-            Nuevo proceso
-          </Button>
-        </Link>
-        <Link to="/virtualization-processes/create-course">
-          <Button variant="soft" size="sm">
-            <IoAddCircleOutline size={16} />
-            Nuevo curso
-          </Button>
-        </Link>
+        {canManageProcesses && (
+          <>
+            <Link to="/virtualization-processes/create">
+              <Button size="sm">
+                <IoAddCircleOutline size={16} />
+                Nuevo Proceso
+              </Button>
+            </Link>
+            <Link to="/virtualization-processes/create-course">
+              <Button variant="soft" size="sm">
+                <IoAddCircleOutline size={16} />
+                Nuevo Curso
+              </Button>
+            </Link>
+          </>
+        )}
         <Link to="/tracking">
           <Button variant="soft" size="sm">
             <IoListOutline size={16} />
             Seguimiento
           </Button>
         </Link>
-        {roleLabel === "Administrador" && (
+        {roleLabel === USER_ROLES.ADMIN && (
           <>
             <Link to="/admin/people">
               <Button variant="soft" size="sm">
@@ -163,41 +169,11 @@ function LeaderDashboard({
             items={recentItems}
             viewAllLink="/virtualization-processes"
             viewAllLabel="Ver todos"
-            emptyMessage="Aún no hay procesos creados"
+            emptyMessage="No hay procesos creados"
           />
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[1.25rem] border border-border bg-acacia-5 p-5 shadow-[var(--shadow-card)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-bold text-primary">Acceso rápido</p>
-            <p className="text-xs text-muted">
-              Gestiona procesos, consulta estadísticas y el seguimiento
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link to="/virtualization-processes">
-              <Button size="sm">Ver procesos</Button>
-            </Link>
-            <Link to="/statistics">
-              <Button variant="secondary" size="sm">
-                Estadísticas
-              </Button>
-            </Link>
-            <Link to="/tracking">
-              <Button variant="outline" size="sm">
-                Seguimiento
-              </Button>
-            </Link>
-          </div>
-        </div>
-        {metrics.total > 0 && (
-          <div className="mt-4">
-            <ProgressBar value={completionRate} label="Progreso" />
-          </div>
-        )}
-      </div>
     </div>
   );
 }

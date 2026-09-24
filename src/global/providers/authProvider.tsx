@@ -5,13 +5,13 @@
  * 1. Obtiene el perfil del usuario desde Office 365 (nombre, correo).
  * 2. Consulta asignaciones de rol en Dataverse (dev_tableassignroles).
  * 3. Verifica leader users (dev_tableleaderuserses): Líder, Coordinador DIDE,
- *    Diseñador DIDE o Administrador.
+ *    Coordinador Diseñador o Administrador. El Diseñador DIDE se obtiene de
+ *    las asignaciones por proceso (assign roles).
  * 4. Expone user, roles y currentRole vía AuthContext.
  *
  * La UI no se renderiza hasta completar la carga (evita flashes sin datos).
  * El rol activo se persiste en localStorage y se restaura al recargar.
- * Los roles se refrescan en segundo plano (polling / foco) para detectar
- * nuevas asignaciones sin recargar la página.
+ * Para ver roles nuevos tras una asignación, recarga la página.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AuthContext } from "../context/authContext";
@@ -26,7 +26,6 @@ import {
   USER_ROLES,
 } from "../constants/domainConstants";
 import { escapeODataString } from "../utils/inputValidation";
-import { usePollingRefresh } from "../hooks/usePollingRefresh";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -108,8 +107,8 @@ const fetchUserRoles = async (email: string): Promise<string[]> => {
     }
   }
 
-  // Roles globales (Admin, Coordinador DIDE, Diseñador DIDE) solo desde leader-users.
-  // Líder de virtualización también puede asignarse por proceso (assign roles).
+  // Roles globales (Admin, Coordinador DIDE, Coordinador Diseñador) solo desde
+  // leader-users. Diseñador DIDE y Líder también pueden venir por proceso.
   const userRoles = assignData
     .map((item) =>
       canonicalizeUserRole(resolveRoleDisplayName(item, roleNameById)),
@@ -228,8 +227,6 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
     void loadUser();
   }, [applyRoles]);
-
-  usePollingRefresh(refreshRoles, 60_000, Boolean(user?.email) && !loading);
 
   return (
     <AuthContext.Provider

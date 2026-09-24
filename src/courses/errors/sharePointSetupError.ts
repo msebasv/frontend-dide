@@ -10,7 +10,7 @@ export class SharePointSetupError extends Error {
   }
 
   static defaultMessage(): string {
-    return "No pudimos acceder a los archivos en este momento. Intenta de nuevo más tarde.";
+    return "No fue posible acceder a los archivos en este momento. Intente nuevamente más tarde.";
   }
 }
 
@@ -43,10 +43,10 @@ export const getUserFriendlySharePointMessage = (error: unknown): string => {
     /sharepoint no está configurado/i.test(raw) ||
     /configura vite_sharepoint/i.test(raw)
   ) {
-    return "No pudimos acceder a los archivos en este momento. Intenta de nuevo más tarde.";
+    return "No fue posible acceder a los archivos en este momento. Intente nuevamente más tarde.";
   }
 
-  return "No se pudieron cargar los archivos del proceso. Intenta de nuevo más tarde.";
+  return "No se pudieron cargar los archivos del proceso. Intente nuevamente más tarde.";
 };
 
 const getRawErrorMessage = (error: unknown): string => {

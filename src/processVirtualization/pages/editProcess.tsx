@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
@@ -12,6 +12,7 @@ import LoadingState from "../../global/components/loadingState";
 import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useAuth } from "../../global/hooks/useAuth";
+import { canCreateOrEditProcesses, USER_ROLES } from "../../global/constants/domainConstants";
 import {
   FIELD_LIMITS,
   validateOrganizationEmail,
@@ -27,18 +28,20 @@ import {
   getRoles,
   updateVirtualizationProcess,
 } from "../../courses/services/courseService";
-import { findRoleId } from "../../courses/utils/roleUtils";
+import { resolveProcessRoleIds } from "../../courses/utils/roleUtils";
 
 function EditProcess() {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();
-  const { user, refreshRoles } = useAuth();
+  const { user, currentRole, refreshRoles } = useAuth();
   const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const canManage = canCreateOrEditProcesses(currentRole);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [rolesError, setRolesError] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [isFinalized, setIsFinalized] = useState(false);
 
   const [processName, setProcessName] = useState("");
   const [semester, setSemester] = useState<string | null>(null);
@@ -111,6 +114,11 @@ function EditProcess() {
           return;
         }
 
+        if (editData.isFinalized) {
+          setIsFinalized(true);
+          return;
+        }
+
         const parsed = parseProcessDisplayName(editData.processName);
         setProcessName(parsed.baseName);
         setSemester(parsed.semester);
@@ -127,20 +135,12 @@ function EditProcess() {
         setValidatorEmail(editData.validatorEmail);
         setAdvisorEmail(editData.advisorEmail);
 
-        const leaderRoleId = findRoleId(roles, [
-          "Líder de virtualización",
-          "Lider de virtualizacion",
-          "Líder de Virtualización",
-        ]);
-        const authorRoleId = findRoleId(roles, [
-          "Autor de asignatura",
-          "Autor de Asignatura",
-        ]);
-        const validatorRoleId = findRoleId(roles, [
-          "Validador disciplinar",
-          "Validador Disciplinar",
-        ]);
-        const advisorRoleId = findRoleId(roles, ["Asesor pedagógico"]);
+        const {
+          leader: leaderRoleId,
+          author: authorRoleId,
+          validator: validatorRoleId,
+          advisor: advisorRoleId,
+        } = resolveProcessRoleIds(roles);
 
         setRoleIds({
           leader: leaderRoleId,
@@ -197,7 +197,7 @@ function EditProcess() {
             "El nombre y los responsables del proceso se actualizaron correctamente.",
           errorTitle: "No se pudo actualizar el proceso",
           errorMessage:
-            "Verifica los datos e intenta nuevamente. Si el problema persiste, contacta al administrador.",
+            "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
           onSuccess: async () => {
             const me = user?.email?.trim().toLowerCase() ?? "";
             const assigned = [
@@ -225,8 +225,18 @@ function EditProcess() {
     }
   };
 
+  if (!canManage) {
+    return <Navigate to="/" replace />;
+  }
+
   if (loading) {
     return <LoadingState message="Cargando proceso..." />;
+  }
+
+  if (isFinalized && processId) {
+    return (
+      <Navigate to={`/virtualization-processes/${processId}`} replace />
+    );
   }
 
   if (notFound || !processId) {
@@ -238,7 +248,7 @@ function EditProcess() {
           backTo="/virtualization-processes"
         />
         <p className="text-sm text-muted">
-          El proceso no existe o no tienes acceso para editarlo.
+          El proceso no existe o no dispone de permisos para editarlo.
         </p>
       </div>
     );
@@ -275,7 +285,7 @@ function EditProcess() {
             error={processName.trim() ? processNameCheck.message : undefined}
             hint={
               semester && code
-                ? "Puedes cambiar el título. El semestre y el código se conservan."
+                ? "Puede modificar el título. El semestre y el código se conservan."
                 : "Edita el nombre completo del proceso."
             }
           >
@@ -314,7 +324,7 @@ function EditProcess() {
             required
             error={
               credits.trim() && !creditsValid
-                ? "Ingresa un número entero mayor o igual a 1."
+                ? "Ingrese un número entero mayor o igual a 1."
                 : undefined
             }
             hint="Cantidad de créditos del proceso de virtualización."
@@ -335,7 +345,7 @@ function EditProcess() {
             </h3>
             <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
               <FormField
-                label="Líder de virtualización"
+                label={USER_ROLES.LEADER}
                 required
                 error={leaderEmail.trim() ? leaderCheck.message : undefined}
                 hint="Correo institucional del líder responsable del proceso."
@@ -350,10 +360,10 @@ function EditProcess() {
               </FormField>
 
               <FormField
-                label="Autor de asignatura"
+                label={USER_ROLES.AUTHOR}
                 required
                 error={authorEmail.trim() ? authorCheck.message : undefined}
-                hint="Correo institucional del autor. Puedes buscar por nombre o correo."
+                hint="Correo institucional del autor. Puede buscar por nombre o correo."
               >
                 <EmailAutocomplete
                   value={authorEmail}
@@ -365,12 +375,12 @@ function EditProcess() {
               </FormField>
 
               <FormField
-                label="Validador disciplinar"
+                label={USER_ROLES.VALIDATOR}
                 required
                 error={
                   validatorEmail.trim() ? validatorCheck.message : undefined
                 }
-                hint="Correo institucional del validador. Puedes buscar por nombre o correo."
+                hint="Obligatorio antes de cargar el syllabus. Solo el líder de virtualización debe asignarlo."
               >
                 <EmailAutocomplete
                   value={validatorEmail}
@@ -382,10 +392,10 @@ function EditProcess() {
               </FormField>
 
               <FormField
-                label="Asesor pedagógico"
+                label={USER_ROLES.ADVISOR}
                 required
                 error={advisorEmail.trim() ? advisorCheck.message : undefined}
-                hint="Correo institucional del asesor. Puedes buscar por nombre o correo."
+                hint="Correo institucional del asesor. Puede buscar por nombre o correo."
               >
                 <EmailAutocomplete
                   value={advisorEmail}

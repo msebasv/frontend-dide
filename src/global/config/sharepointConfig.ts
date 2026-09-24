@@ -34,7 +34,7 @@ export const resolveSharePointFolder = (
 
   if (!siteUrl) {
     throw new Error(
-      "No pudimos acceder a los archivos en este momento. Intenta de nuevo más tarde.",
+      "No fue posible acceder a los archivos en este momento. Intente nuevamente más tarde.",
     );
   }
 

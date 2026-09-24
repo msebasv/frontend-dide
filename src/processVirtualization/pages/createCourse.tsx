@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
@@ -10,6 +10,11 @@ import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import LoadingState from "../../global/components/loadingState";
 import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { useAuth } from "../../global/hooks/useAuth";
+import {
+  canCreateProcesses,
+  isDideCoordinatorRole,
+} from "../../global/constants/domainConstants";
 import {
   FIELD_LIMITS,
   validateTitle,
@@ -27,7 +32,14 @@ type SelectOption = { label: string; value: string };
 
 function CreateCourse() {
   const navigate = useNavigate();
+  const { currentRole } = useAuth();
   const { feedback, closeFeedback, runAction } = useActionFeedback();
+
+  // El coordinador DIDE entra desde Seguimiento; no tiene el listado de procesos.
+  const returnTo = isDideCoordinatorRole(currentRole)
+    ? "/tracking"
+    : "/virtualization-processes";
+  const canManage = canCreateProcesses(currentRole);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -112,14 +124,18 @@ function CreateCourse() {
           successMessage: "El curso se registró correctamente en el sistema.",
           errorTitle: "No se pudo crear el curso",
           errorMessage:
-            "Verifica los datos e intenta nuevamente. Si el problema persiste, contacta al administrador.",
-          onSuccessClose: () => navigate("/virtualization-processes"),
+            "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
+          onSuccessClose: () => navigate(returnTo),
         },
       );
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (!canManage) {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading) {
     return <LoadingState message="Cargando formulario..." />;
@@ -130,7 +146,7 @@ function CreateCourse() {
       <PageHeader
         title="Crear Curso"
         description="Registra un nuevo curso asociado a un programa académico"
-        backTo="/virtualization-processes"
+        backTo={returnTo}
       />
 
       <FormBusyOverlay
@@ -164,13 +180,13 @@ function CreateCourse() {
             <FormField
               label="Facultad"
               required
-              hint="Primero elige la facultad para filtrar los programas."
+              hint="Primero seleccione la facultad para filtrar los programas."
             >
               <Select
                 options={facultyOptions}
                 value={selectedFaculty}
                 onChange={handleFacultyChange}
-                placeholder="Selecciona una facultad"
+                placeholder="Seleccione una facultad"
                 disabled={submitting}
               />
             </FormField>
@@ -187,9 +203,9 @@ function CreateCourse() {
                 placeholder={
                   selectedFaculty
                     ? programOptions.length
-                      ? "Selecciona un programa"
+                      ? "Seleccione un programa"
                       : "Sin programas en esta facultad"
-                    : "Selecciona primero una facultad"
+                    : "Seleccione primero una facultad"
                 }
                 disabled={submitting || !selectedFaculty}
               />
@@ -199,7 +215,7 @@ function CreateCourse() {
           <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end sm:gap-3 [&_button]:w-full sm:[&_button]:w-auto">
             <Button
               variant="secondary"
-              onClick={() => navigate("/virtualization-processes")}
+              onClick={() => navigate(returnTo)}
               disabled={submitting}
             >
               Cancelar

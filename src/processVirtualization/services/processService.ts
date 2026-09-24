@@ -8,6 +8,9 @@ import { Dev_table_programsService } from "../../generated/services/Dev_table_pr
 import { Dev_table_facultiesService } from "../../generated/services/Dev_table_facultiesService";
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
 import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
+import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
+import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
+import { Dev_tableassignrolesService } from "../../generated/services/Dev_tableassignrolesService";
 
 import { mapVirtualizationProcesses } from "../mappers/processMappers";
 
@@ -23,6 +26,9 @@ export const getVirtualizationProcesses = async (): Promise<
     facultiesResult,
     phasesResult,
     activitiesResult,
+    activityTemplatesResult,
+    deliverablesResult,
+    assignRolesResult,
   ] = await Promise.all([
     Dev_tablevirtualizationprocessesService.getAll(),
     Dev_tablecourseinstancesService.getAll(),
@@ -30,6 +36,12 @@ export const getVirtualizationProcesses = async (): Promise<
     Dev_table_facultiesService.getAll(),
     Dev_tablephasesService.getAll(),
     Dev_tableactivitiesService.getAll(),
+    Dev_tableactivitytemplatesService.getAll().catch(() => ({ data: [] })),
+    // Entregables: alimentan el resumen "N en <estado>" de la tabla.
+    Dev_tabledeliverablesService.getAll({ filter: "statecode eq 0" }).catch(
+      () => ({ data: [] }),
+    ),
+    Dev_tableassignrolesService.getAll().catch(() => ({ data: [] })),
   ]);
 
   return mapVirtualizationProcesses({
@@ -39,5 +51,8 @@ export const getVirtualizationProcesses = async (): Promise<
     faculties: facultiesResult.data ?? [],
     phases: phasesResult.data ?? [],
     activities: activitiesResult.data ?? [],
+    activityTemplates: activityTemplatesResult.data ?? [],
+    deliverables: deliverablesResult.data ?? [],
+    assignRoles: assignRolesResult.data ?? [],
   });
 };

@@ -1,6 +1,7 @@
 /**
  * Gestión de Leaders Users (roles globales). Solo Administrador.
- * Incluye Diseñador DIDE, Coordinador DIDE, Líder y Administrador.
+ * Incluye Coordinador DIDE, Coordinador Diseñador y Administrador.
+ * El Líder de virtualización y el Diseñador DIDE se asignan por proceso, no aquí.
  * Soft-delete: inactivar / reactivar (no borra el registro).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -28,8 +29,6 @@ import {
   USER_ROLES,
 } from "../../global/constants/domainConstants";
 import { validateOrganizationEmail } from "../../global/utils/inputValidation";
-import { getFaculties } from "../../courses/services/courseService";
-import type { Dev_table_faculties } from "../../generated/models/Dev_table_facultiesModel";
 import {
   activateLeaderUser,
   createLeaderUser,
@@ -48,17 +47,15 @@ function AdminLeaderUsersPage() {
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<LeaderUserRow[]>([]);
-  const [faculties, setFaculties] = useState<Dev_table_faculties[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<SelectOption | null>({
-    label: USER_ROLES.DIDE_DESIGNER,
-    value: USER_ROLES.DIDE_DESIGNER,
+    label: USER_ROLES.DIDE_COORDINATOR,
+    value: USER_ROLES.DIDE_COORDINATOR,
   });
-  const [faculty, setFaculty] = useState<SelectOption | null>(null);
 
   const emailCheck = validateOrganizationEmail(email);
   const formIsValid = emailCheck.ok && Boolean(role);
@@ -72,26 +69,10 @@ function AdminLeaderUsersPage() {
     [],
   );
 
-  const facultyOptions = useMemo(
-    () =>
-      [...faculties]
-        .map((item) => ({
-          label: item.dev_namefaculty?.trim() || "Sin nombre",
-          value: item.dev_table_facultyid,
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label, "es")),
-    [faculties],
-  );
-
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [userRows, facultyRows] = await Promise.all([
-        listLeaderUsers(),
-        getFaculties(),
-      ]);
-      setRows(userRows);
-      setFaculties(facultyRows);
+      setRows(await listLeaderUsers());
     } catch (error) {
       console.error("Error cargando usuarios líderes", error);
     } finally {
@@ -123,10 +104,9 @@ function AdminLeaderUsersPage() {
   const resetForm = () => {
     setEmail("");
     setRole({
-      label: USER_ROLES.DIDE_DESIGNER,
-      value: USER_ROLES.DIDE_DESIGNER,
+      label: USER_ROLES.DIDE_COORDINATOR,
+      value: USER_ROLES.DIDE_COORDINATOR,
     });
-    setFaculty(null);
   };
 
   const handleCreate = async () => {
@@ -139,7 +119,6 @@ function AdminLeaderUsersPage() {
           createLeaderUser({
             email: emailCheck.value,
             roleName: role.value,
-            facultyId: faculty?.value,
           }),
         {
           successTitle: "Usuario registrado",
@@ -147,7 +126,7 @@ function AdminLeaderUsersPage() {
             "El rol global quedó activo en Leaders Users. Si estaba inactivo, se reactivó.",
           errorTitle: "No se pudo registrar",
           errorMessage:
-            "Verifica el correo, el rol en Dataverse y los permisos de la tabla.",
+            "Verifique el correo, el rol en Dataverse y los permisos de la tabla.",
           onSuccess: async () => {
             setModalOpen(false);
             resetForm();
@@ -163,7 +142,7 @@ function AdminLeaderUsersPage() {
 
   const handleDeactivate = async (row: LeaderUserRow) => {
     const confirmed = window.confirm(
-      `¿Inactivar a ${row.email} con el rol "${row.roleName}"?\n\nEl usuario dejará de tener ese rol global. Puedes reactivarlo después.`,
+      `¿Inactivar a ${row.email} con el rol "${row.roleName}"?\n\nEl usuario dejará de tener ese rol global. Puede reactivarlo posteriormente.`,
     );
     if (!confirmed) return;
 
@@ -172,7 +151,7 @@ function AdminLeaderUsersPage() {
       successMessage:
         "El registro sigue en Leaders Users, pero ya no otorga el rol.",
       errorTitle: "No se pudo inactivar",
-      errorMessage: "Intenta de nuevo o revisa permisos en Dataverse.",
+      errorMessage: "Intente nuevamente o verifique los permisos en Dataverse.",
       onSuccess: async () => {
         await loadData();
       },
@@ -184,7 +163,7 @@ function AdminLeaderUsersPage() {
       successTitle: "Usuario reactivado",
       successMessage: "El rol global vuelve a estar activo para ese correo.",
       errorTitle: "No se pudo reactivar",
-      errorMessage: "Intenta de nuevo o revisa permisos en Dataverse.",
+      errorMessage: "Intente nuevamente o verifique los permisos en Dataverse.",
       onSuccess: async () => {
         await loadData();
       },
@@ -195,7 +174,7 @@ function AdminLeaderUsersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Usuarios líderes"
-        description="Asigna roles globales. Inactivar quita el acceso sin borrar el registro."
+        description="Roles globales: Coordinador DIDE, Coordinador Diseñador y Administrador. El Líder de virtualización se asigna por proceso."
         badge="Administración"
         actions={
           <Button size="sm" onClick={() => setModalOpen(true)}>
@@ -235,7 +214,6 @@ function AdminLeaderUsersPage() {
         columns={[
           { key: "email", header: "Correo" },
           { key: "roleName", header: "Rol" },
-          { key: "facultyName", header: "Facultad" },
           {
             key: "isActive",
             header: "Estado",
@@ -278,7 +256,7 @@ function AdminLeaderUsersPage() {
           },
         ]}
         data={filteredRows}
-        searchKeys={["email", "roleName", "facultyName"]}
+        searchKeys={["email", "roleName"]}
         emptyMessage={
           statusFilter === "inactive"
             ? "No hay usuarios inactivos"
@@ -320,20 +298,7 @@ function AdminLeaderUsersPage() {
               options={roleOptions}
               value={role}
               onChange={setRole}
-              placeholder="Selecciona rol"
-              disabled={submitting}
-            />
-          </FormField>
-
-          <FormField
-            label="Facultad (opcional)"
-            hint="Útil para acotar líderes o coordinadores a una facultad."
-          >
-            <Select
-              options={facultyOptions}
-              value={faculty}
-              onChange={setFaculty}
-              placeholder="Sin facultad"
+              placeholder="Seleccione rol"
               disabled={submitting}
             />
           </FormField>

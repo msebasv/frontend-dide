@@ -465,7 +465,7 @@ function StatisticsFiltersBar({
             <div>
               <h3 className="text-sm font-semibold text-primary">Estados</h3>
               <p className="mt-0.5 text-xs text-muted">
-                Sin selección = todos. Puedes marcar varios.
+                Sin selección = todos. Puede marcar varios.
               </p>
             </div>
 

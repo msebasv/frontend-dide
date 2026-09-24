@@ -14,7 +14,6 @@ export const Dev_tableleaderusersesstatuscode = {
 export type Dev_tableleaderusersesstatuscode = keyof typeof Dev_tableleaderusersesstatuscode;
 
 export interface Dev_tableleaderusersesBase {
-  "dev_tablefaculty@odata.bind"?: string;
   dev_tableleaderusersid: string;
   "dev_tablerole@odata.bind": string;
   dev_useremail?: string;
@@ -34,7 +33,6 @@ export interface Dev_tableleaderuserses extends Dev_tableleaderusersesBase {
   createdon?: string;
   createdonbehalfbyname?: string;
   createdonbehalfbyyominame: string;
-  dev_tablefacultyname?: string;
   dev_tablerolename?: string;
   modifiedbyname?: string;
   modifiedbyyominame: string;
@@ -51,8 +49,6 @@ export interface Dev_tableleaderuserses extends Dev_tableleaderusersesBase {
   _createdby_value?: string;
   createdonbehalfby?: object;
   _createdonbehalfby_value?: string;
-  dev_tablefaculty?: object;
-  _dev_tablefaculty_value?: string;
   dev_tablerole?: object;
   _dev_tablerole_value?: string;
   modifiedby?: object;

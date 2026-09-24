@@ -61,7 +61,7 @@ export const getTrackingColumns = (): Column<ProcessTrackingRow>[] => [
   {
     key: "phase",
     header: "Fase",
-    render: (row) => <ProcessStatus status={row.phase} />,
+    render: (row) => <ProcessStatus status={row.phase} compact />,
   },
   {
     key: "authorStatusLabel",

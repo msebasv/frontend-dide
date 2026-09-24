@@ -72,6 +72,38 @@
           "required": true,
           "maxLength": 100
         },
+        "dev_blockslaterphases": {
+          "type": "string",
+          "title": "blocks-later-phases",
+          "x-ms-dataverse-attribute": "dev_blockslaterphases",
+          "x-ms-dataverse-type": "BooleanType",
+          "x-ms-schema-name": "dev_blockslaterphases",
+          "required": true,
+          "enum": [
+            "No",
+            "Yes"
+          ],
+          "x-ms-enum-values": [
+            0,
+            1
+          ],
+          "Color": [
+            null,
+            null
+          ],
+          "x-ms-optionsetmetadataid": "1bb026af-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-isGlobal": false,
+          "x-ms-optionsetdisplayname": "blocks-later-phases",
+          "x-ms-optionSetType": "Boolean"
+        },
+        "dev_blockslaterphasesname": {
+          "type": "string",
+          "title": "dev_blockslaterphasesname",
+          "x-ms-dataverse-attribute": "dev_blockslaterphasesname",
+          "x-ms-dataverse-type": "VirtualType",
+          "x-ms-schema-name": "dev_blockslaterphasesName",
+          "x-ms-read-only": true
+        },
         "dev_conditionactivity": {
           "type": "string",
           "title": "condition-activity",
@@ -88,6 +120,50 @@
           "x-ms-schema-name": "dev_conditionactivityName",
           "x-ms-read-only": true,
           "maxLength": 850
+        },
+        "dev_deliverablestateonenter": {
+          "type": "string",
+          "title": "deliverable-state-on-enter",
+          "x-ms-dataverse-attribute": "dev_deliverablestateonenter",
+          "x-ms-dataverse-type": "PicklistType",
+          "x-ms-schema-name": "dev_deliverablestateonenter",
+          "required": true,
+          "enum": [
+            "Pendiente",
+            "En etapa 2",
+            "Etapa 2 aprobada",
+            "En etapa 3",
+            "Aprobado",
+            "No iniciado"
+          ],
+          "x-ms-enum-values": [
+            775730000,
+            775730001,
+            775730002,
+            775730003,
+            775730004,
+            775730005
+          ],
+          "Color": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "x-ms-optionsetmetadataid": "16b1ffc7-44e5-4698-a6f5-7a12273136dd",
+          "x-ms-isGlobal": true,
+          "x-ms-optionsetdisplayname": "dev_deliverablestate",
+          "x-ms-optionSetType": "Picklist"
+        },
+        "dev_deliverablestateonentername": {
+          "type": "string",
+          "title": "dev_deliverablestateonentername",
+          "x-ms-dataverse-attribute": "dev_deliverablestateonentername",
+          "x-ms-dataverse-type": "VirtualType",
+          "x-ms-schema-name": "dev_deliverablestateonenterName",
+          "x-ms-read-only": true
         },
         "dev_ismandatory": {
           "type": "string",
@@ -107,7 +183,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "080e4594-8842-f111-bec7-002248df1759",
+          "x-ms-optionsetmetadataid": "1fb026af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "is-mandatory",
           "x-ms-optionSetType": "Boolean"
@@ -155,7 +231,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "2ec2d240-679f-f111-b8de-002248e028e8",
+          "x-ms-optionsetmetadataid": "6f13d521-32cb-47c2-9178-f4a061462eb0",
           "x-ms-isGlobal": true,
           "x-ms-optionsetdisplayname": "dev_scope",
           "x-ms-optionSetType": "Picklist"
@@ -343,7 +419,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "d199e9e0-d589-4772-a98f-db03bfefd501",
+          "x-ms-optionsetmetadataid": "dfaf26af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -374,7 +450,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "b9cb1249-f62d-4fae-8454-5b93393bb4c1",
+          "x-ms-optionsetmetadataid": "e9af26af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"
@@ -413,7 +489,9 @@
       "required": [
         "createdbyyominame",
         "createdonbehalfbyyominame",
+        "dev_blockslaterphases",
         "dev_conditionactivity",
+        "dev_deliverablestateonenter",
         "dev_scope",
         "dev_tablephasetemplateid",
         "modifiedbyyominame",

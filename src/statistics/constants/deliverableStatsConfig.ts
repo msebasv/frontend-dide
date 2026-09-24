@@ -1,21 +1,50 @@
 /**
  * Estados de entregable para gráficas y KPIs de estadísticas.
+ * Misma paleta sólida del dashboard (#d97706 · #004040 · #86c127 · …).
  */
+import { DELIVERABLE_STATES } from "../../global/constants/domainConstants";
+
 export const DELIVERABLE_STATS_CONFIG = [
-  { key: "Pendiente", label: "Pendiente", color: "#d97706", bucket: "pending" as const },
-  { key: "No iniciado", label: "No iniciado", color: "#9ca3af", bucket: "pending" as const },
-  { key: "En etapa 2", label: "En etapa 2", color: "#0284c7", bucket: "inReview" as const },
   {
-    key: "Etapa 2 aprobada",
-    label: "Etapa 2 aprobada",
-    color: "#0ea5e9",
+    key: DELIVERABLE_STATES.PENDING,
+    label: DELIVERABLE_STATES.PENDING,
+    color: "#d97706",
+    bucket: "pending" as const,
+  },
+  {
+    key: DELIVERABLE_STATES.NOT_STARTED,
+    label: DELIVERABLE_STATES.NOT_STARTED,
+    color: "#6b7a72",
+    bucket: "pending" as const,
+  },
+  {
+    key: DELIVERABLE_STATES.STAGE_2,
+    label: DELIVERABLE_STATES.STAGE_2,
+    color: "#004040",
     bucket: "inReview" as const,
   },
-  { key: "En etapa 3", label: "En etapa 3", color: "#7c3aed", bucket: "inReview" as const },
-  { key: "Aprobado", label: "Aprobado", color: "#86c127", bucket: "approved" as const },
+  {
+    key: DELIVERABLE_STATES.STAGE_2_APPROVED,
+    label: DELIVERABLE_STATES.STAGE_2_APPROVED,
+    color: "#005555",
+    bucket: "inReview" as const,
+  },
+  {
+    key: DELIVERABLE_STATES.STAGE_3,
+    label: DELIVERABLE_STATES.STAGE_3,
+    color: "#5ea018",
+    bucket: "inReview" as const,
+  },
+  {
+    key: DELIVERABLE_STATES.APPROVED,
+    label: DELIVERABLE_STATES.APPROVED,
+    color: "#86c127",
+    bucket: "approved" as const,
+  },
 ] as const;
 
-export type DeliverableStatBucket = (typeof DELIVERABLE_STATS_CONFIG)[number]["bucket"];
+export type DeliverableStatBucket =
+  (typeof DELIVERABLE_STATS_CONFIG)[number]["bucket"];
 
 export const resolveDeliverableStatBucket = (
   stateLabel: string,

@@ -1,29 +1,27 @@
 /**
- * Servicio de cursos — capa de acceso a datos y acciones de negocio.
+ * Servicio de cursos — acciones sobre material (cargue / validación / aula).
  *
- * Responsabilidades:
- * - Lectura: procesos, cursos, entregables (vía fetchBaseData + mappers).
- * - Escritura: crear curso/proceso, cargar material, aprobar/devolver validaciones.
- * - Orquestación de flujos Power Automate (fl-dev-cu-activity, fl-dev-c-temp-folder).
- *
- * Patrón: este archivo habla con `generated/` y delega transformación a mappers.
+ * Consultas → courseQueryService.ts (re-exportadas abajo).
+ * Mutaciones de proceso → processVirtualization/services/processMutationService.ts
+ *   (re-exportadas abajo).
  */
-import { Dev_tableassignrolesService } from "../../generated/services/Dev_tableassignrolesService";
+import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
+import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
+import { Dev_tablephasetemplatesService } from "../../generated/services/Dev_tablephasetemplatesService";
+import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
+import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
 import { Dev_tablevirtualizationprocessesService } from "../../generated/services/Dev_tablevirtualizationprocessesService";
-import { Dev_tablecourseinstancesService } from "../../generated/services/Dev_tablecourseinstancesService";
-import { Dev_table_programsService } from "../../generated/services/Dev_table_programsService";
-import { Dev_table_facultiesService } from "../../generated/services/Dev_table_facultiesService";
-import { Fl_dev_c_course_instanceService } from "../../generated/services/Fl_dev_c_course_instanceService";
-import { Fl_dev_cu_virtualization_processService } from "../../generated/services/Fl_dev_cu_virtualization_processService";
 import { Fl_dev_c_temp_folderService } from "../../generated/services/Fl_dev_c_temp_folderService";
 import { Fl_dev_cu_activityService } from "../../generated/services/Fl_dev_cu_activityService";
 import type { ManualTriggerInput } from "../../generated/models/Fl_dev_cu_activityModel";
 import type { ResponseActionOutput } from "../../generated/models/Fl_dev_c_temp_folderModel";
+import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import { fileToBase64 } from "../../global/utils/fileUtils";
 import {
   assertFlowResult,
   runFlowAndConfirm,
 } from "../../global/utils/flowResult";
+import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
   assertSafeDescription,
   assertSafeFiles,
@@ -31,141 +29,42 @@ import {
   assertSafeWordGuide,
   escapeODataString,
   sanitizeFileName,
-  validateOrganizationEmail,
 } from "../../global/utils/inputValidation";
-import { buildProcessDisplayName } from "../../global/utils/processNameUtils";
-import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
-import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
-import { Dev_tablerolesService } from "../../generated/services/Dev_tablerolesService";
-import { Dev_tablephasetemplatesService } from "../../generated/services/Dev_tablephasetemplatesService";
-import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
-import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
-
-import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
-
 import {
-  mapCoursesForUser,
-  mapCourseDetail,
   getValidationTargetPhaseName,
   isAdvisorRole,
   isDideDesignerRole,
+  type PhaseWithFormatted,
 } from "../mappers/courseMappers";
-import { findRoleId } from "../utils/roleUtils";
-
-import type { Course, CourseDetail } from "../types/course.types";
 import { getRecordTimestamp } from "../../global/utils/dateUtils";
-import type { ProcessEditData } from "../../processVirtualization/types/process.types";
-import { PROCESS_PHASES } from "../../global/constants/domainConstants";
+import {
+  isProcessCloseReady,
+  PROCESS_PHASES,
+} from "../../global/constants/domainConstants";
+import { getProcessForEdit } from "./courseQueryService";
 
-/**
- * Carga en paralelo todas las tablas base necesarias para mapear procesos.
- * Se reutiliza en lecturas para evitar múltiples round-trips secuenciales.
- */
-const fetchBaseData = async () => {
-  const [
-    assignRolesResult,
-    processesResult,
-    coursesResult,
-    programsResult,
-    facultiesResult,
-    phasesResult,
-    activitiesResult,
-    activityTemplatesResult,
-  ] = await Promise.all([
-    Dev_tableassignrolesService.getAll(),
-    Dev_tablevirtualizationprocessesService.getAll(),
-    Dev_tablecourseinstancesService.getAll(),
-    Dev_table_programsService.getAll(),
-    Dev_table_facultiesService.getAll(),
-    Dev_tablephasesService.getAll(),
-    Dev_tableactivitiesService.getAll(),
-    Dev_tableactivitytemplatesService.getAll(),
-  ]);
+/* ── Re-exports de compatibilidad ── */
+export {
+  getCoursesForUser,
+  getCourseDetail,
+  getFaculties,
+  getPrograms,
+  getAvailableCourses,
+  getProcessNames,
+  getRoles,
+  getAssignRolesUsers,
+  getProcessForEdit,
+} from "./courseQueryService";
 
-  return {
-    assignRoles: assignRolesResult.data ?? [],
-    processes: processesResult.data ?? [],
-    courses: coursesResult.data ?? [],
-    programs: programsResult.data ?? [],
-    faculties: facultiesResult.data ?? [],
-    phases: phasesResult.data ?? [],
-    activities: activitiesResult.data ?? [],
-    activityTemplates: activityTemplatesResult.data ?? [],
-  };
-};
+export {
+  createCourseInstance,
+  createVirtualizationProcess,
+  updateVirtualizationProcess,
+  assignProcessValidator,
+  assignProcessDideDesigner,
+} from "../../processVirtualization/services/processMutationService";
 
-/** Procesos asignados al usuario según su rol activo. */
-export const getCoursesForUser = async (
-  userEmail: string,
-  userRole: string,
-): Promise<Course[]> => {
-  const [data, deliverablesResult] = await Promise.all([
-    fetchBaseData(),
-    Dev_tabledeliverablesService.getAll({
-      filter: "statecode eq 0",
-    }).catch(() => ({ data: [] })),
-  ]);
-
-  return mapCoursesForUser({
-    ...data,
-    deliverables: deliverablesResult.data ?? [],
-    userEmail,
-    userRole,
-  });
-};
-
-/** Detalle completo de un proceso: metadatos + materiales cargados. */
-export const getCourseDetail = async (
-  processId: string,
-): Promise<CourseDetail | null> => {
-  const [data, deliverablesRes] = await Promise.all([
-    fetchBaseData(),
-    Dev_tabledeliverablesService.getAll({
-      filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId.trim())}' and statecode eq 0`,
-    }).catch(() => ({ data: [] })),
-  ]);
-
-  const process = data.processes.find(
-    (p) => p.dev_tablevirtualizationprocessid === processId,
-  );
-  if (!process) return null;
-
-  const course = data.courses.find(
-    (c) => c.dev_tablecourseinstanceid === process._dev_tablecourse_value,
-  );
-  const program = data.programs.find(
-    (p) => p.dev_table_programid === course?._dev_tableprogram_value,
-  );
-  const faculty = data.faculties.find(
-    (f) => f.dev_table_facultyid === program?._dev_table_faculty_value,
-  );
-  const phases = data.phases.filter(
-    (p) => p._dev_tablevirtualizationprocess_value === processId,
-  );
-
-  return mapCourseDetail({
-    process,
-    course,
-    program,
-    faculty,
-    phases,
-    activities: data.activities,
-    activityTemplates: data.activityTemplates,
-    assignRoles: data.assignRoles,
-    deliverables: deliverablesRes.data ?? [],
-  });
-};
-
-type PhaseWithFormatted = Dev_tablephases & {
-  "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
-};
-
-const normalizePhaseName = (name: string): string =>
-  name
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+const normalizePhaseName = normalizeComparableText;
 
 const matchesPhaseName = (value: string | undefined, target: string): boolean =>
   normalizePhaseName(value ?? "") === normalizePhaseName(target);
@@ -349,7 +248,8 @@ const runCuActivityFlow = async (params: {
   };
 
   input.boolean = params.approved;
-  if (params.filesJson) {
+  if (params.filesJson !== undefined) {
+    // text_3 → documents. Diseñador DIDE envía "null" (sin rutas SharePoint).
     input.text_3 = params.filesJson;
   }
   if (params.observations) {
@@ -388,7 +288,7 @@ const runCuActivityFlow = async (params: {
     timeoutMs: 120_000,
     intervalMs: 2_000,
     timeoutMessage:
-      "La solicitud se envió, pero aún no se confirma el cambio en el sistema. Revisa el curso en unos minutos.",
+      "La solicitud se envió correctamente; el cambio aún no se refleja en el sistema. Consulte el curso en unos minutos.",
   });
 };
 
@@ -509,36 +409,61 @@ const uploadTempFiles = async (
 export const approveCourseMaterial = async (params: {
   processId: string;
   userRole: string;
-  /** Actividad en revisión: carpeta destino del Word adjunto. */
+  /** Actividad en revisión: carpeta destino si se adjuntan archivos. */
   activityId?: string;
   /** Entregable (categoría × crédito). Preparado para flujo por material. */
   deliverableId?: string;
-  /**
-   * Word obligatorio para asesor pedagógico (guía instruccional)
-   * y diseñador DIDE (documento de aprobación).
-   */
+  /** Archivos opcionales (el asesor ya no adjunta el guión al aprobar). */
   files?: File[];
+  /**
+   * Observaciones de aprobación (diseñador DIDE: texto plano en observations;
+   * documents / text_3 = null).
+   */
   observations?: string;
+  /**
+   * Estado actual del entregable/proceso: permite al asesor usar la plantilla
+   * correcta (revisión pedagógica vs aprobar material audiovisual DIDE).
+   */
+  currentStatus?: string;
 }): Promise<void> => {
-  const targetPhaseName = getValidationTargetPhaseName(params.userRole, true);
+  const targetPhaseName = getValidationTargetPhaseName(
+    params.userRole,
+    true,
+    params.currentStatus,
+  );
   const templateActivityId = await resolveActivityTemplateId(
     targetPhaseName,
     params.processId,
     params.deliverableId,
   );
 
-  const requiresWordGuide =
-    isAdvisorRole(params.userRole) || isDideDesignerRole(params.userRole);
+  const isDideDesigner = isDideDesignerRole(params.userRole);
 
-  let filePathsJson: string | undefined;
-  if (requiresWordGuide) {
-    const guideFiles = assertSafeWordGuide(params.files ?? []);
-    const paths = await uploadTempFiles(guideFiles, {
-      processId: params.processId,
-      activityId: params.activityId,
+  /**
+   * Diseñador DIDE: sin temp-folder.
+   * text (observations) = texto plano; text_3 (documents) = null.
+   */
+  if (isDideDesigner) {
+    const text = assertSafeDescription(params.observations ?? "", {
+      required: true,
+      label: "Las observaciones",
+      allowUrls: true,
     });
-    filePathsJson = JSON.stringify(paths);
-  } else if (params.files?.length) {
+
+    await runCuActivityFlow({
+      processId: params.processId,
+      templateActivityId,
+      approved: false,
+      filesJson: "null",
+      observations: text,
+      deliverableId: params.deliverableId,
+    });
+    return;
+  }
+
+  // Asesor y validador: aprobación sin archivo (salvo archivos opcionales legacy).
+  let filePathsJson: string | undefined;
+  if (!isAdvisorRole(params.userRole) && params.files?.length) {
     const files = assertSafeFiles(params.files);
     const paths = await uploadTempFiles(files, {
       processId: params.processId,
@@ -547,25 +472,24 @@ export const approveCourseMaterial = async (params: {
     filePathsJson = JSON.stringify(paths);
   }
 
-  const observations = params.observations
-    ? assertSafeDescription(params.observations, {
-        label: "Las observaciones",
-      })
-    : undefined;
+  const text = assertSafeDescription(params.observations ?? "", {
+    required: false,
+    label: "Las observaciones",
+  });
 
   await runCuActivityFlow({
     processId: params.processId,
     templateActivityId,
     approved: true,
     filesJson: filePathsJson,
-    observations: observations || undefined,
+    observations: text || undefined,
     deliverableId: params.deliverableId,
   });
 };
 
 /**
- * @deprecated Preferir approveCourseMaterial con Word.
- * Compatibilidad: Diseñador DIDE ahora aprueba con archivo vía approve.
+ * @deprecated Preferir approveCourseMaterial.
+ * Compatibilidad: Diseñador DIDE ahora aprueba con observaciones vía approve.
  */
 export const finalizeCourseMaterial = async (params: {
   processId: string;
@@ -574,6 +498,53 @@ export const finalizeCourseMaterial = async (params: {
   files?: File[];
 }): Promise<void> => {
   await approveCourseMaterial(params);
+};
+
+/**
+ * Líder de virtualización: confirma el cargue en el aula.
+ * Requiere que el estado ya sea "Validación Cargue en el Aula".
+ * text_3 (documents) = "[]"; text_4 (deliverable-id) = "null".
+ *
+ * Al completar, el flujo marca close-ready (dev_closeready) en true
+ * sobre el virtualization-process (ya no usa Status Reason Closed).
+ */
+export const confirmClassroomUpload = async (params: {
+  processId: string;
+}): Promise<void> => {
+  const processId = params.processId.trim();
+  if (!processId) {
+    throw new Error("Falta el identificador del proceso.");
+  }
+
+  const templateActivityId = await resolveActivityTemplateId(
+    PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM,
+    processId,
+  );
+
+  const input: ManualTriggerInput = {
+    text_1: processId,
+    text_2: templateActivityId,
+    boolean: true,
+    text_3: "[]",
+    text_4: "null",
+  };
+
+  await runFlowAndConfirm(() => Fl_dev_cu_activityService.Run(input), {
+    actionLabel: "confirmación de cargue en el aula",
+    confirm: async () => {
+      const processResult =
+        await Dev_tablevirtualizationprocessesService.get(processId);
+      const process = processResult.data;
+      return isProcessCloseReady(
+        process?.dev_closeready,
+        process?.dev_closereadyname,
+      );
+    },
+    timeoutMs: 120_000,
+    intervalMs: 2_000,
+    timeoutMessage:
+      "La confirmación se envió correctamente; el proceso aún no figura como finalizado. Consulte el estado en unos minutos.",
+  });
 };
 
 export const returnCourseMaterial = async (params: {
@@ -585,12 +556,18 @@ export const returnCourseMaterial = async (params: {
   deliverableId?: string;
   comments?: string;
   files?: File[];
+  /** Estado actual del entregable (asesor: revisión vs audiovisual DIDE). */
+  currentStatus?: string;
 }): Promise<void> => {
   if (isDideDesignerRole(params.userRole)) {
     throw new Error("El diseñador DIDE no puede devolver material.");
   }
 
-  const targetPhaseName = getValidationTargetPhaseName(params.userRole, false);
+  const targetPhaseName = getValidationTargetPhaseName(
+    params.userRole,
+    false,
+    params.currentStatus,
+  );
   const templateActivityId = await resolveActivityTemplateId(
     targetPhaseName,
     params.processId,
@@ -622,371 +599,6 @@ export const returnCourseMaterial = async (params: {
   });
 };
 
-export const getFaculties = async () => {
-  const result = await Dev_table_facultiesService.getAll();
-  return result.data ?? [];
-};
-
-export const getPrograms = async () => {
-  const result = await Dev_table_programsService.getAll();
-  return result.data ?? [];
-};
-
-export const getAvailableCourses = async () => {
-  const result = await Dev_tablecourseinstancesService.getAll();
-  return result.data ?? [];
-};
-
-/** Nombres de procesos existentes (para preview / consecutivo global). */
-export const getProcessNames = async (): Promise<string[]> => {
-  const result = await Dev_tablevirtualizationprocessesService.getAll();
-  return (result.data ?? [])
-    .map((process) => process.dev_nameprocess?.trim() ?? "")
-    .filter(Boolean);
-};
-
-export const getRoles = async () => {
-  const result = await Dev_tablerolesService.getAll();
-  return result.data ?? [];
-};
-
-export const getAssignRolesUsers = async () => {
-  const result = await Dev_tableassignrolesService.getAll();
-  return result.data ?? [];
-};
-
-export const createCourseInstance = async (
-  courseName: string,
-  programId: string,
-): Promise<void> => {
-  const trimmedName = assertSafeTitle(courseName, "El nombre del curso");
-
-  const beforeResult = await Dev_tablecourseinstancesService.getAll();
-  const idsBefore = new Set(
-    (beforeResult.data ?? []).map(
-      (course) => course.dev_tablecourseinstanceid,
-    ),
-  );
-
-  await runFlowAndConfirm(
-    () =>
-      Fl_dev_c_course_instanceService.Run({
-        text: trimmedName,
-        text_1: programId,
-      }),
-    {
-      actionLabel: "creación de curso",
-      confirm: async () => {
-        const coursesResult = await Dev_tablecourseinstancesService.getAll();
-        return (coursesResult.data ?? []).some((course) => {
-          const id = course.dev_tablecourseinstanceid;
-          const nameMatches =
-            course.dev_namecourse?.trim().toLowerCase() ===
-            trimmedName.toLowerCase();
-          return Boolean(id) && nameMatches && !idsBefore.has(id);
-        });
-      },
-      timeoutMs: 90_000,
-      intervalMs: 2_000,
-      timeoutMessage:
-        "El curso se envió a crear, pero aún no aparece en el sistema. Revisa en unos minutos o intenta de nuevo.",
-    },
-  );
-};
-
-export const createVirtualizationProcess = async (params: {
-  /** Nombre base escrito por el usuario (sin semestre ni código). */
-  processName: string;
-  courseId: string;
-  /** Créditos del proceso (fl-dev-cu-virtualization-process → number). */
-  credits: number;
-  leaderEmail: string;
-  authorEmail: string;
-  validatorEmail: string;
-  advisorEmail: string;
-  leaderRoleId: string;
-  authorRoleId: string;
-  validatorRoleId: string;
-  advisorRoleId: string;
-}): Promise<string> => {
-  const baseName = assertSafeTitle(
-    params.processName,
-    "El nombre del proceso",
-  );
-
-  const credits = Math.trunc(Number(params.credits));
-  if (!Number.isFinite(credits) || credits < 1) {
-    throw new Error("Los créditos deben ser un número entero mayor o igual a 1.");
-  }
-
-  const leaderEmail = validateOrganizationEmail(params.leaderEmail);
-  const authorEmail = validateOrganizationEmail(params.authorEmail);
-  const validatorEmail = validateOrganizationEmail(params.validatorEmail);
-  const advisorEmail = validateOrganizationEmail(params.advisorEmail);
-
-  if (
-    !leaderEmail.ok ||
-    !authorEmail.ok ||
-    !validatorEmail.ok ||
-    !advisorEmail.ok
-  ) {
-    throw new Error(
-      leaderEmail.message ||
-        authorEmail.message ||
-        validatorEmail.message ||
-        advisorEmail.message ||
-        "Correo institucional inválido.",
-    );
-  }
-
-  const assignedRoles = [
-    { Email: leaderEmail.value, RoleID: params.leaderRoleId },
-    { Email: authorEmail.value, RoleID: params.authorRoleId },
-    { Email: validatorEmail.value, RoleID: params.validatorRoleId },
-    { Email: advisorEmail.value, RoleID: params.advisorRoleId },
-  ];
-
-  const beforeResult = await Dev_tablevirtualizationprocessesService.getAll();
-  const existingNames = (beforeResult.data ?? [])
-    .map((process) => process.dev_nameprocess?.trim() ?? "")
-    .filter(Boolean);
-  const processName = buildProcessDisplayName(baseName, existingNames);
-
-  const idsBefore = new Set(
-    (beforeResult.data ?? []).map(
-      (process) => process.dev_tablevirtualizationprocessid,
-    ),
-  );
-
-  const findCreatedProcessId = async (): Promise<string | null> => {
-    const processesResult =
-      await Dev_tablevirtualizationprocessesService.getAll();
-
-    const created = (processesResult.data ?? []).find((process) => {
-      const id = process.dev_tablevirtualizationprocessid;
-      if (!id || idsBefore.has(id)) return false;
-
-      const nameMatches =
-        process.dev_nameprocess?.trim().toLowerCase() ===
-        processName.toLowerCase();
-      const courseMatches =
-        process._dev_tablecourse_value === params.courseId;
-
-      return nameMatches || courseMatches;
-    });
-
-    return created?.dev_tablevirtualizationprocessid ?? null;
-  };
-
-  await runFlowAndConfirm(
-    () =>
-      Fl_dev_cu_virtualization_processService.Run({
-        text: processName,
-        text_1: JSON.stringify(assignedRoles),
-        text_2: params.courseId,
-        text_3: "0",
-        number: credits,
-      }),
-    {
-      actionLabel: "creación de proceso",
-      confirm: async () => Boolean(await findCreatedProcessId()),
-      timeoutMs: 120_000,
-      intervalMs: 2_000,
-      timeoutMessage:
-        "El proceso se envió a crear, pero aún no aparece en el sistema. Si el flujo falló, no se habrá creado el registro.",
-    },
-  );
-
-  const processId = await findCreatedProcessId();
-  if (!processId) {
-    throw new Error(
-      "El proceso se creó, pero no se pudo obtener su identificador. Revisa la lista de procesos.",
-    );
-  }
-
-  return processId;
-};
-
-/** Carga nombre, curso y correos de roles para editar un proceso existente. */
-export const getProcessForEdit = async (
-  processId: string,
-): Promise<ProcessEditData | null> => {
-  const [processesResult, coursesResult, assignRolesResult, roles] =
-    await Promise.all([
-      Dev_tablevirtualizationprocessesService.getAll({
-        filter: `dev_tablevirtualizationprocessid eq '${escapeODataString(processId)}'`,
-      }),
-      Dev_tablecourseinstancesService.getAll(),
-      Dev_tableassignrolesService.getAll({
-        filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
-      }),
-      getRoles(),
-    ]);
-
-  const process = (processesResult.data ?? [])[0];
-  if (!process?.dev_tablevirtualizationprocessid) return null;
-
-  const courseId = process._dev_tablecourse_value ?? "";
-  const course = (coursesResult.data ?? []).find(
-    (item) => item.dev_tablecourseinstanceid === courseId,
-  );
-
-  const authorRoleId = findRoleId(roles, [
-    "Autor de asignatura",
-    "Autor de Asignatura",
-  ]);
-  const validatorRoleId = findRoleId(roles, [
-    "Validador disciplinar",
-    "Validador Disciplinar",
-  ]);
-  const advisorRoleId = findRoleId(roles, ["Asesor pedagógico"]);
-  const leaderRoleId = findRoleId(roles, [
-    "Líder de virtualización",
-    "Lider de virtualizacion",
-    "Líder de Virtualización",
-  ]);
-
-  const assignments = assignRolesResult.data ?? [];
-  const emailForRole = (roleId: string) =>
-    assignments.find((item) => item._dev_tablerole_value === roleId)?.dev_person
-      ?.trim() ?? "";
-
-  return {
-    processId: process.dev_tablevirtualizationprocessid,
-    processName: process.dev_nameprocess?.trim() ?? "",
-    courseId,
-    courseName: course?.dev_namecourse?.trim() ?? "Sin nombre",
-    credits:
-      typeof process.dev_credits === "number" &&
-      Number.isFinite(process.dev_credits)
-        ? process.dev_credits
-        : 0,
-    leaderEmail: emailForRole(leaderRoleId),
-    authorEmail: emailForRole(authorRoleId),
-    validatorEmail: emailForRole(validatorRoleId),
-    advisorEmail: emailForRole(advisorRoleId),
-  };
-};
-
-/** Actualiza nombre y asignación de roles de un proceso (flujo create/update). */
-export const updateVirtualizationProcess = async (params: {
-  processId: string;
-  /** Nombre completo final del proceso (incluye semestre y código). */
-  processName: string;
-  courseId: string;
-  /** Créditos del proceso (fl-dev-cu-virtualization-process → number). */
-  credits: number;
-  leaderEmail: string;
-  authorEmail: string;
-  validatorEmail: string;
-  advisorEmail: string;
-  leaderRoleId: string;
-  authorRoleId: string;
-  validatorRoleId: string;
-  advisorRoleId: string;
-}): Promise<void> => {
-  // En actualización el flujo exige id-process (text_3) con el GUID real.
-  // En creación se envía "0".
-  const processId = params.processId.trim();
-  if (!processId || processId === "0") {
-    throw new Error(
-      "Falta el identificador del proceso (id-process) para actualizar.",
-    );
-  }
-
-  const processName = assertSafeTitle(
-    params.processName,
-    "El nombre del proceso",
-  );
-
-  const credits = Math.trunc(Number(params.credits));
-  if (!Number.isFinite(credits) || credits < 1) {
-    throw new Error("Los créditos deben ser un número entero mayor o igual a 1.");
-  }
-
-  const leaderEmail = validateOrganizationEmail(params.leaderEmail);
-  const authorEmail = validateOrganizationEmail(params.authorEmail);
-  const validatorEmail = validateOrganizationEmail(params.validatorEmail);
-  const advisorEmail = validateOrganizationEmail(params.advisorEmail);
-
-  if (
-    !leaderEmail.ok ||
-    !authorEmail.ok ||
-    !validatorEmail.ok ||
-    !advisorEmail.ok
-  ) {
-    throw new Error(
-      leaderEmail.message ||
-        authorEmail.message ||
-        validatorEmail.message ||
-        advisorEmail.message ||
-        "Correo institucional inválido.",
-    );
-  }
-
-  if (!params.courseId.trim()) {
-    throw new Error("El proceso no tiene un curso asociado.");
-  }
-
-  const assignedRoles = [
-    { Email: leaderEmail.value, RoleID: params.leaderRoleId },
-    { Email: authorEmail.value, RoleID: params.authorRoleId },
-    { Email: validatorEmail.value, RoleID: params.validatorRoleId },
-    { Email: advisorEmail.value, RoleID: params.advisorRoleId },
-  ];
-
-  const expectedEmails = new Set(
-    [
-      leaderEmail.value,
-      authorEmail.value,
-      validatorEmail.value,
-      advisorEmail.value,
-    ].map((email) => email.trim().toLowerCase()),
-  );
-
-  await runFlowAndConfirm(
-    () =>
-      Fl_dev_cu_virtualization_processService.Run({
-        text: processName,
-        text_1: JSON.stringify(assignedRoles),
-        text_2: params.courseId,
-        text_3: processId, // id-process
-        number: credits,
-      }),
-    {
-      actionLabel: "actualización de proceso",
-      confirm: async () => {
-        const [processResult, assignRolesResult] = await Promise.all([
-          Dev_tablevirtualizationprocessesService.get(processId),
-          Dev_tableassignrolesService.getAll({
-            filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
-          }),
-        ]);
-
-        const nameMatches =
-          processResult.data?.dev_nameprocess?.trim().toLowerCase() ===
-          processName.toLowerCase();
-
-        const assignedEmails = new Set(
-          (assignRolesResult.data ?? [])
-            .map((item) => item.dev_person?.trim().toLowerCase() ?? "")
-            .filter(Boolean),
-        );
-
-        const rolesMatch = [...expectedEmails].every((email) =>
-          assignedEmails.has(email),
-        );
-
-        return nameMatches && rolesMatch;
-      },
-      timeoutMs: 120_000,
-      intervalMs: 2_000,
-      timeoutMessage:
-        "La actualización se envió, pero aún no se refleja en el sistema. Revisa en unos minutos o intenta de nuevo.",
-    },
-  );
-};
-
 export const uploadCourseMaterial = async (params: {
   activityName: string;
   description: string;
@@ -996,6 +608,8 @@ export const uploadCourseMaterial = async (params: {
    * ID del entregable que se carga (incluyendo syllabus).
    */
   deliverableId?: string | null;
+  /** Rol activo: el asesor carga el guión en su fase propia. */
+  userRole?: string;
 }): Promise<void> => {
   const activityName = assertSafeTitle(
     params.activityName,
@@ -1004,11 +618,23 @@ export const uploadCourseMaterial = async (params: {
   const description = assertSafeDescription(params.description, {
     label: "La descripción",
   });
-  const files = assertSafeFiles(params.files, { required: true });
+  const isAdvisorGuide = isAdvisorRole(params.userRole ?? "");
+  const files = isAdvisorGuide
+    ? assertSafeWordGuide(params.files)
+    : assertSafeFiles(params.files, { required: true });
   const deliverableId = params.deliverableId ? params.deliverableId.trim() : null;
 
   if (!deliverableId) {
-    throw new Error("Debes seleccionar el tipo de material a cargar.");
+    throw new Error("Debe seleccionar el tipo de material a cargar.");
+  }
+
+  if (isAdvisorGuide) {
+    const editData = await getProcessForEdit(params.processId);
+    if (!editData?.designerEmail?.trim()) {
+      throw new Error(
+        "No es posible cargar el guión instruccional hasta que el Coordinador de Diseñadores asigne el Diseñador DIDE a este proceso.",
+      );
+    }
   }
 
   let isSyllabus = false;
@@ -1029,7 +655,9 @@ export const uploadCourseMaterial = async (params: {
 
   const targetPhaseName = isSyllabus
     ? PROCESS_PHASES.LEADER_SYLLABUS
-    : PROCESS_PHASES.AUTHOR_UPLOAD;
+    : isAdvisorGuide
+      ? PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD
+      : PROCESS_PHASES.AUTHOR_UPLOAD;
 
   const templateActivityId = await resolveActivityTemplateId(
     targetPhaseName,
@@ -1046,16 +674,22 @@ export const uploadCourseMaterial = async (params: {
     processId: params.processId,
   });
 
-  const observations = description
-    ? `${activityName}\n\n${description}`
-    : activityName;
+  const observations = isAdvisorGuide
+    ? description
+      ? `Guión instruccional\n\n${description}`
+      : "Guión instruccional"
+    : description
+      ? `${activityName}\n\n${description}`
+      : activityName;
 
   await runCuActivityFlow({
     processId: params.processId,
     templateActivityId,
+    // El guión del asesor es una entrega (no una aprobación de revisión).
     approved: false,
     filesJson: JSON.stringify(tempUploadResults),
     observations,
     deliverableId,
   });
 };
+

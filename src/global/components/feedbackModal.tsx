@@ -65,9 +65,11 @@ function FeedbackModal({
         >
           {title}
         </h2>
-        <p id="feedback-message" className="mt-2 text-sm text-muted">
-          {message}
-        </p>
+        {message.trim() ? (
+          <p id="feedback-message" className="mt-2 text-sm text-muted">
+            {message}
+          </p>
+        ) : null}
 
         <div className="mt-6 flex justify-center">
           <Button

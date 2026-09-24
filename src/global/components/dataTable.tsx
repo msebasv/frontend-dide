@@ -114,7 +114,7 @@ function DataTable<T>({
       <p className="text-sm font-medium text-gray-600">{emptyMessage}</p>
       {search && (
         <p className="text-xs text-muted">
-          Intenta con otro término de búsqueda
+          Intente con otro término de búsqueda
         </p>
       )}
     </div>
@@ -229,7 +229,7 @@ function DataTable<T>({
       </div>
 
       {/* Desktop: tabla */}
-      <div className="hidden overflow-x-auto md:block">
+      <div className="table-scroll hidden md:block">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-acacia-5">

@@ -80,7 +80,7 @@ function FileUpload({
       >
         <IoCloudUploadOutline size={32} className="text-gray-400" />
         <span className="text-sm text-gray-600">
-          Haz clic para seleccionar archivos
+          Seleccione archivos para cargar
         </span>
         <span className="text-xs text-gray-400">{helperText}</span>
       </button>

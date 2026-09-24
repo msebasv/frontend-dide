@@ -256,7 +256,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "9dfbfd38-a66e-44a2-8763-11121e4471aa",
+          "x-ms-optionsetmetadataid": "a4b026af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -287,7 +287,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "9d4f3e7a-e865-4fda-b7de-3dcb6680eaf8",
+          "x-ms-optionsetmetadataid": "aeb026af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

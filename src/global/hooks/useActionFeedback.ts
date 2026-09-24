@@ -64,7 +64,7 @@ export function useActionFeedback() {
           message: toFriendlyFlowError(
             error,
             options.errorMessage ??
-              "Ocurrió un error inesperado. Intenta nuevamente.",
+              "Ocurrió un error inesperado. Intente nuevamente.",
           ),
         });
       }

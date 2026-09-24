@@ -23,8 +23,13 @@ export interface Course {
   canUpload: boolean;
   /** true si el validador/asesor puede aprobar o devolver en la fase actual. */
   canValidate: boolean;
-  /** true si el diseñador DIDE puede aprobar (con Word) en la fase actual. */
+  /** true si el diseñador DIDE puede cargar (registrar enlaces) en la fase actual. */
   canFinalize: boolean;
+  /**
+   * true si el líder de virtualización puede confirmar el cargue en el aula
+   * (todas las categorías obligatorias ya pasaron por el audiovisual DIDE).
+   */
+  canConfirmClassroom?: boolean;
   /**
    * Conteo de entregables por fase (datos reales de Dataverse).
    * Si falta, la UI cae al estado único `status`.
@@ -98,6 +103,13 @@ export interface ProcessFile {
   activityIdPrefix?: string;
 }
 
+/** Persona asignada al proceso para un rol (desde assign-roles). */
+export interface CourseAssignedRole {
+  role: string;
+  name: string;
+  email: string;
+}
+
 /** Vista detallada de un proceso con sus materiales. */
 export interface CourseDetail {
   processId: string;
@@ -109,6 +121,8 @@ export interface CourseDetail {
   status: string;
   currentRole: string;
   materials: CourseMaterial[];
+  /** Líder, autor, validador disciplinar y asesor pedagógico del proceso. */
+  assignedRoles: CourseAssignedRole[];
 }
 
 /** Métricas agregadas para dashboards (autor, validador, líder). */

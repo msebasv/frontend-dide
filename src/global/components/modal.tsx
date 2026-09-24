@@ -49,13 +49,9 @@ const Modal = ({
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-gray-900/50 p-0 pt-[env(safe-area-inset-top)] sm:items-center sm:p-4"
-      onClick={handleClose}
-    >
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-gray-900/50 p-0 pt-[env(safe-area-inset-top)] sm:items-center sm:p-4">
       <div
         className={`flex max-h-[min(92dvh,100%)] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-xl sm:max-h-[90vh] sm:rounded-3xl ${sizeStyles[size]}`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-border bg-acacia-5 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex min-w-0 items-center gap-3">

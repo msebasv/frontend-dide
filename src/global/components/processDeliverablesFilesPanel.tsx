@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   IoDocumentTextOutline,
   IoFolderOpenOutline,
+  IoLinkOutline,
   IoOpenOutline,
   IoRefreshOutline,
 } from "react-icons/io5";
@@ -27,6 +28,7 @@ import {
   formatCreditFolderSegment,
   formatDeliverableSharePointLocation,
   listProcessDeliverableGroups,
+  pathLooksLikeAdvisorGuide,
   resolveDeliverableFilesFolder,
   type ProcessDeliverableGroup,
   type ProcessDeliverableItem,
@@ -44,6 +46,18 @@ interface ProcessDeliverablesFilesPanelProps {
   selectedDeliverable?: ProcessDeliverableItem | null;
   /** Oculta el selector interno de categorías (el padre lo controla). */
   hideNavigator?: boolean;
+  /**
+   * Si la actividad del guión no coincide por GUID en la carpeta,
+   * muestra archivos cuya ruta/carpeta de versión indique guión instruccional.
+   */
+  includeGuideFolderFallback?: boolean;
+  /** Enlaces audiovisuales del diseñador DIDE (no viven en SharePoint). */
+  audiovisualLinks?: string[];
+  /**
+   * Comentarios/notas del registro de enlaces (texto sin URLs).
+   * `undefined` = no es la vista de enlaces; string (aunque vacío) = sí lo es.
+   */
+  audiovisualNotes?: string;
 }
 
 function ProcessDeliverablesFilesPanel({
@@ -52,6 +66,9 @@ function ProcessDeliverablesFilesPanel({
   activityId,
   selectedDeliverable: controlledDeliverable,
   hideNavigator = false,
+  includeGuideFolderFallback = false,
+  audiovisualLinks = [],
+  audiovisualNotes,
 }: ProcessDeliverablesFilesPanelProps) {
   const [groups, setGroups] = useState<ProcessDeliverableGroup[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(!hideNavigator);
@@ -62,6 +79,9 @@ function ProcessDeliverablesFilesPanel({
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState("");
   const [selectedFileKey, setSelectedFileKey] = useState("");
+  const [selectedLinkIndex, setSelectedLinkIndex] = useState<number | null>(
+    null,
+  );
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewMimeType, setPreviewMimeType] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -193,17 +213,31 @@ function ProcessDeliverablesFilesPanel({
     }
 
     if (activityId) {
-      return scoped.filter((file) =>
+      const byActivity = scoped.filter((file) =>
         fileBelongsToActivity(
           file.connectorPath || file.path || "",
           activityId,
         ),
       );
+      if (byActivity.length > 0 || !includeGuideFolderFallback) {
+        return byActivity;
+      }
+      // Guión: si el GUID de actividad no está en la carpeta, buscar por nombre.
+      return scoped.filter((file) =>
+        pathLooksLikeAdvisorGuide(file.connectorPath || file.path || ""),
+      );
     }
 
     if (selectedDeliverable) return scoped;
     return [];
-  }, [allProcessFiles, selectedDeliverable, processId, folderBase, activityId]);
+  }, [
+    allProcessFiles,
+    selectedDeliverable,
+    processId,
+    folderBase,
+    activityId,
+    includeGuideFolderFallback,
+  ]);
 
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
@@ -227,6 +261,11 @@ function ProcessDeliverablesFilesPanel({
       setSelectedFileKey(getProcessFileKey(sortedFiles[0]));
     }
   }, [sortedFiles, selectedFileKey]);
+
+  const audiovisualLinksKey = audiovisualLinks.join("\0");
+  useEffect(() => {
+    setSelectedLinkIndex(null);
+  }, [activityId, audiovisualLinksKey]);
 
   const selectedFile =
     sortedFiles.find((file) => getProcessFileKey(file) === selectedFileKey) ??
@@ -271,6 +310,34 @@ function ProcessDeliverablesFilesPanel({
     window.open(file.previewUrl, "_blank", "noopener,noreferrer");
   };
 
+  const hasAudiovisualLinks = audiovisualLinks.length > 0;
+  const isAudiovisualView =
+    hasAudiovisualLinks || audiovisualNotes !== undefined;
+  const audiovisualNotesText = (audiovisualNotes ?? "").trim();
+  const selectedLink =
+    selectedLinkIndex != null
+      ? (audiovisualLinks[selectedLinkIndex] ?? null)
+      : null;
+
+  const hasListItems = sortedFiles.length > 0 || hasAudiovisualLinks;
+
+  const audiovisualNotesBlock = isAudiovisualView ? (
+    <div className="border-b border-border bg-acacia-5/50 px-4 py-3 sm:px-5">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+        Observaciones / comentarios
+      </p>
+      {audiovisualNotesText ? (
+        <p className="mt-1.5 whitespace-pre-line text-sm text-primary">
+          {audiovisualNotesText}
+        </p>
+      ) : (
+        <p className="mt-1.5 text-sm text-muted/80">
+          Sin comentarios adicionales en este registro.
+        </p>
+      )}
+    </div>
+  ) : null;
+
   const filesSection = (
     <div className="grid gap-0 lg:grid-cols-5">
       <div className="border-b border-border lg:col-span-2 lg:border-b-0 lg:border-r">
@@ -280,17 +347,19 @@ function ProcessDeliverablesFilesPanel({
           </div>
         ) : filesError ? (
           <p className="px-4 py-8 text-center text-sm text-muted">{filesError}</p>
-        ) : sortedFiles.length === 0 ? (
+        ) : !hasListItems ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
             <IoFolderOpenOutline className="text-gray-300" size={28} />
             <p className="text-sm font-medium text-primary">
-              {activityId
-                ? "No hay archivos para la actividad seleccionada"
-                : selectedDeliverable
-                ? "No hay archivos cargados para este entregable y crédito"
-                : "Selecciona un entregable para ver sus archivos"}
+              {isAudiovisualView
+                ? "No hay enlaces ni archivos en este registro"
+                : activityId
+                  ? "No hay archivos para la actividad seleccionada"
+                  : selectedDeliverable
+                    ? "No hay archivos cargados para este entregable y unidad"
+                    : "Seleccione un entregable para consultar sus archivos"}
             </p>
-            {filesLocationLabel ? (
+            {filesLocationLabel && !isAudiovisualView ? (
               <p className="font-mono text-[11px] text-muted/80">
                 {filesLocationLabel}
               </p>
@@ -298,6 +367,47 @@ function ProcessDeliverablesFilesPanel({
           </div>
         ) : (
           <ul className="divide-y divide-border-light">
+            {hasAudiovisualLinks
+              ? audiovisualLinks.map((link, index) => {
+                  const isSelected = selectedLinkIndex === index;
+                  return (
+                    <li key={`link-${index}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFileKey("");
+                          setSelectedLinkIndex(index);
+                        }}
+                        className={clsx(
+                          "flex w-full items-start gap-3 px-4 py-2.5 text-left text-sm transition-all",
+                          isSelected
+                            ? "border-l-[3px] border-l-primary bg-primary/5"
+                            : "hover:bg-gray-50/80",
+                        )}
+                      >
+                        <div
+                          className={clsx(
+                            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                            isSelected
+                              ? "bg-primary/10 text-primary"
+                              : "bg-gray-100 text-muted",
+                          )}
+                        >
+                          <IoLinkOutline size={16} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted">
+                            Enlace {index + 1}
+                          </span>
+                          <span className="mt-0.5 block break-all font-medium text-primary">
+                            {link}
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })
+              : null}
             {sortedFiles.map((file) => {
               const fileKey = getProcessFileKey(file);
               const isSelected = selectedFileKey === fileKey;
@@ -309,7 +419,10 @@ function ProcessDeliverablesFilesPanel({
                 <li key={fileKey}>
                   <button
                     type="button"
-                    onClick={() => setSelectedFileKey(fileKey)}
+                    onClick={() => {
+                      setSelectedLinkIndex(null);
+                      setSelectedFileKey(fileKey);
+                    }}
                     className={clsx(
                       "flex w-full items-start gap-3 px-4 py-2.5 text-left text-sm transition-all",
                       isSelected
@@ -358,11 +471,31 @@ function ProcessDeliverablesFilesPanel({
       </div>
 
       <div className="min-w-0 p-3 sm:p-5 lg:col-span-3">
-        {!selectedFile ? (
+        {selectedLink ? (
+          <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] px-6 text-center">
+            <IoLinkOutline className="text-primary" size={28} />
+            <p className="max-w-full break-all text-sm font-medium text-primary">
+              {selectedLink}
+            </p>
+            <a
+              href={selectedLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
+            >
+              <IoOpenOutline size={14} />
+              Abrir enlace
+            </a>
+          </div>
+        ) : !selectedFile ? (
           <div className="flex h-56 flex-col items-center justify-center gap-2">
             <IoDocumentTextOutline className="text-gray-300" size={32} />
             <p className="text-sm text-muted">
-              Selecciona un archivo para ver la vista previa
+              {isAudiovisualView
+                ? hasAudiovisualLinks
+                  ? "Seleccione un enlace o archivo"
+                  : "No hay enlaces registrados; consulte las observaciones arriba"
+                : "Seleccione un archivo para consultar la vista previa"}
             </p>
           </div>
         ) : previewLoading ? (
@@ -402,10 +535,17 @@ function ProcessDeliverablesFilesPanel({
                 <h3 className="text-sm font-semibold text-primary">
                   Archivos del entregable
                 </h3>
-                {sortedFiles.length > 0 ? (
+                {sortedFiles.length > 0 || hasAudiovisualLinks ? (
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                    {sortedFiles.length}{" "}
-                    {sortedFiles.length === 1 ? "archivo" : "archivos"}
+                    {isAudiovisualView
+                      ? hasAudiovisualLinks
+                        ? `${audiovisualLinks.length} ${
+                            audiovisualLinks.length === 1 ? "enlace" : "enlaces"
+                          }`
+                        : "Sin enlaces"
+                      : `${sortedFiles.length} ${
+                          sortedFiles.length === 1 ? "archivo" : "archivos"
+                        }`}
                   </span>
                 ) : null}
               </div>
@@ -414,7 +554,7 @@ function ProcessDeliverablesFilesPanel({
                   ? `${filesLocationLabel}${
                       filesFolder ? ` · ${filesFolder}` : ""
                     }`
-                  : "Selecciona un entregable arriba"}
+                  : "Seleccione un entregable arriba"}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -445,6 +585,7 @@ function ProcessDeliverablesFilesPanel({
             </div>
           </div>
         </div>
+        {audiovisualNotesBlock}
         {filesSection}
       </div>
     );
@@ -482,7 +623,7 @@ function ProcessDeliverablesFilesPanel({
         <div className="flex items-center gap-2">
           <IoFolderOpenOutline className="shrink-0 text-primary" size={18} />
           <h3 className="text-sm font-semibold text-primary">
-            Archivos por entregable y crédito
+            Archivos por entregable y unidad
           </h3>
         </div>
         <p className="mt-1 text-xs text-muted">
@@ -540,7 +681,7 @@ function ProcessDeliverablesFilesPanel({
               <h4 className="truncate text-sm font-semibold text-primary">
                 {selectedDeliverable
                   ? filesLocationLabel
-                  : "Selecciona un entregable"}
+                  : "Seleccione un entregable"}
               </h4>
               {filesFolder ? (
                 <p className="truncate font-mono text-[11px] text-muted">
@@ -548,7 +689,7 @@ function ProcessDeliverablesFilesPanel({
                 </p>
               ) : (
                 <p className="text-xs text-muted">
-                  Este entregable aún no tiene carpeta configurada
+                  Este entregable no tiene carpeta configurada
                 </p>
               )}
             </div>

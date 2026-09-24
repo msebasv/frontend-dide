@@ -4,11 +4,10 @@
  * Responsabilidad: transformar registros de Dataverse (procesos, fases,
  * actividades, asignaciones) en tipos de dominio que la UI consume.
  *
- * Reglas de negocio clave:
- * - El estado actual de un proceso = plantilla de la fase más reciente (por createdon).
- * - Un usuario solo ve procesos donde tiene asignación con su rol activo.
- * - modifiedOn = fecha más reciente entre proceso, fases y actividades.
- * - canUpload / canValidate se derivan del rol del usuario y la fase actual.
+ * Políticas de rol → domain/rolePolicies.ts
+ * Reglas de fase/estado → domain/processRules.ts
+ * Métricas → metrics/courseMetrics.ts
+ * Este archivo re-exporta esas APIs para no romper consumidores existentes.
  */
 import type { Dev_tableassignroles } from "../../generated/models/Dev_tableassignrolesModel";
 import type { Dev_tablevirtualizationprocesses } from "../../generated/models/Dev_tablevirtualizationprocessesModel";
@@ -18,303 +17,100 @@ import type { Dev_table_faculties } from "../../generated/models/Dev_table_facul
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import type { Dev_tableactivitytemplates } from "../../generated/models/Dev_tableactivitytemplatesModel";
 import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
-import {
-  Dev_tableactivitiesstatuscode,
-  type Dev_tableactivities,
-} from "../../generated/models/Dev_tableactivitiesModel";
+import type { Dev_tableactivities } from "../../generated/models/Dev_tableactivitiesModel";
 
 import type {
   Course,
+  CourseAssignedRole,
   CourseDetail,
   CourseMaterial,
-  DashboardMetrics,
 } from "../types/course.types";
 import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
-import { formatDomainLabel } from "../../global/utils/textUtils";
+import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
-  ACTIVITY_STATUS_LABELS,
+  canCreateOrEditProcesses,
   canonicalizeUserRole,
-  isLeaderRole,
-  PENDING_APPROVAL_PHASES,
+  isProcessCloseReady,
+  isVirtualizationLeaderRole,
   PROCESS_PHASES,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
-import { buildPhaseBreakdownFromDeliverables } from "../utils/phaseBreakdown";
-import { formatDeliverableState } from "../services/deliverableService";
+import {
+  breakdownHasActionForRole,
+  buildProcessPhaseBreakdown,
+} from "../utils/phaseBreakdown";
 
-/** Re-exportaciones para compatibilidad con imports existentes. */
-export const LEADER_SYLLABUS_STATUS = PROCESS_PHASES.LEADER_SYLLABUS;
-export const AUTHOR_UPLOAD_STATUS = PROCESS_PHASES.AUTHOR_UPLOAD;
-export const VALIDATOR_STATUS = PROCESS_PHASES.VALIDATOR_REVIEW;
-export const ADVISOR_STATUS = PROCESS_PHASES.ADVISOR_REVIEW;
-export const DIDE_STATUS = PROCESS_PHASES.DIDE_REVIEW;
+import {
+  isAdvisorRole,
+  isAuthorRole,
+  isDideDesignerRole,
+  isValidatorRole,
+  getRoleActionPhases,
+} from "../domain/rolePolicies";
+import {
+  ADVISOR_AV_APPROVAL_STATUS,
+  ADVISOR_GUIDE_UPLOAD_STATUS,
+  ADVISOR_STATUS,
+  AUTHOR_UPLOAD_STATUS,
+  DIDE_STATUS,
+  VALIDATOR_STATUS,
+  canUserFinalizeStatus,
+  canUserUploadStatus,
+  canUserValidateStatus,
+  isAdvisorAudiovisualApprovalStatus,
+  isAdvisorGuideUploadStatus,
+  isDideConfirmationStatus,
+  isLeaderClassroomConfirmStatus,
+  isLeaderSyllabusStatus,
+  resolveActivityStatusRaw,
+} from "../domain/processRules";
+
+/* ── Re-exports de compatibilidad (consumidores existentes) ── */
+export {
+  isAuthorRole,
+  isValidatorRole,
+  isAdvisorRole,
+  isDideDesignerRole,
+  hasAssignedValidator,
+  hasAssignedDideDesigner,
+  canRoleViewFinalDocuments,
+  getRoleActionPhases,
+  getRoleActionPhase,
+} from "../domain/rolePolicies";
+
+export { isVirtualizationLeaderRole };
+
+export {
+  LEADER_SYLLABUS_STATUS,
+  AUTHOR_UPLOAD_STATUS,
+  VALIDATOR_STATUS,
+  ADVISOR_STATUS,
+  ADVISOR_GUIDE_UPLOAD_STATUS,
+  DIDE_STATUS,
+  ADVISOR_AV_APPROVAL_STATUS,
+  LEADER_CLASSROOM_CONFIRM_STATUS,
+  isLeaderSyllabusStatus,
+  isLeaderClassroomConfirmStatus,
+  isAdvisorGuideUploadStatus,
+  isAdvisorAudiovisualApprovalStatus,
+  canUserUploadStatus,
+  canUserConfirmClassroomStatus,
+  canUserValidateStatus,
+  canRoleValidateDeliverable,
+  isDideConfirmationStatus,
+  canUserFinalizeStatus,
+  formatActivityStatus,
+  resolveActivityStatusRaw,
+  getValidationTargetPhaseName,
+} from "../domain/processRules";
+
+export { computeMetrics, computeLeaderMetrics } from "../metrics/courseMetrics";
 
 const COMPLETED_STATUS = PROCESS_PHASES.COMPLETED;
 
+/** Solo casing/espacios; no quita acentos (distinto de normalizeRoleKey). */
 const normalizeRole = (role: string): string => role.trim().toLowerCase();
-
-const normalizePhaseLabel = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-
-/** Determina si el rol activo corresponde al autor de asignatura. */
-export const isAuthorRole = (role: string): boolean =>
-  normalizeRole(role) === normalizeRole(USER_ROLES.AUTHOR);
-
-/** Líder de virtualización (no incluye admin / coordinador DIDE). */
-export const isVirtualizationLeaderRole = (role: string): boolean =>
-  canonicalizeUserRole(role) === USER_ROLES.LEADER;
-
-/** Determina si el rol activo corresponde al validador disciplinar. */
-export const isValidatorRole = (role: string): boolean =>
-  normalizeRole(role) === normalizeRole(USER_ROLES.VALIDATOR);
-
-/** Determina si el rol activo corresponde al asesor pedagógico. */
-export const isAdvisorRole = (role: string): boolean =>
-  normalizeRole(role) === normalizeRole(USER_ROLES.ADVISOR);
-
-/** Determina si el rol activo corresponde al diseñador DIDE. */
-export const isDideDesignerRole = (role: string): boolean =>
-  normalizeRole(role) === normalizeRole(USER_ROLES.DIDE_DESIGNER);
-
-/**
- * Fase en la que el líder debe cargar el syllabus.
- * Canónico en Dataverse: "Cargue Syllabus".
- * También acepta variantes históricas (p. ej. "Syllabus Completado y Aprobado").
- */
-export const isLeaderSyllabusStatus = (status: string): boolean => {
-  const normalized = normalizePhaseLabel(status);
-  if (!normalized) return false;
-
-  if (normalized === normalizePhaseLabel(COMPLETED_STATUS)) return false;
-
-  if (normalized === normalizePhaseLabel(LEADER_SYLLABUS_STATUS)) return true;
-
-  if (
-    normalized.includes("cargue syllabus") ||
-    normalized.includes("carga syllabus") ||
-    normalized.includes("cargue de syllabus") ||
-    normalized.includes("carga de syllabus") ||
-    normalized.includes("syllabus completado")
-  ) {
-    return true;
-  }
-
-  // "Syllabus (Líder)" u otras etiquetas cortas de UI
-  if (
-    normalized === "syllabus" ||
-    normalized.startsWith("syllabus (") ||
-    normalized.startsWith("syllabus lider")
-  ) {
-    return true;
-  }
-
-  // Variante histórica: "Syllabus Completado y Aprobado"
-  return (
-    normalized.includes("syllabus") &&
-    normalized.includes("aprobado") &&
-    !normalized.includes("proceso finalizado")
-  );
-};
-
-/**
- * Indica si el usuario puede cargar material en la fase actual.
- * - Autor: cargue de documentos por el autor.
- * - Líder / gestión: fase de syllabus (el flujo avanza al autor).
- */
-export const canUserUploadStatus = (
-  userRole: string,
-  status: string,
-): boolean =>
-  (isAuthorRole(userRole) &&
-    normalizePhaseLabel(status) === normalizePhaseLabel(AUTHOR_UPLOAD_STATUS)) ||
-  (isLeaderRole(userRole) && isLeaderSyllabusStatus(status));
-
-/**
- * Indica si el usuario puede validar en la fase actual del proceso o de un entregable.
- * Solo el validador (fase validador) o el asesor (fase asesor) pueden actuar.
- */
-export const canUserValidateStatus = (
-  userRole: string,
-  status: string,
-): boolean => {
-  const norm = normalizePhaseLabel(status);
-  if (isValidatorRole(userRole)) {
-    return (
-      norm === normalizePhaseLabel(VALIDATOR_STATUS) ||
-      norm.includes("evaluador disciplinar") ||
-      norm.includes("validador")
-    );
-  }
-  if (isAdvisorRole(userRole)) {
-    return (
-      norm === normalizePhaseLabel(ADVISOR_STATUS) ||
-      norm.includes("asesor pedagogico") ||
-      norm.includes("asesoria")
-    );
-  }
-  return false;
-};
-
-/**
- * Evalúa las acciones de validación (Aprobar / Devolver) para un rol
- * según el estado específico de un entregable o categoría.
- * "Etapa 2 aprobada" no habilita al validador; "Etapa 3" activa sí al asesor.
- */
-export const canRoleValidateDeliverable = (
-  userRole: string,
-  stateLabel: string,
-): { canApprove: boolean; canReturn: boolean; isValidationPhase: boolean } => {
-  const norm = normalizePhaseLabel(stateLabel);
-
-  if (isValidatorRole(userRole)) {
-    const isEtapa2Active =
-      (norm.includes("etapa 2") || norm.includes("etapa2")) &&
-      !norm.includes("aprobad");
-    const isMatch =
-      norm === normalizePhaseLabel(VALIDATOR_STATUS) ||
-      norm.includes("evaluador disciplinar") ||
-      (norm.includes("validador") && !norm.includes("aprobad")) ||
-      isEtapa2Active;
-    return { canApprove: isMatch, canReturn: isMatch, isValidationPhase: isMatch };
-  }
-
-  if (isAdvisorRole(userRole)) {
-    const isEtapa3Active =
-      (norm.includes("etapa 3") || norm.includes("etapa3")) &&
-      !norm.includes("aprobad");
-    const isMatch =
-      norm === normalizePhaseLabel(ADVISOR_STATUS) ||
-      norm.includes("asesor pedagogico") ||
-      norm.includes("asesoria") ||
-      isEtapa3Active;
-    return { canApprove: isMatch, canReturn: isMatch, isValidationPhase: isMatch };
-  }
-
-  if (isDideDesignerRole(userRole)) {
-    const isMatch =
-      norm === normalizePhaseLabel(DIDE_STATUS) ||
-      norm.includes("confirmacion dide") ||
-      norm.includes("disenador dide") ||
-      norm.includes("revision dide") ||
-      (norm.includes("dide") && !norm.includes("coordinador"));
-    return { canApprove: isMatch, canReturn: false, isValidationPhase: isMatch };
-  }
-
-  return { canApprove: false, canReturn: false, isValidationPhase: false };
-};
-
-const isDideConfirmationStatus = (status: string): boolean => {
-  const normalized = normalizeActivityLabel(status);
-  if (!normalized) return false;
-
-  return (
-    normalized === normalizeActivityLabel(DIDE_STATUS) ||
-    normalized.includes("confirmacion dide") ||
-    normalized.includes("revision dide")
-  );
-};
-
-/**
- * Indica si el diseñador DIDE puede aprobar en la fase actual.
- * Revisa material, adjunta Word y aprueba (sin devolver).
- */
-export const canUserFinalizeStatus = (
-  userRole: string,
-  status: string,
-): boolean => isDideDesignerRole(userRole) && isDideConfirmationStatus(status);
-
-/** Convierte statuscodename de actividad a etiqueta de UI (Aprobado, Devuelto...). */
-export const formatActivityStatus = (status: string): string => {
-  const trimmed = status.trim();
-  if (!trimmed || trimmed === "—") return "Sin estado";
-
-  const direct = ACTIVITY_STATUS_LABELS[trimmed];
-  if (direct) return direct;
-
-  const match = Object.entries(ACTIVITY_STATUS_LABELS).find(
-    ([key]) => key.toLowerCase() === trimmed.toLowerCase(),
-  );
-  if (match) return match[1];
-
-  return formatDomainLabel(trimmed);
-};
-
-/**
- * Obtiene el estado crudo de una actividad desde Dataverse.
- * Preferimos statuscodename; si no viene, usamos statuscode (número o texto).
- */
-export const resolveActivityStatusRaw = (
-  activity: Dev_tableactivities,
-): string => {
-  const formattedName = activity.statuscodename?.trim();
-  if (formattedName) return formattedName;
-
-  const formattedValue = (
-    activity as Dev_tableactivities & {
-      "samuel.w@example.com"?: string;
-    }
-  )["samuel.w@example.com"]?.trim();
-  if (formattedValue) return formattedValue;
-
-  const code = activity.statuscode as unknown;
-  if (code == null || code === "") return "—";
-
-  if (typeof code === "string") {
-    const trimmed = code.trim();
-    if (!trimmed) return "—";
-
-    // A veces llega el label directo ("Aprobado", "Por aprobar")
-    if (Number.isNaN(Number(trimmed))) return trimmed;
-
-    const fromEnum =
-      Dev_tableactivitiesstatuscode[
-        Number(trimmed) as keyof typeof Dev_tableactivitiesstatuscode
-      ];
-    return fromEnum ?? trimmed;
-  }
-
-  if (typeof code === "number") {
-    const fromEnum =
-      Dev_tableactivitiesstatuscode[
-        code as keyof typeof Dev_tableactivitiesstatuscode
-      ];
-    return fromEnum ?? String(code);
-  }
-
-  return "—";
-};
-
-/**
- * Resuelve la plantilla de actividad del rol que valida.
- * Aprobar y devolver usan la misma plantilla; el flujo decide el avance
- * o el regreso al autor según el flag `approved`.
- *
- * - Validador disciplinar → "Revisión y aprobación evaluador disciplinar"
- * - Asesor pedagógico → "Revisión y aprobación asesor pedagógico"
- * - Diseñador DIDE → "Confirmación DIDE"
- */
-export const getValidationTargetPhaseName = (
-  userRole: string,
-  _approved: boolean,
-): string => {
-  if (isValidatorRole(userRole)) {
-    return VALIDATOR_STATUS;
-  }
-
-  if (isAdvisorRole(userRole)) {
-    return ADVISOR_STATUS;
-  }
-
-  if (isDideDesignerRole(userRole)) {
-    return DIDE_STATUS;
-  }
-
-  throw new Error("Rol no autorizado para validar material.");
-};
+const normalizeActivityLabel = normalizeComparableText;
 
 type AssignRoleWithFormatted = Dev_tableassignroles & {
   "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"?: string;
@@ -370,11 +166,15 @@ export const getCurrentStatus = (
 /** Traduce el estado del proceso al rol responsable en lenguaje de negocio. */
 const getCurrentRole = (status: string): string => {
   if (isLeaderSyllabusStatus(status)) return USER_ROLES.LEADER;
+  if (isLeaderClassroomConfirmStatus(status)) return USER_ROLES.LEADER;
   if (status === AUTHOR_UPLOAD_STATUS) return USER_ROLES.AUTHOR;
   if (status === VALIDATOR_STATUS) return USER_ROLES.VALIDATOR;
-  if (status === ADVISOR_STATUS) return USER_ROLES.ADVISOR;
+  if (isAdvisorAudiovisualApprovalStatus(status)) return USER_ROLES.ADVISOR;
+  if (status === ADVISOR_STATUS || isAdvisorGuideUploadStatus(status)) {
+    return USER_ROLES.ADVISOR;
+  }
   if (isDideConfirmationStatus(status)) return USER_ROLES.DIDE_DESIGNER;
-  if (status === COMPLETED_STATUS) return "Completado";
+  if (status === COMPLETED_STATUS) return "Finalizado";
   return "—";
 };
 
@@ -478,20 +278,6 @@ export const mapCoursesForUser = ({
     deliverablesByProcess.set(processId, list);
   }
 
-  const resolveDeliverableStateLabel = (row: Dev_tabledeliverables): string => {
-    const formatted = (
-      row as Dev_tabledeliverables & {
-        "dev_deliverablestate@OData.Community.Display.V1.FormattedValue"?: string;
-      }
-    )["dev_deliverablestate@OData.Community.Display.V1.FormattedValue"]?.trim();
-
-    if (formatted) return formatDeliverableState(formatted);
-    if (row.dev_deliverablestatename?.trim()) {
-      return formatDeliverableState(row.dev_deliverablestatename);
-    }
-    return formatDeliverableState(row.dev_deliverablestate);
-  };
-
   const authorByProcess = new Map<string, string>();
   for (const assignRole of assignRoles) {
     const roleName =
@@ -512,16 +298,22 @@ export const mapCoursesForUser = ({
     const program = programsMap.get(course?._dev_tableprogram_value ?? "");
     const faculty = facultiesMap.get(program?._dev_table_faculty_value ?? "");
     const processPhases = phasesByProcess.get(processId) ?? [];
-    const status = getCurrentStatus(processPhases, templatesMap);
+    const phaseStatus = getCurrentStatus(processPhases, templatesMap);
+    const processClosed = isProcessCloseReady(
+      process.dev_closeready,
+      process.dev_closereadyname,
+    );
+    const status = processClosed ? PROCESS_PHASES.COMPLETED : phaseStatus;
     const currentRole = getCurrentRole(status);
     const processDeliverables = deliverablesByProcess.get(processId) ?? [];
-    const phaseBreakdown = buildPhaseBreakdownFromDeliverables(
-      status,
-      processDeliverables.map((row) => ({
-        stateLabel: resolveDeliverableStateLabel(row),
-        name: row.dev_namedeliverable ?? "",
-      })),
-    );
+
+    // Mismo estado que muestra el detalle del proceso.
+    const phaseBreakdown = buildProcessPhaseBreakdown({
+      processStatus: status,
+      deliverables: processDeliverables,
+      phases: processPhases,
+      templatesMap,
+    });
     const activeBuckets = Object.values(phaseBreakdown.counts).filter(
       (count) => (count ?? 0) > 0,
     ).length;
@@ -534,11 +326,91 @@ export const mapCoursesForUser = ({
       );
     });
 
-    const canUpload = canUserUploadStatus(userRole, status);
+    /**
+     * Con entregables independientes, la acción del rol depende de cuántos
+     * materiales están en su etapa (no de haber pasado por ella alguna vez).
+     */
+    const roleActionPhases = getRoleActionPhases(userRole);
+    const hasDeliverables = processDeliverables.length > 0;
+    const hasDeliverableActionForRole =
+      hasDeliverables &&
+      roleActionPhases.length > 0 &&
+      breakdownHasActionForRole(phaseBreakdown, roleActionPhases);
+
+    const hasGuideUploadPending =
+      hasDeliverables &&
+      breakdownHasActionForRole(
+        phaseBreakdown,
+        PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD,
+      );
+    const hasAdvisorReviewPending =
+      hasDeliverables &&
+      breakdownHasActionForRole(phaseBreakdown, PROCESS_PHASES.ADVISOR_REVIEW);
+    const hasAdvisorAvApprovalPending =
+      hasDeliverables &&
+      breakdownHasActionForRole(
+        phaseBreakdown,
+        PROCESS_PHASES.ADVISOR_AV_APPROVAL,
+      );
+    const hasSyllabusPending =
+      breakdownHasActionForRole(
+        phaseBreakdown,
+        PROCESS_PHASES.LEADER_SYLLABUS,
+      ) || isLeaderSyllabusStatus(status);
+    const hasClassroomConfirmPending =
+      breakdownHasActionForRole(
+        phaseBreakdown,
+        PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM,
+      ) || isLeaderClassroomConfirmStatus(status);
+
+    const processHasDideDesigner = assignRoles.some((ar) => {
+      if (ar._dev_tablevirtualizationprocess_value !== processId) return false;
+      const roleName =
+        ar[
+          "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"
+        ] ??
+        ar.dev_tablerolename ??
+        "";
+      if (canonicalizeUserRole(roleName) !== USER_ROLES.DIDE_DESIGNER) {
+        return false;
+      }
+      return Boolean(ar.dev_person?.trim() || ar.dev_username?.trim());
+    });
+
+    const canUpload =
+      !processClosed &&
+      (hasDeliverables
+        ? (canCreateOrEditProcesses(userRole) && hasSyllabusPending) ||
+          (isAuthorRole(userRole) &&
+            breakdownHasActionForRole(
+              phaseBreakdown,
+              PROCESS_PHASES.AUTHOR_UPLOAD,
+            )) ||
+          (isAdvisorRole(userRole) &&
+            hasGuideUploadPending &&
+            processHasDideDesigner)
+        : canUserUploadStatus(userRole, status) &&
+          !(
+            isAdvisorRole(userRole) &&
+            isAdvisorGuideUploadStatus(status) &&
+            !processHasDideDesigner
+          ));
     const canValidate =
-      canUserValidateStatus(userRole, status) || hasAnyPhaseForRole;
+      !processClosed &&
+      (hasDeliverables
+        ? (isValidatorRole(userRole) && hasDeliverableActionForRole) ||
+          (isAdvisorRole(userRole) &&
+            (hasAdvisorReviewPending || hasAdvisorAvApprovalPending))
+        : canUserValidateStatus(userRole, status) || hasAnyPhaseForRole);
     const canFinalize =
-      canUserFinalizeStatus(userRole, status) || hasAnyPhaseForRole;
+      !processClosed &&
+      (hasDeliverables
+        ? hasDeliverableActionForRole && isDideDesignerRole(userRole)
+        : canUserFinalizeStatus(userRole, status) || hasAnyPhaseForRole);
+    const canConfirmClassroom =
+      !processClosed &&
+      isVirtualizationLeaderRole(userRole) &&
+      hasClassroomConfirmPending;
 
     return {
       processId,
@@ -558,26 +430,25 @@ export const mapCoursesForUser = ({
       canUpload,
       canValidate,
       canFinalize,
+      canConfirmClassroom,
       phaseBreakdown,
     };
   };
 
-  // Diseñador DIDE es global (Leaders Users): ve todos los procesos.
-  const userProcessIds = isDideDesignerRole(userRole)
-    ? processes.map((process) => process.dev_tablevirtualizationprocessid)
-    : assignRoles
-        .filter((ar) => {
-          const roleName =
-            ar[
-              "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"
-            ] ?? "";
-          return (
-            ar.dev_person === userEmail &&
-            normalizeRole(roleName) === normalizeRole(userRole)
-          );
-        })
-        .map((ar) => ar._dev_tablevirtualizationprocess_value ?? "")
-        .filter(Boolean);
+  // Diseñador DIDE: solo procesos donde está asignado (igual que autor/asesor).
+  const userProcessIds = assignRoles
+    .filter((ar) => {
+      const roleName =
+        ar[
+          "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"
+        ] ?? "";
+      return (
+        ar.dev_person === userEmail &&
+        normalizeRole(roleName) === normalizeRole(userRole)
+      );
+    })
+    .map((ar) => ar._dev_tablevirtualizationprocess_value ?? "")
+    .filter(Boolean);
 
   return userProcessIds
     .map((processId) => buildCourse(processId))
@@ -600,16 +471,25 @@ interface MapCourseDetailParams {
   deliverables?: Dev_tabledeliverables[];
 }
 
-const normalizeActivityLabel = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+/** Cargue de guión instruccional del asesor (no es versión del autor). */
+const isAdvisorGuideTemplateName = (name: string): boolean => {
+  const normalized = normalizeActivityLabel(name);
+  if (!normalized) return false;
+  if (normalized === normalizeActivityLabel(ADVISOR_GUIDE_UPLOAD_STATUS)) {
+    return true;
+  }
+  return (
+    normalized.includes("guion instruccional") ||
+    normalized.includes("guia instruccional") ||
+    normalized.includes("guion instruct") ||
+    normalized.includes("guia instruct")
+  );
+};
 
 const isAuthorUploadTemplateName = (name: string): boolean => {
   const normalized = normalizeActivityLabel(name);
   if (!normalized) return false;
+  if (isAdvisorGuideTemplateName(normalized)) return false;
 
   return (
     normalized === normalizeActivityLabel(AUTHOR_UPLOAD_STATUS) ||
@@ -626,7 +506,11 @@ const isReviewTemplateName = (name: string): boolean => {
     normalized === normalizeActivityLabel(VALIDATOR_STATUS) ||
     normalized === normalizeActivityLabel(ADVISOR_STATUS) ||
     normalized === normalizeActivityLabel(DIDE_STATUS) ||
+    normalized === normalizeActivityLabel(ADVISOR_AV_APPROVAL_STATUS) ||
     normalized.includes("revision y aprobacion") ||
+    normalized.includes("enlaces audiovisuales") ||
+    normalized.includes("aprobar material audiovisual") ||
+    (normalized.includes("registrar") && normalized.includes("enlace")) ||
     normalized.includes("confirmacion dide") ||
     normalized.includes("revision dide")
   );
@@ -634,14 +518,23 @@ const isReviewTemplateName = (name: string): boolean => {
 
 const getActivityTemplateDisplayName = (
   activity: Dev_tableactivities,
-): string =>
-  activity.dev_tableactivitytemplatename ??
-  (
-    activity as Dev_tableactivities & {
-      "dev_tableactivitytemplate@OData.Community.Display.V1.FormattedValue"?: string;
-    }
-  )["dev_tableactivitytemplate@OData.Community.Display.V1.FormattedValue"] ??
-  "";
+): string => {
+  const extended = activity as Dev_tableactivities & {
+    "dev_tableactivitytemplate@OData.Community.Display.V1.FormattedValue"?: string;
+    "_dev_tableactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
+  };
+
+  return (
+    activity.dev_tableactivitytemplatename?.trim() ||
+    extended[
+      "_dev_tableactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
+    ]?.trim() ||
+    extended[
+      "dev_tableactivitytemplate@OData.Community.Display.V1.FormattedValue"
+    ]?.trim() ||
+    ""
+  );
+};
 
 const getPhaseExpectedTemplateLabel = (
   phase: PhaseWithFormatted,
@@ -668,7 +561,11 @@ const collectAuthorUploadTemplateIds = (
   for (const phase of phases) {
     const label = getPhaseExpectedTemplateLabel(phase);
     const templateId = phase._dev_expectedactivitytemplate_value;
-    if (templateId && isAuthorUploadTemplateName(label)) {
+    if (
+      templateId &&
+      isAuthorUploadTemplateName(label) &&
+      !isAdvisorGuideTemplateName(label)
+    ) {
       authorIds.add(templateId);
     }
   }
@@ -681,13 +578,17 @@ const collectAuthorUploadTemplateIds = (
       template.dev_typeactivityname ?? "",
     );
 
+    if (isAdvisorGuideTemplateName(name)) continue;
+
     const isAuthorByName = isAuthorUploadTemplateName(name);
     const isAuthorByRole =
       normalizeActivityLabel(roleName) ===
       normalizeActivityLabel(USER_ROLES.AUTHOR);
-    // 3 = Entrega (carga de material)
+    // 3 = Entrega (carga de material del autor). No incluir guión del asesor.
     const isAuthorByType =
-      typeCode === 3 || typeName.includes("entrega");
+      (typeCode === 3 || typeName.includes("entrega")) &&
+      normalizeActivityLabel(roleName) !==
+        normalizeActivityLabel(USER_ROLES.ADVISOR);
 
     if (
       template.dev_tableactivitytemplateid &&
@@ -744,7 +645,7 @@ const getActivityTemplateId = (activity: Dev_tableactivities): string => {
 
 /**
  * Versiones = solo actividades de cargue del autor.
- * Aprobar/devolver usan plantillas de revisión y no cuentan como versión.
+ * Aprobar/devolver y el guión instruccional no cuentan como versión.
  */
 const isAuthorUploadActivity = (
   activity: Dev_tableactivities,
@@ -753,11 +654,22 @@ const isAuthorUploadActivity = (
 ): boolean => {
   const templateId = getActivityTemplateId(activity);
   const templateName = getActivityTemplateDisplayName(activity);
+  const activityName = activity.dev_activityname ?? "";
+  const observations = activity.dev_observations ?? "";
+
+  if (
+    isAdvisorGuideTemplateName(templateName) ||
+    isAdvisorGuideTemplateName(activityName) ||
+    isAdvisorGuideTemplateName(observations)
+  ) {
+    return false;
+  }
+
+  if (templateId && reviewTemplateIds.has(templateId)) return false;
+  if (isReviewTemplateName(templateName)) return false;
 
   if (templateId && authorTemplateIds.has(templateId)) return true;
-  if (templateId && reviewTemplateIds.has(templateId)) return false;
   if (isAuthorUploadTemplateName(templateName)) return true;
-  if (isReviewTemplateName(templateName)) return false;
 
   if (authorTemplateIds.size > 0) return false;
 
@@ -783,7 +695,12 @@ export const mapCourseDetail = ({
     ]),
   );
 
-  const status = getCurrentStatus(phases, templatesMap);
+  const phaseStatus = getCurrentStatus(phases, templatesMap);
+  const processClosed = isProcessCloseReady(
+    process.dev_closeready,
+    process.dev_closereadyname,
+  );
+  const status = processClosed ? PROCESS_PHASES.COMPLETED : phaseStatus;
   const currentRole = getCurrentRole(status);
   const processId = process.dev_tablevirtualizationprocessid;
 
@@ -923,7 +840,11 @@ export const mapCourseDetail = ({
 
       return {
         activityId: activity.dev_tableactivityid,
-        name: activity.dev_activityname ?? "Sin título",
+        name:
+          getActivityTemplateDisplayName(activity).trim() ||
+          template?.dev_activityname?.trim() ||
+          activity.dev_activityname?.trim() ||
+          "Sin título",
         description: activity.dev_observations ?? "",
         documents: activity.dev_documents ?? "",
         status: resolveActivityStatusRaw(activity),
@@ -939,6 +860,22 @@ export const mapCourseDetail = ({
       };
     });
 
+  // Responsables del proceso, en el orden del flujo.
+  const assignedRoles: CourseAssignedRole[] = [
+    USER_ROLES.LEADER,
+    USER_ROLES.AUTHOR,
+    USER_ROLES.VALIDATOR,
+    USER_ROLES.ADVISOR,
+    USER_ROLES.DIDE_DESIGNER,
+  ].map((role) => {
+    const person = findAssignedPerson(processId, role, personByProcessRole);
+    return {
+      role,
+      name: person?.name ?? "",
+      email: person?.email ?? "",
+    };
+  });
+
   return {
     processId,
     processName: process.dev_nameprocess ?? "",
@@ -949,6 +886,7 @@ export const mapCourseDetail = ({
     status,
     currentRole,
     materials,
+    assignedRoles,
   };
 };
 
@@ -1075,45 +1013,3 @@ const resolveHistoryActor = (
   return { name: fallback, email: "" };
 };
 
-
-export const computeMetrics = (courses: Course[]): DashboardMetrics => {
-  const completed = courses.filter((c) => c.status === COMPLETED_STATUS).length;
-  const pendingApproval = courses.filter((c) =>
-    PENDING_APPROVAL_PHASES.includes(
-      c.status as (typeof PENDING_APPROVAL_PHASES)[number],
-    ),
-  ).length;
-  const inProgress = courses.filter(
-    (c) => c.status !== COMPLETED_STATUS && c.status !== PROCESS_PHASES.UNKNOWN,
-  ).length;
-
-  return {
-    total: courses.length,
-    inProgress,
-    pendingApproval,
-    completed,
-  };
-};
-
-export const computeLeaderMetrics = (
-  processes: { status: string }[],
-): DashboardMetrics => {
-  const completed = processes.filter(
-    (p) => p.status === COMPLETED_STATUS,
-  ).length;
-  const pendingApproval = processes.filter((p) =>
-    PENDING_APPROVAL_PHASES.includes(
-      p.status as (typeof PENDING_APPROVAL_PHASES)[number],
-    ),
-  ).length;
-  const inProgress = processes.filter(
-    (p) => p.status !== COMPLETED_STATUS && p.status !== PROCESS_PHASES.UNKNOWN,
-  ).length;
-
-  return {
-    total: processes.length,
-    inProgress,
-    pendingApproval,
-    completed,
-  };
-};

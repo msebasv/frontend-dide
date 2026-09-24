@@ -1,5 +1,5 @@
 /**
- * Tabla de seguimiento expandible: proceso → General / crédito → categorías con fase.
+ * Tabla de seguimiento expandible: proceso → General / unidad → categorías con fase.
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -7,11 +7,14 @@ import clsx from "clsx";
 import {
   IoChevronDownOutline,
   IoEyeOutline,
+  IoPersonAddOutline,
   IoSearchOutline,
 } from "react-icons/io5";
 
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
 import { formatDateTime } from "../../global/utils/dateUtils";
+import { canAssignDideDesigner } from "../../global/constants/domainConstants";
+import { useAuth } from "../../global/hooks/useAuth";
 import type {
   ActorProgressCode,
   DeliverableTrackingItem,
@@ -58,7 +61,7 @@ const groupDeliverables = (items: DeliverableTrackingItem[]) => {
       label:
         creditNumber === 0
           ? "General"
-          : `Crédito / Unidad ${creditNumber}`,
+          : `Unidad ${creditNumber}`,
       deliverables,
     }));
 };
@@ -72,6 +75,8 @@ function ProcessTrackingBoard({
   rows,
   emptyMessage = "No hay procesos registrados para mostrar.",
 }: ProcessTrackingBoardProps) {
+  const { currentRole } = useAuth();
+  const canAssignDesigner = canAssignDideDesigner(currentRole);
   const [search, setSearch] = useState("");
   const [expandedProcessIds, setExpandedProcessIds] = useState<string[]>([]);
   const [expandedCredits, setExpandedCredits] = useState<
@@ -127,7 +132,7 @@ function ProcessTrackingBoard({
           <p className="text-xs text-muted">
             {filteredRows.length} proceso
             {filteredRows.length === 1 ? "" : "s"} · despliega para ver General
-            / créditos
+            / unidades
           </p>
         </div>
         <div className="relative w-full sm:max-w-xs">
@@ -189,6 +194,19 @@ function ProcessTrackingBoard({
                   </button>
 
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <ProcessStatus status={row.phase} compact />
+                    {canAssignDesigner && !row.isFinalized && (
+                      <Link
+                        to={`/virtualization-processes/${row.processId}/assign-designer`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <IoPersonAddOutline size={14} />
+                        {row.needsDesignerAssignment
+                          ? "Asignar diseñador"
+                          : "Cambiar diseñador"}
+                      </Link>
+                    )}
                     <Link
                       to={row.detailPath}
                       className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-acacia-5"
@@ -204,7 +222,7 @@ function ProcessTrackingBoard({
                   <div className="border-t border-border bg-acacia-5/40 px-4 py-3 sm:px-5">
                     {creditGroups.length === 0 ? (
                       <p className="rounded-lg border border-dashed border-border bg-white px-3 py-6 text-center text-sm text-muted">
-                        Este proceso aún no tiene entregables.
+                        Este proceso no tiene entregables registrados.
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -249,7 +267,7 @@ function ProcessTrackingBoard({
                               </button>
 
                               {creditOpen && (
-                                <div className="overflow-x-auto border-t border-border">
+                                <div className="table-scroll border-t border-border">
                                   <table className="min-w-full text-left text-sm">
                                     <thead className="bg-acacia-5/70 text-[11px] uppercase tracking-wide text-muted">
                                       <tr>
@@ -278,15 +296,15 @@ function ProcessTrackingBoard({
                                               {item.name}
                                             </p>
                                             <p className="text-[11px] text-muted">
-                                              {item.activityCount} actividad
-                                              {item.activityCount === 1
-                                                ? ""
-                                                : "es"}
+                                              {item.activityCount === 0
+                                                ? "Sin historial"
+                                                : `${item.activityCount} en historial`}
                                             </p>
                                           </td>
                                           <td className="px-3 py-2.5">
                                             <ProcessStatus
                                               status={item.phase}
+                                              compact
                                             />
                                           </td>
                                           <td className="px-3 py-2.5">

@@ -1,5 +1,5 @@
-import { DocumentsService } from "../../generated/services/DocumentsService";
-import type { DocumentsRead } from "../../generated/models/DocumentsModel";
+import { DocumentosService } from "../../generated/services/DocumentosService";
+import type { DocumentosRead } from "../../generated/models/DocumentosModel";
 import { SharePointOnlineService } from "../../generated/services/SharePointOnlineService";
 import type { SharePointBlobItem } from "../../generated/services/SharePointOnlineService";
 import {
@@ -571,7 +571,7 @@ export const getProcessFileKey = (file: ProcessFile): string =>
   file.fileId?.trim() || `${file.path}::${file.name}`;
 
 const mapDocumentLibraryItem = (
-  item: DocumentsRead,
+  item: DocumentosRead,
   siteUrl: string,
 ): ProcessFile | null => {
   if (item["{IsFolder}"] === true) return null;
@@ -618,7 +618,7 @@ const listProcessFilesFromDocumentsLibrary = async (
 ): Promise<ProcessFile[]> => {
   const folderTokenLower = folderToken.toLowerCase();
 
-  const result = await DocumentsService.getAll({
+  const result = await DocumentosService.getAll({
     top: 5000,
     select: [
       "{FilenameWithExtension}",
@@ -634,14 +634,14 @@ const listProcessFilesFromDocumentsLibrary = async (
     ],
   });
 
-  const errorMessage = getOperationErrorMessage(result, "DocumentsService.getAll");
+  const errorMessage = getOperationErrorMessage(result, "DocumentosService.getAll");
   if (errorMessage) {
     throw new Error(errorMessage);
   }
 
   const allItems = result.data ?? [];
 
-  const matchesFolder = (item: DocumentsRead): boolean => {
+  const matchesFolder = (item: DocumentosRead): boolean => {
     const path = (item["{FullPath}"] ?? item["{Path}"] ?? "").toLowerCase();
     return (
       path.includes(`/${folderTokenLower}/`) ||

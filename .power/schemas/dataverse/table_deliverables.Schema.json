@@ -111,7 +111,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "6babc761-679f-f111-b8de-002248e028e8",
+          "x-ms-optionsetmetadataid": "16b1ffc7-44e5-4698-a6f5-7a12273136dd",
           "x-ms-isGlobal": true,
           "x-ms-optionsetdisplayname": "dev_deliverablestate",
           "x-ms-optionSetType": "Picklist"
@@ -123,6 +123,13 @@
           "x-ms-dataverse-type": "VirtualType",
           "x-ms-schema-name": "dev_deliverablestateName",
           "x-ms-read-only": true
+        },
+        "dev_deliveryversion": {
+          "type": "string",
+          "title": "delivery-version",
+          "x-ms-dataverse-attribute": "dev_deliveryversion",
+          "x-ms-dataverse-type": "IntegerType",
+          "x-ms-schema-name": "dev_deliveryversion"
         },
         "dev_folderpath": {
           "type": "string",
@@ -366,7 +373,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "7583bb1f-f641-49d8-b98c-cf991b9f93b9",
+          "x-ms-optionsetmetadataid": "98d624a9-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -397,7 +404,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "c4f30cca-34cf-432d-b6a9-f47b26f85f93",
+          "x-ms-optionsetmetadataid": "a2d624a9-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

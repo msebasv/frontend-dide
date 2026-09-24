@@ -52,7 +52,7 @@ function StatisticsProcessesModal({
     {
       key: "status",
       header: "Estado",
-      render: (row) => <ProcessStatus status={row.status} />,
+      render: (row) => <ProcessStatus status={row.status} compact />,
     },
     {
       key: "advisorLabel",

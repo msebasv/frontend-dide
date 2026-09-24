@@ -2,7 +2,9 @@ import clsx from "clsx";
 import { FaChevronLeft, FaTimes } from "react-icons/fa";
 
 import logoUnbosque from "../../assets/brand/logounbosque.png?inline";
+import logoUnbosqueMark from "../../assets/brand/logounbosque-mark.png?inline";
 import logoDide from "../../assets/brand/logodide.png?inline";
+import logoDideMark from "../../assets/brand/logodide-mark.png?inline";
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -21,7 +23,7 @@ const Sidebar = ({
 }: SidebarProps) => {
   return (
     <div className="sidebar-shell relative flex h-full min-h-0 flex-col overflow-visible bg-background">
-      <div className="relative flex shrink-0 items-center justify-between gap-2 px-3 py-5 md:px-4 md:py-6">
+      <div className="relative flex shrink-0 items-center justify-between gap-2 overflow-visible px-3 py-5 md:px-4 md:py-6">
         <div
           className={clsx(
             "flex min-w-0 items-center",
@@ -29,7 +31,7 @@ const Sidebar = ({
           )}
         >
           <img
-            src={logoUnbosque}
+            src={isOpen ? logoUnbosque : logoUnbosqueMark}
             alt="Universidad El Bosque"
             width={280}
             height={83}
@@ -37,8 +39,8 @@ const Sidebar = ({
             className={clsx(
               "object-contain transition-all duration-300",
               isOpen
-                ? "h-[3.35rem] w-auto max-w-[15rem] sm:h-14"
-                : "h-10 w-10 object-left",
+                ? "h-14 w-auto max-w-[15.5rem]"
+                : "h-11 w-11",
             )}
           />
         </div>
@@ -85,7 +87,7 @@ const Sidebar = ({
           Navegación
         </p>
 
-        <nav className="sidebar-nav min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-visible pb-3">
+        <nav className="sidebar-nav flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3">
           {children}
         </nav>
       </div>
@@ -98,14 +100,14 @@ const Sidebar = ({
           )}
         >
           <img
-            src={logoDide}
+            src={isOpen ? logoDide : logoDideMark}
             alt="DiDE · División de Innovación Digital en Educación"
             width={280}
             height={42}
             decoding="async"
             className={clsx(
               "object-contain transition-all duration-300",
-              isOpen ? "h-11 w-auto max-w-[14.5rem]" : "h-8 w-8 object-left",
+              isOpen ? "h-[3.25rem] w-auto max-w-[16rem]" : "h-11 w-11",
             )}
           />
         </div>

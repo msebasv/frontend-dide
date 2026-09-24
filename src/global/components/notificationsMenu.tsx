@@ -55,7 +55,7 @@ function NotificationsMenu() {
         <div className="border-b border-border px-3 py-2.5">
           <p className="text-sm font-semibold text-primary">Notificaciones</p>
           <p className="text-xs text-muted">
-            Pendientes según tu rol activo
+            Pendientes según su rol activo
           </p>
         </div>
 
@@ -66,7 +66,7 @@ function NotificationsMenu() {
             </p>
           ) : notifications.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-muted">
-              No tienes pendientes por ahora
+              No hay pendientes por ahora
             </p>
           ) : (
             notifications.map((item) => (

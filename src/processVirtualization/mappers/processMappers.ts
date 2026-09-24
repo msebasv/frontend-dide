@@ -11,15 +11,23 @@ import type { Dev_table_faculties } from "../../generated/models/Dev_table_facul
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import type { Dev_tableactivities } from "../../generated/models/Dev_tableactivitiesModel";
 import type { Dev_tableassignroles } from "../../generated/models/Dev_tableassignrolesModel";
+import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
+import type { Dev_tableactivitytemplates } from "../../generated/models/Dev_tableactivitytemplatesModel";
 
 import type { VirtualizationProcess } from "../types/process.types";
+import { buildProcessPhaseBreakdown } from "../../courses/utils/phaseBreakdown";
 import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
 import { resolveProcessSemester } from "../../global/utils/semesterUtils";
 import {
   canonicalizeUserRole,
+  isProcessCloseReady,
+  PROCESS_PHASES,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
-import { isLeaderSyllabusStatus } from "../../courses/mappers/courseMappers";
+import {
+  isLeaderClassroomConfirmStatus,
+  isLeaderSyllabusStatus,
+} from "../../courses/mappers/courseMappers";
 
 type AssignRoleWithFormatted = Dev_tableassignroles & {
   "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"?: string;
@@ -33,6 +41,9 @@ interface MapperParams {
   phases: Dev_tablephases[];
   activities: Dev_tableactivities[];
   assignRoles?: AssignRoleWithFormatted[];
+  /** Entregables activos: permiten mostrar el avance por estado, no solo la fase. */
+  deliverables?: Dev_tabledeliverables[];
+  activityTemplates?: Dev_tableactivitytemplates[];
 }
 
 interface AssignedPerson {
@@ -45,6 +56,7 @@ interface ProcessAssignees {
   validator?: AssignedPerson;
   advisor?: AssignedPerson;
   leader?: AssignedPerson;
+  designer?: AssignedPerson;
 }
 
 const looksLikeEmail = (value: string): boolean =>
@@ -100,6 +112,8 @@ const buildAssigneesByProcess = (
       current.advisor = person;
     } else if (canonical === USER_ROLES.LEADER) {
       current.leader = person;
+    } else if (canonical === USER_ROLES.DIDE_DESIGNER) {
+      current.designer = person;
     }
 
     byProcess.set(processId, current);
@@ -116,6 +130,8 @@ export const mapVirtualizationProcesses = ({
   phases,
   activities,
   assignRoles = [],
+  deliverables = [],
+  activityTemplates = [],
 }: MapperParams): VirtualizationProcess[] => {
   const coursesMap = new Map(
     courses.map((course) => [course.dev_tablecourseinstanceid, course]),
@@ -130,6 +146,23 @@ export const mapVirtualizationProcesses = ({
   );
 
   const assigneesByProcess = buildAssigneesByProcess(assignRoles);
+
+  const templatesMap = new Map(
+    activityTemplates.map((template) => [
+      template.dev_tableactivitytemplateid,
+      template,
+    ]),
+  );
+
+  const deliverablesByProcess = new Map<string, Dev_tabledeliverables[]>();
+  for (const deliverable of deliverables) {
+    const processId =
+      deliverable._dev_tablevirtualizationprocess_value?.trim() ?? "";
+    if (!processId) continue;
+    const list = deliverablesByProcess.get(processId) ?? [];
+    list.push(deliverable);
+    deliverablesByProcess.set(processId, list);
+  }
 
   const phasesByProcess = new Map<string, Dev_tablephases[]>();
 
@@ -174,6 +207,14 @@ export const mapVirtualizationProcesses = ({
         lastPhase?.dev_namephase?.trim() ||
         "";
 
+      const processClosed = isProcessCloseReady(
+        process.dev_closeready,
+        process.dev_closereadyname,
+      );
+      const resolvedStatus = processClosed
+        ? PROCESS_PHASES.COMPLETED
+        : activityName;
+
       const processId = process.dev_tablevirtualizationprocessid;
       const phaseIds = new Set(
         processPhases.map((phase) => phase.dev_tablephaseid),
@@ -196,13 +237,23 @@ export const mapVirtualizationProcesses = ({
 
       const assignees = assigneesByProcess.get(processId);
 
+      const processDeliverables = deliverablesByProcess.get(processId) ?? [];
+      const phaseBreakdown = processDeliverables.length
+        ? buildProcessPhaseBreakdown({
+            processStatus: resolvedStatus,
+            deliverables: processDeliverables,
+            phases: processPhases,
+            templatesMap,
+          })
+        : undefined;
+
       return {
         processId,
         processName: process.dev_nameprocess ?? "",
         courseName: course?.dev_namecourse ?? "",
         programName: program?.dev_nameprogram ?? "",
         facultyName: faculty?.dev_namefaculty ?? "",
-        status: activityName,
+        status: resolvedStatus,
         modifiedOn,
         createdOn: process.createdon ?? "",
         semester: resolveProcessSemester(
@@ -217,7 +268,24 @@ export const mapVirtualizationProcesses = ({
         advisorLabel: assignees?.advisor?.label ?? "",
         leaderEmail: assignees?.leader?.email ?? "",
         leaderLabel: assignees?.leader?.label ?? "",
-        canUploadSyllabus: isLeaderSyllabusStatus(activityName),
+        designerEmail: assignees?.designer?.email ?? "",
+        designerLabel: assignees?.designer?.label ?? "",
+        canUploadSyllabus:
+          !processClosed &&
+          isLeaderSyllabusStatus(activityName) &&
+          Boolean(assignees?.validator?.email),
+        needsValidatorAssignment:
+          !processClosed &&
+          isLeaderSyllabusStatus(activityName) &&
+          !assignees?.validator?.email,
+        /**
+         * true si aún no hay Diseñador DIDE: el coordinador puede asignarlo
+         * en cualquier momento (no está atado a una fase).
+         */
+        needsDesignerAssignment: !processClosed && !assignees?.designer?.email,
+        canConfirmClassroom:
+          !processClosed && isLeaderClassroomConfirmStatus(activityName),
+        phaseBreakdown,
       };
     })
     .sort(

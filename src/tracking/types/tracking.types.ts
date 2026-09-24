@@ -15,7 +15,7 @@ export interface DeliverableTrackingItem {
   id: string;
   name: string;
   creditNumber: number;
-  /** General | Crédito / Unidad N */
+  /** General | Unidad N */
   creditLabel: string;
   phase: string;
   phaseShort: string;
@@ -47,6 +47,14 @@ export interface ProcessTrackingRow {
   advisorLabel: string;
   advisorStatus: ActorProgressCode;
   advisorStatusLabel: string;
+  designerEmail: string;
+  designerLabel: string;
+  /**
+   * true si aún no hay Diseñador DIDE (asignable en cualquier momento).
+   */
+  needsDesignerAssignment: boolean;
+  /** true si close-ready: solo consulta, sin reasignar ni editar. */
+  isFinalized: boolean;
   materialCount: number;
   modifiedOn: string;
   /** Ruta de detalle según el rol que consulta. */
