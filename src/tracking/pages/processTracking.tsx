@@ -2,19 +2,27 @@
  * Tablero de seguimiento: avance de autor / validador / asesor por proceso.
  * Asesor → solo asignados. Líder / Coordinador / Admin → todos.
  */
-import { useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import LoadingState from "../../global/components/loadingState";
 import StatCard from "../../global/components/statCard";
+import Button from "../../global/components/button";
+import ProcessStatusFilterTabs, {
+  countByProcessStatusTab,
+  filterByProcessStatusTab,
+  type ProcessStatusFilterTab,
+} from "../../global/components/processStatusFilterTabs";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
+  canCreateProcesses,
   isLeaderRole,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
 import { isAdvisorRole } from "../../courses/mappers/courseMappers";
 import {
+  IoAddCircleOutline,
   IoBookOutline,
   IoCheckmarkDoneOutline,
   IoCloudUploadOutline,
@@ -34,10 +42,21 @@ function ProcessTrackingPage() {
     user?.email ?? "",
     currentRole,
   );
+  const [activeTab, setActiveTab] = useState<ProcessStatusFilterTab>("all");
 
   useEffect(() => {
     if (canAccess) void loadTracking();
   }, [canAccess, loadTracking]);
+
+  const tabCounts = useMemo(
+    () => countByProcessStatusTab(rows, (row) => row.phase),
+    [rows],
+  );
+
+  const filteredRows = useMemo(
+    () => filterByProcessStatusTab(rows, activeTab, (row) => row.phase),
+    [rows, activeTab],
+  );
 
   if (!canAccess) {
     return <Navigate to="/" replace />;
@@ -50,7 +69,10 @@ function ProcessTrackingPage() {
   const isAdvisor = currentRole === USER_ROLES.ADVISOR;
   const description = isAdvisor
     ? "Consulta el avance de cargas y validaciones en los procesos asignados."
-    : "Consulta el avance por proceso: despliega General o cada crédito para ver la fase de cada entregable.";
+    : "Consulta el avance por proceso: despliega General o cada unidad para ver la fase de cada entregable.";
+
+  // Alta de proceso/curso: Coordinador DIDE y Administrador (no el Líder).
+  const showCreateActions = canCreateProcesses(currentRole);
 
   return (
     <div className="space-y-6">
@@ -58,6 +80,24 @@ function ProcessTrackingPage() {
         title="Seguimiento"
         description={description}
         badge={isAdvisor ? "Asesoría" : "Gestión"}
+        actions={
+          showCreateActions ? (
+            <>
+              <Link to="/virtualization-processes/create">
+                <Button size="sm">
+                  <IoAddCircleOutline size={16} />
+                  Nuevo Proceso
+                </Button>
+              </Link>
+              <Link to="/virtualization-processes/create-course">
+                <Button variant="secondary" size="sm">
+                  <IoAddCircleOutline size={16} />
+                  Nuevo Curso
+                </Button>
+              </Link>
+            </>
+          ) : undefined
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -80,7 +120,7 @@ function ProcessTrackingPage() {
           value={summary.validatorPending}
           icon={<IoPersonOutline size={22} />}
           color="accent"
-          subtitle="Validador disciplinar"
+          subtitle={USER_ROLES.VALIDATOR}
         />
         <StatCard
           label="Pendientes de asesor"
@@ -90,7 +130,7 @@ function ProcessTrackingPage() {
           subtitle="Asesoría pedagógica"
         />
         <StatCard
-          label="Completados"
+          label="Finalizados"
           value={summary.completed}
           icon={<IoCheckmarkDoneOutline size={22} />}
           color="success"
@@ -98,7 +138,23 @@ function ProcessTrackingPage() {
         />
       </div>
 
-      <ProcessTrackingBoard rows={rows} />
+      <div className="space-y-4">
+        <ProcessStatusFilterTabs
+          activeTab={activeTab}
+          counts={tabCounts}
+          onChange={setActiveTab}
+        />
+        <ProcessTrackingBoard
+          rows={filteredRows}
+          emptyMessage={
+            activeTab === "completed"
+              ? "No hay procesos finalizados para mostrar."
+              : activeTab === "inProgress"
+                ? "No hay procesos en curso para mostrar."
+                : "No hay procesos registrados para mostrar."
+          }
+        />
+      </div>
     </div>
   );
 }

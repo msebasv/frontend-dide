@@ -55,11 +55,11 @@ function Layout() {
       });
 
   return (
-    <div className="flex h-dvh max-h-dvh overflow-hidden bg-background">
+    <div className="flex h-dvh max-h-dvh min-w-0 max-w-full overflow-hidden bg-background">
       {/* Desktop sidebar */}
       <aside
         className={clsx(
-          "relative z-40 hidden h-full shrink-0 overflow-visible md:flex",
+          "relative z-40 hidden h-full min-w-0 shrink-0 overflow-visible md:flex",
           "flex-col border-r border-border bg-background text-primary",
           "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "will-change-[width]",
@@ -122,15 +122,15 @@ function Layout() {
         </aside>
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
         <header className="z-30 shrink-0 border-b border-border/80 bg-background px-3 pt-[env(safe-area-inset-top)] sm:px-6">
-          <div className="flex h-14 w-full items-center sm:h-16">
+          <div className="flex h-14 w-full min-w-0 items-center sm:h-16">
             <Navbar onMenuClick={() => setMobileOpen(true)} />
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-background p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5 md:p-8">
-          <div className="mx-auto w-full max-w-7xl min-w-0">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-background p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5 md:p-8">
+          <div className="mx-auto w-full min-w-0 max-w-7xl">
             <Outlet />
           </div>
         </main>

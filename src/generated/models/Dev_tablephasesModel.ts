@@ -16,7 +16,6 @@ export const Dev_tablephasesstatuscode = {
 export type Dev_tablephasesstatuscode = keyof typeof Dev_tablephasesstatuscode;
 
 export interface Dev_tablephasesBase {
-  dev_expectedactivity?: number;
   "dev_expectedactivitytemplate@odata.bind": string;
   dev_namephase?: string;
   "dev_tabledeliverable@odata.bind"?: string;

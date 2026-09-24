@@ -26,6 +26,7 @@ import Button from "../../global/components/button";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
   PENDING_APPROVAL_PHASES,
+  PROCESS_PHASES,
   USER_ROLES,
   canonicalizeUserRole,
   isLeaderRole,
@@ -76,7 +77,7 @@ const filterProcessesByDrill = (
       return processes.filter(
         (process) =>
           Boolean(process.status) &&
-          process.status !== "Sin estado" &&
+          process.status !== PROCESS_PHASES.UNKNOWN &&
           process.status !== COMPLETED_STATUS,
       );
     case "pendingApproval":
@@ -206,8 +207,8 @@ const Statistics = () => {
         title="Estadísticas"
         description={
           viewMode === "process"
-            ? "Haz clic en una tarjeta para ver los procesos de esa categoría"
-            : "Haz clic en una tarjeta para ver los entregables de esa categoría"
+            ? "Seleccione una tarjeta para ver los procesos de esa categoría"
+            : "Seleccione una tarjeta para ver los entregables de esa categoría"
         }
         badge="Analítica"
         actions={
@@ -380,7 +381,7 @@ const Statistics = () => {
                     setProcessDrill({
                       kind: "status",
                       status: phase.name,
-                      title: `Estado: ${phase.shortName}`,
+                      title: phase.shortName,
                     })
                   }
                   className="rounded-[1.25rem] border border-border bg-surface p-4 text-left shadow-[var(--shadow-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2"
@@ -416,7 +417,7 @@ const Statistics = () => {
                   setProcessDrill({
                     kind: "status",
                     status: phaseName,
-                    title: `Estado: ${phase?.shortName ?? phaseName}`,
+                    title: phase?.shortName ?? phaseName,
                   });
                 }}
               />
@@ -513,7 +514,7 @@ const Statistics = () => {
                     setDeliverableDrill({
                       kind: "status",
                       status: phase.name,
-                      title: `Estado: ${phase.shortName}`,
+                      title: phase.shortName,
                     })
                   }
                   className="rounded-[1.25rem] border border-border bg-surface p-4 text-left shadow-[var(--shadow-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2"
@@ -552,7 +553,7 @@ const Statistics = () => {
                   setDeliverableDrill({
                     kind: "status",
                     status: phaseName,
-                    title: `Estado: ${phase?.shortName ?? phaseName}`,
+                    title: phase?.shortName ?? phaseName,
                   });
                 }}
               />

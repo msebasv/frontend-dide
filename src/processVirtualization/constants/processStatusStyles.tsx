@@ -1,37 +1,52 @@
 /**
  * Estilos visuales por fase del proceso de virtualización.
  * Las claves coinciden con PROCESS_PHASES en domainConstants.
- * Cada fase usa un color distinto para identificarla de un vistazo.
+ *
+ * Mismo lenguaje visual del ActionButton "edit" / Cambiar diseñador:
+ * fondo suave /10 · texto de paleta · borde /25
+ * Paleta dashboard: #d97706 · #004040 · #005555 · #86c127 · #5ea018 · #9ad43a
  */
 import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 
 export const processStatusStyles: Record<string, string> = {
-  /** Naranja — syllabus pendiente del líder */
+  /** Naranja — syllabus */
   [PROCESS_PHASES.LEADER_SYLLABUS]:
-    "bg-orange-100 text-orange-950 ring-1 ring-orange-300/70",
-  /** Ámbar — pendiente de carga del autor */
+    "bg-[#d97706]/10 text-[#d97706] border border-[#d97706]/25",
+  /** Naranja — cargue del autor */
   [PROCESS_PHASES.AUTHOR_UPLOAD]:
-    "bg-amber-100 text-amber-900 ring-1 ring-amber-300/70",
-  /** Azul — revisión validador disciplinar */
+    "bg-[#d97706]/10 text-[#d97706] border border-[#d97706]/25",
+  /** Verde oscuro — validador disciplinar */
   [PROCESS_PHASES.VALIDATOR_REVIEW]:
-    "bg-sky-100 text-sky-900 ring-1 ring-sky-300/70",
-  /** Violeta — revisión asesor pedagógico */
+    "bg-[#004040]/10 text-[#004040] border border-[#004040]/25",
+  /** Teal — asesor pedagógico */
   [PROCESS_PHASES.ADVISOR_REVIEW]:
-    "bg-violet-100 text-violet-900 ring-1 ring-violet-300/70",
-  /** Teal marca — confirmación DIDE */
+    "bg-[#005555]/10 text-[#005555] border border-[#005555]/25",
+  /** Verde claro — guión instruccional */
+  [PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD]:
+    "bg-[#86c127]/10 text-[#3f8f2a] border border-[#86c127]/25",
+  /** Verde oscuro — enlaces audiovisuales DIDE */
   [PROCESS_PHASES.DIDE_REVIEW]:
-    "bg-primary/10 text-primary ring-1 ring-primary/30",
-  /** Verde — syllabus completado */
+    "bg-[#004040]/10 text-[#004040] border border-[#004040]/25",
+  /** Verde acento — aprobación AV */
+  [PROCESS_PHASES.ADVISOR_AV_APPROVAL]:
+    "bg-[#5ea018]/10 text-[#3f8f2a] border border-[#5ea018]/25",
+  /** Lima — validación aula */
+  [PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM]:
+    "bg-[#9ad43a]/10 text-[#3f8f2a] border border-[#9ad43a]/25",
+  /** Verde claro — proceso finalizado */
   [PROCESS_PHASES.COMPLETED]:
-    "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-300/70",
+    "bg-[#86c127]/10 text-[#3f8f2a] border border-[#86c127]/25",
 };
 
 /** Colores hex para gráficas y badges (Recharts, PhaseDistribution, etc.). */
 export const processStatusColors: Record<string, string> = {
-  [PROCESS_PHASES.LEADER_SYLLABUS]: "#ea580c",
+  [PROCESS_PHASES.LEADER_SYLLABUS]: "#d97706",
   [PROCESS_PHASES.AUTHOR_UPLOAD]: "#d97706",
-  [PROCESS_PHASES.VALIDATOR_REVIEW]: "#0284c7",
-  [PROCESS_PHASES.ADVISOR_REVIEW]: "#7c3aed",
+  [PROCESS_PHASES.VALIDATOR_REVIEW]: "#004040",
+  [PROCESS_PHASES.ADVISOR_REVIEW]: "#005555",
+  [PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD]: "#86c127",
   [PROCESS_PHASES.DIDE_REVIEW]: "#004040",
-  [PROCESS_PHASES.COMPLETED]: "#059669",
+  [PROCESS_PHASES.ADVISOR_AV_APPROVAL]: "#5ea018",
+  [PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM]: "#9ad43a",
+  [PROCESS_PHASES.COMPLETED]: "#86c127",
 };

@@ -1,9 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../global/hooks/useAuth";
 import DataTable from "../../global/components/dataTable";
 import PageHeader from "../../global/components/pageHeader";
 import LoadingState from "../../global/components/loadingState";
+import ProcessStatusFilterTabs, {
+  countByProcessStatusTab,
+  filterByProcessStatusTab,
+  processStatusTabTitle,
+  type ProcessStatusFilterTab,
+} from "../../global/components/processStatusFilterTabs";
 
 import { useCourses } from "../hooks/useCourses";
 import { getCourseColumns } from "../constants/courseColumns";
@@ -27,10 +33,22 @@ const CourseList = () => {
     user?.email ?? "",
     currentRole,
   );
+  const [activeTab, setActiveTab] = useState<ProcessStatusFilterTab>("all");
 
   const columns = useMemo(
     () => getCourseColumns(roleToColumnRole(currentRole)),
     [currentRole],
+  );
+
+  const tabCounts = useMemo(
+    () => countByProcessStatusTab(courses, (course) => course.status),
+    [courses],
+  );
+
+  const filteredCourses = useMemo(
+    () =>
+      filterByProcessStatusTab(courses, activeTab, (course) => course.status),
+    [courses, activeTab],
   );
 
   useEffect(() => {
@@ -41,28 +59,36 @@ const CourseList = () => {
     <div>
       <PageHeader
         title="Mis Cursos"
-        description="Procesos asignados a tu rol. La columna muestra cuántos materiales te tocan atender."
+        description="Procesos asignados a su rol. La columna indica cuántos materiales están en su estado y cómo se reparte el resto."
         badge="Gestión académica"
       />
 
       {loading ? (
         <LoadingState />
       ) : (
-        <DataTable
-          columns={columns}
-          data={courses}
-          pageSize={8}
-          title="Listado de cursos"
-          subtitle={`${courses.length} curso${courses.length !== 1 ? "s" : ""} asignado${courses.length !== 1 ? "s" : ""}`}
-          searchPlaceholder="Buscar por curso, proceso o estado..."
-          searchKeys={[
-            "processName",
-            "courseName",
-            "status",
-            "authorName",
-            "modifiedOn",
-          ]}
-        />
+        <div className="space-y-4">
+          <ProcessStatusFilterTabs
+            activeTab={activeTab}
+            counts={tabCounts}
+            onChange={setActiveTab}
+          />
+
+          <DataTable
+            columns={columns}
+            data={filteredCourses}
+            pageSize={8}
+            title={processStatusTabTitle(activeTab, "cursos")}
+            subtitle={`${filteredCourses.length} curso${filteredCourses.length !== 1 ? "s" : ""}`}
+            searchPlaceholder="Buscar por curso, proceso o estado..."
+            searchKeys={[
+              "processName",
+              "courseName",
+              "status",
+              "authorName",
+              "modifiedOn",
+            ]}
+          />
+        </div>
       )}
     </div>
   );

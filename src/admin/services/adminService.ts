@@ -30,11 +30,10 @@ export const PROGRAM_LEVEL_OPTIONS = [
 export type ProgramLevelValue =
   (typeof PROGRAM_LEVEL_OPTIONS)[number]["value"];
 
-/** Roles que el administrador puede registrar en Leaders Users. */
+/** Roles globales registrables en Leaders Users (no por proceso). */
 export const LEADER_USERS_MANAGEABLE_ROLES = [
-  USER_ROLES.DIDE_DESIGNER,
   USER_ROLES.DIDE_COORDINATOR,
-  USER_ROLES.LEADER,
+  USER_ROLES.DESIGNER_COORDINATOR,
   USER_ROLES.ADMIN,
 ] as const;
 
@@ -65,8 +64,6 @@ export interface LeaderUserRow {
   email: string;
   roleId: string;
   roleName: string;
-  facultyId: string;
-  facultyName: string;
   /** false = inactivo en Dataverse (statecode Inactive). */
   isActive: boolean;
 }
@@ -152,7 +149,7 @@ export const createProgram = async (params: {
   const name = assertSafeTitle(params.name, "El nombre del programa");
   const facultyId = params.facultyId.trim();
   if (!facultyId) {
-    throw new Error("Selecciona una facultad.");
+    throw new Error("Debe seleccionar una facultad.");
   }
 
   const result = await Dev_table_programsService.create({
@@ -176,7 +173,7 @@ export const updateProgram = async (params: {
   const name = assertSafeTitle(params.name, "El nombre del programa");
   const facultyId = params.facultyId.trim();
   if (!facultyId) {
-    throw new Error("Selecciona una facultad.");
+    throw new Error("Debe seleccionar una facultad.");
   }
 
   const result = await Dev_table_programsService.update(id, {
@@ -253,10 +250,9 @@ export const updateFaculty = async (params: {
 };
 
 export const listLeaderUsers = async (): Promise<LeaderUserRow[]> => {
-  const [usersResult, rolesResult, facultiesResult] = await Promise.all([
+  const [usersResult, rolesResult] = await Promise.all([
     Dev_tableleaderusersesService.getAll(),
     Dev_tablerolesService.getAll(),
-    Dev_table_facultiesService.getAll(),
   ]);
 
   const roleNameById = new Map(
@@ -265,17 +261,10 @@ export const listLeaderUsers = async (): Promise<LeaderUserRow[]> => {
       role.dev_namerole?.trim() || "",
     ]),
   );
-  const facultyNameById = new Map(
-    (facultiesResult.data ?? []).map((faculty) => [
-      faculty.dev_table_facultyid,
-      faculty.dev_namefaculty?.trim() || "Sin nombre",
-    ]),
-  );
 
   return (usersResult.data ?? [])
     .map((item) => {
       const roleId = item._dev_tablerole_value ?? "";
-      const facultyId = item._dev_tablefaculty_value ?? "";
       const rawRole =
         item.dev_tablerolename?.trim() || roleNameById.get(roleId) || "";
       return {
@@ -283,11 +272,6 @@ export const listLeaderUsers = async (): Promise<LeaderUserRow[]> => {
         email: item.dev_useremail?.trim() || "",
         roleId,
         roleName: canonicalizeUserRole(rawRole) || rawRole || "Sin rol",
-        facultyId,
-        facultyName:
-          item.dev_tablefacultyname?.trim() ||
-          facultyNameById.get(facultyId) ||
-          "—",
         isActive: isLeaderUserActive(item.statecode),
       };
     })
@@ -300,7 +284,6 @@ export const listLeaderUsers = async (): Promise<LeaderUserRow[]> => {
 export const createLeaderUser = async (params: {
   email: string;
   roleName: string;
-  facultyId?: string;
 }): Promise<void> => {
   const emailCheck = validateOrganizationEmail(params.email);
   if (!emailCheck.ok) {
@@ -308,6 +291,11 @@ export const createLeaderUser = async (params: {
   }
 
   const roleName = canonicalizeUserRole(params.roleName);
+  if (roleName === USER_ROLES.LEADER) {
+    throw new Error(
+      "El Líder de virtualización se asigna por proceso, no como rol global.",
+    );
+  }
   if (
     !LEADER_USERS_MANAGEABLE_ROLES.includes(
       roleName as (typeof LEADER_USERS_MANAGEABLE_ROLES)[number],
@@ -336,45 +324,26 @@ export const createLeaderUser = async (params: {
   }
 
   if (sameRole && !isLeaderUserActive(sameRole.statecode)) {
-    const reactivateFields: Record<string, string | number> = {
-      statecode: 0,
-      statuscode: 1,
-    };
-    const facultyId = params.facultyId?.trim();
-    if (facultyId) {
-      reactivateFields["dev_tablefaculty@odata.bind"] =
-        `/dev_table_faculties(${facultyId})`;
-    }
-
     const result = await Dev_tableleaderusersesService.update(
       sameRole.dev_tableleaderusersid,
-      reactivateFields as Partial<
-        Omit<Dev_tableleaderusersesBase, "dev_tableleaderusersid">
-      >,
+      {
+        statecode: 0,
+        statuscode: 1,
+      } as Partial<Omit<Dev_tableleaderusersesBase, "dev_tableleaderusersid">>,
     );
     assertCreateSuccess(result, "No se pudo reactivar el usuario líder.");
     return;
   }
 
-  const payload: Record<string, string | number> = {
+  const result = await Dev_tableleaderusersesService.create({
     dev_useremail: emailCheck.value,
     "dev_tablerole@odata.bind": `/dev_tableroles(${roleId})`,
     statecode: 0,
     statuscode: 1,
-  };
-
-  const facultyId = params.facultyId?.trim();
-  if (facultyId) {
-    payload["dev_tablefaculty@odata.bind"] =
-      `/dev_table_faculties(${facultyId})`;
-  }
-
-  const result = await Dev_tableleaderusersesService.create(
-    payload as unknown as Omit<
-      Dev_tableleaderusersesBase,
-      "dev_tableleaderusersid"
-    >,
-  );
+  } as unknown as Omit<
+    Dev_tableleaderusersesBase,
+    "dev_tableleaderusersid"
+  >);
 
   assertCreateSuccess(result, "No se pudo registrar el usuario líder.");
 };

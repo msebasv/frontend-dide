@@ -90,7 +90,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "41bce695-679f-f111-b8de-002248e028e8",
+          "x-ms-optionsetmetadataid": "b8b126af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "close-ready",
           "x-ms-optionSetType": "Boolean"
@@ -126,22 +126,6 @@
           "x-ms-dataverse-type": "StringType",
           "x-ms-schema-name": "dev_nameprocess",
           "x-ms-dataverse-primary-name": true,
-          "maxLength": 850
-        },
-        "dev_previousprocess": {
-          "type": "string",
-          "title": "previous-process",
-          "x-ms-dataverse-attribute": "dev_previousprocess",
-          "x-ms-dataverse-type": "LookupType",
-          "x-ms-schema-name": "dev_previousprocess"
-        },
-        "dev_previousprocessname": {
-          "type": "string",
-          "title": "dev_previousprocessname",
-          "x-ms-dataverse-attribute": "dev_previousprocessname",
-          "x-ms-dataverse-type": "StringType",
-          "x-ms-schema-name": "dev_previousprocessName",
-          "x-ms-read-only": true,
           "maxLength": 850
         },
         "dev_tablecourse": {
@@ -343,7 +327,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "9d6cb9be-17f3-430d-9843-5af996357f65",
+          "x-ms-optionsetmetadataid": "79b126af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -374,7 +358,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "98988567-54ed-4c5b-8f4f-e081474ab0d3",
+          "x-ms-optionsetmetadataid": "83b126af-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

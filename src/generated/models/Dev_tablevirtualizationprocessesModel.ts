@@ -18,7 +18,6 @@ export interface Dev_tablevirtualizationprocessesBase {
   dev_credits: number;
   dev_folderbase?: string;
   dev_nameprocess?: string;
-  "dev_previousprocess@odata.bind"?: string;
   "dev_tablecourse@odata.bind"?: string;
   dev_tablevirtualizationprocessid: string;
   dev_version: number;
@@ -39,7 +38,6 @@ export interface Dev_tablevirtualizationprocesses extends Dev_tablevirtualizatio
   createdonbehalfbyname?: string;
   createdonbehalfbyyominame: string;
   dev_closereadyname?: string;
-  dev_previousprocessname?: string;
   dev_tablecoursename?: string;
   modifiedbyname?: string;
   modifiedbyyominame: string;
@@ -56,8 +54,6 @@ export interface Dev_tablevirtualizationprocesses extends Dev_tablevirtualizatio
   _createdby_value?: string;
   createdonbehalfby?: object;
   _createdonbehalfby_value?: string;
-  dev_previousprocess?: object;
-  _dev_previousprocess_value?: string;
   dev_tablecourse?: object;
   _dev_tablecourse_value?: string;
   modifiedby?: object;

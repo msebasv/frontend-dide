@@ -25,6 +25,7 @@ export type Dev_tabledeliverablesstatuscode = keyof typeof Dev_tabledeliverables
 export interface Dev_tabledeliverablesBase {
   dev_creditnumber: number;
   dev_deliverablestate: Dev_tabledeliverablesdev_deliverablestate;
+  dev_deliveryversion?: number;
   dev_folderpath?: string;
   dev_namedeliverable?: string;
   "dev_tablecategorytemplate@odata.bind": string;

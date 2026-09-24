@@ -6,7 +6,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getCoursesForUser } from "../../courses/services/courseService";
 import { getVirtualizationProcesses } from "../../processVirtualization/services/processService";
-import { isLeaderRole, USER_ROLES } from "../constants/domainConstants";
+import {
+  isLeaderRole,
+  isVirtualizationLeaderRole,
+  USER_ROLES,
+} from "../constants/domainConstants";
 import type { AppNotification } from "../types/notification.types";
 import {
   buildCourseNotifications,
@@ -34,7 +38,14 @@ export const useNotifications = (userEmail: string, role: string) => {
 
         if (isLeaderRole(role)) {
           const processes = await getVirtualizationProcesses();
-          setNotifications(buildLeaderNotifications(processes));
+          const visible = isVirtualizationLeaderRole(role)
+            ? processes.filter(
+                (process) =>
+                  process.leaderEmail.trim().toLowerCase() ===
+                  userEmail.trim().toLowerCase(),
+              )
+            : processes;
+          setNotifications(buildLeaderNotifications(visible));
           return;
         }
 

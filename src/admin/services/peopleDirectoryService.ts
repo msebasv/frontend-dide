@@ -165,15 +165,11 @@ export const getPeopleDirectory = async (): Promise<PersonDirectoryEntry[]> => {
     const rawRole =
       item.dev_tablerolename?.trim() || roleNameById.get(roleId) || "";
     const roleName = canonicalizeUserRole(rawRole) || rawRole || "Sin rol";
-    const facultyId = item._dev_tablefaculty_value ?? "";
 
     person.globalRoles.push({
       roleName,
-      facultyId,
-      facultyName:
-        item.dev_tablefacultyname?.trim() ||
-        facultyNameById.get(facultyId) ||
-        "—",
+      facultyId: "",
+      facultyName: "—",
       leaderUserId: item.dev_tableleaderusersid,
     });
   }

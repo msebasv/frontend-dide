@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
@@ -12,6 +12,11 @@ import LoadingState from "../../global/components/loadingState";
 import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useAuth } from "../../global/hooks/useAuth";
+import {
+  canCreateProcesses,
+  isDideCoordinatorRole,
+  USER_ROLES,
+} from "../../global/constants/domainConstants";
 import {
   FIELD_LIMITS,
   validateOrganizationEmail,
@@ -27,7 +32,7 @@ import {
   getRoles,
   createVirtualizationProcess,
 } from "../../courses/services/courseService";
-import { findRoleId } from "../../courses/utils/roleUtils";
+import { resolveProcessRoleIds } from "../../courses/utils/roleUtils";
 import type { Dev_table_faculties } from "../../generated/models/Dev_table_facultiesModel";
 import type { Dev_table_programs } from "../../generated/models/Dev_table_programsModel";
 import type { Dev_tablecourseinstances } from "../../generated/models/Dev_tablecourseinstancesModel";
@@ -36,8 +41,14 @@ type SelectOption = { label: string; value: string };
 
 function CreateProcess() {
   const navigate = useNavigate();
-  const { user, refreshRoles } = useAuth();
+  const { user, currentRole, refreshRoles } = useAuth();
   const { feedback, closeFeedback, runAction } = useActionFeedback();
+
+  // El coordinador DIDE entra desde Seguimiento; no tiene el listado de procesos.
+  const returnTo = isDideCoordinatorRole(currentRole)
+    ? "/tracking"
+    : "/virtualization-processes";
+  const canManage = canCreateProcesses(currentRole);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [rolesError, setRolesError] = useState("");
@@ -63,14 +74,12 @@ function CreateProcess() {
 
   const [leaderEmail, setLeaderEmail] = useState("");
   const [authorEmail, setAuthorEmail] = useState("");
-  const [validatorEmail, setValidatorEmail] = useState("");
   const [advisorEmail, setAdvisorEmail] = useState("");
   const [credits, setCredits] = useState("");
 
   const [roleIds, setRoleIds] = useState({
     leader: "",
     author: "",
-    validator: "",
     advisor: "",
   });
 
@@ -79,7 +88,6 @@ function CreateProcess() {
   });
   const leaderCheck = validateOrganizationEmail(leaderEmail);
   const authorCheck = validateOrganizationEmail(authorEmail);
-  const validatorCheck = validateOrganizationEmail(validatorEmail);
   const advisorCheck = validateOrganizationEmail(advisorEmail);
   const creditsNumber = Number(credits);
   const creditsValid =
@@ -139,11 +147,9 @@ function CreateProcess() {
     creditsValid &&
     leaderCheck.ok &&
     authorCheck.ok &&
-    validatorCheck.ok &&
     advisorCheck.ok &&
     Boolean(roleIds.leader) &&
     Boolean(roleIds.author) &&
-    Boolean(roleIds.validator) &&
     Boolean(roleIds.advisor);
 
   const handleFacultyChange = (faculty: SelectOption | null) => {
@@ -174,36 +180,21 @@ function CreateProcess() {
         setCourses(coursesData);
         setExistingProcessNames(processNames);
 
-        const leaderRoleId = findRoleId(roles, [
-          "Líder de virtualización",
-          "Lider de virtualizacion",
-          "Líder de Virtualización",
-        ]);
-        const authorRoleId = findRoleId(roles, [
-          "Autor de asignatura",
-          "Autor de Asignatura",
-        ]);
-        const validatorRoleId = findRoleId(roles, [
-          "Validador disciplinar",
-          "Validador Disciplinar",
-        ]);
-        const advisorRoleId = findRoleId(roles, ["Asesor pedagógico"]);
+        const {
+          leader: leaderRoleId,
+          author: authorRoleId,
+          advisor: advisorRoleId,
+        } = resolveProcessRoleIds(roles);
 
         setRoleIds({
           leader: leaderRoleId,
           author: authorRoleId,
-          validator: validatorRoleId,
           advisor: advisorRoleId,
         });
 
-        if (
-          !leaderRoleId ||
-          !authorRoleId ||
-          !validatorRoleId ||
-          !advisorRoleId
-        ) {
+        if (!leaderRoleId || !authorRoleId || !advisorRoleId) {
           setRolesError(
-            "No se encontraron todos los roles en el sistema. Verifica que existan Líder de virtualización, Autor de asignatura, Validador disciplinar y Asesor pedagógico.",
+            "No se encontraron todos los roles en el sistema. Verifica que existan Líder de virtualización, Autor de asignatura y Asesor pedagógico.",
           );
         }
       } catch (error) {
@@ -232,27 +223,24 @@ function CreateProcess() {
             credits: creditsNumber,
             leaderEmail: leaderCheck.value,
             authorEmail: authorCheck.value,
-            validatorEmail: validatorCheck.value,
             advisorEmail: advisorCheck.value,
             leaderRoleId: roleIds.leader,
             authorRoleId: roleIds.author,
-            validatorRoleId: roleIds.validator,
             advisorRoleId: roleIds.advisor,
           });
         },
         {
           successTitle: "Proceso creado",
           successMessage:
-            "El proceso de virtualización se creó y los roles fueron asignados correctamente.",
+            "El proceso quedó listo con estado Cargue Syllabus y los roles asignados. El líder debe asignar el validador disciplinar antes de cargar el syllabus.",
           errorTitle: "No se pudo crear el proceso",
           errorMessage:
-            "Verifica los datos e intenta nuevamente. Si el problema persiste, contacta al administrador.",
+            "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
           onSuccess: async () => {
             const me = user?.email?.trim().toLowerCase() ?? "";
             const assigned = [
               leaderCheck.value,
               authorCheck.value,
-              validatorCheck.value,
               advisorCheck.value,
             ].map((email) => email.trim().toLowerCase());
 
@@ -267,7 +255,7 @@ function CreateProcess() {
             navigate(
               createdProcessId
                 ? `/virtualization-processes/${createdProcessId}`
-                : "/virtualization-processes",
+                : returnTo,
             ),
         },
       );
@@ -275,6 +263,10 @@ function CreateProcess() {
       setSubmitting(false);
     }
   };
+
+  if (!canManage) {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading) {
     return <LoadingState message="Cargando formulario..." />;
@@ -285,7 +277,7 @@ function CreateProcess() {
       <PageHeader
         title="Crear Proceso de Virtualización"
         description="Configura un nuevo proceso y asigna los roles responsables"
-        backTo="/virtualization-processes"
+        backTo={returnTo}
       />
 
       <FormBusyOverlay
@@ -309,7 +301,7 @@ function CreateProcess() {
             label="Nombre del proceso"
             required
             error={processName.trim() ? processNameCheck.message : undefined}
-            hint="Escribe solo el título (ej. Desarrollo Web I). El semestre y el código consecutivo se agregan automáticamente."
+            hint="Indique solo el título (ej. Desarrollo Web I). El semestre y el código consecutivo se agregan automáticamente."
           >
             <InputText
               value={processName}
@@ -332,13 +324,13 @@ function CreateProcess() {
             <FormField
               label="Facultad"
               required
-              hint="Primero elige la facultad para filtrar los programas."
+              hint="Primero seleccione la facultad para filtrar los programas."
             >
               <Select
                 options={facultyOptions}
                 value={selectedFaculty}
                 onChange={handleFacultyChange}
-                placeholder="Selecciona una facultad"
+                placeholder="Seleccione una facultad"
                 disabled={submitting}
               />
             </FormField>
@@ -355,9 +347,9 @@ function CreateProcess() {
                 placeholder={
                   selectedFaculty
                     ? programOptions.length
-                      ? "Selecciona un programa"
+                      ? "Seleccione un programa"
                       : "Sin programas en esta facultad"
-                    : "Selecciona primero una facultad"
+                    : "Seleccione primero una facultad"
                 }
                 disabled={submitting || !selectedFaculty}
               />
@@ -375,9 +367,9 @@ function CreateProcess() {
                 placeholder={
                   selectedProgram
                     ? courseOptions.length
-                      ? "Selecciona un curso"
+                      ? "Seleccione un curso"
                       : "Sin cursos en este programa"
-                    : "Selecciona primero un programa"
+                    : "Seleccione primero un programa"
                 }
                 disabled={submitting || !selectedProgram}
               />
@@ -389,7 +381,7 @@ function CreateProcess() {
             required
             error={
               credits.trim() && !creditsValid
-                ? "Ingresa un número entero mayor o igual a 1."
+                ? "Ingrese un número entero mayor o igual a 1."
                 : undefined
             }
             hint="Cantidad de créditos del proceso de virtualización."
@@ -410,7 +402,7 @@ function CreateProcess() {
             </h3>
             <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
               <FormField
-                label="Líder de virtualización"
+                label={USER_ROLES.LEADER}
                 required
                 error={leaderEmail.trim() ? leaderCheck.message : undefined}
                 hint="Correo institucional del líder responsable del proceso."
@@ -425,10 +417,10 @@ function CreateProcess() {
               </FormField>
 
               <FormField
-                label="Autor de asignatura"
+                label={USER_ROLES.AUTHOR}
                 required
                 error={authorEmail.trim() ? authorCheck.message : undefined}
-                hint="Escribe el correo institucional del autor. Puedes buscar por nombre o correo (ej. autor@unbosque.edu.co)."
+                hint="Indique el correo institucional del autor. Puede buscar por nombre o correo (ej. autor@unbosque.edu.co)."
               >
                 <EmailAutocomplete
                   value={authorEmail}
@@ -440,27 +432,10 @@ function CreateProcess() {
               </FormField>
 
               <FormField
-                label="Validador disciplinar"
-                required
-                error={
-                  validatorEmail.trim() ? validatorCheck.message : undefined
-                }
-                hint="Escribe el correo institucional del validador. Puedes buscar por nombre o correo (ej. validador@unbosque.edu.co)."
-              >
-                <EmailAutocomplete
-                  value={validatorEmail}
-                  onChange={setValidatorEmail}
-                  placeholder="Buscar correo"
-                  invalid={Boolean(validatorEmail.trim() && !validatorCheck.ok)}
-                  disabled={submitting}
-                />
-              </FormField>
-
-              <FormField
-                label="Asesor pedagógico"
+                label={USER_ROLES.ADVISOR}
                 required
                 error={advisorEmail.trim() ? advisorCheck.message : undefined}
-                hint="Escribe el correo institucional del asesor. Puedes buscar por nombre o correo (ej. asesor@unbosque.edu.co)."
+                hint="Indique el correo institucional del asesor. Puede buscar por nombre o correo (ej. asesor@unbosque.edu.co)."
               >
                 <EmailAutocomplete
                   value={advisorEmail}
@@ -471,12 +446,18 @@ function CreateProcess() {
                 />
               </FormField>
             </div>
+
+            <p className="rounded-lg border border-primary/15 bg-primary/5 px-4 py-3 text-xs text-primary">
+              El <span className="font-semibold">validador disciplinar</span> lo
+              asigna después el líder de virtualización, antes de cargar el
+              syllabus.
+            </p>
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end sm:gap-3 [&_button]:w-full sm:[&_button]:w-auto">
             <Button
               variant="secondary"
-              onClick={() => navigate("/virtualization-processes")}
+              onClick={() => navigate(returnTo)}
               disabled={submitting}
             >
               Cancelar

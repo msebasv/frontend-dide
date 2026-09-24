@@ -196,7 +196,7 @@ function AdminProgramsPage() {
             ? "No se pudo actualizar el programa"
             : "No se pudo crear el programa",
           errorMessage:
-            "Verifica los datos e intenta nuevamente. Si el problema persiste, revisa permisos en Dataverse.",
+            "Verifique los datos e intente nuevamente. Si el problema persiste, revise los permisos en Dataverse.",
           onSuccess: async () => {
             setProgramModalOpen(false);
             resetProgramForm();
@@ -233,7 +233,7 @@ function AdminProgramsPage() {
             ? "No se pudo actualizar la facultad"
             : "No se pudo crear la facultad",
           errorMessage:
-            "Verifica el nombre e intenta nuevamente. Si el problema persiste, revisa permisos en Dataverse.",
+            "Verifique el nombre e intente nuevamente. Si el problema persiste, revise los permisos en Dataverse.",
           onSuccess: async () => {
             setFacultyModalOpen(false);
             resetFacultyForm();
@@ -321,7 +321,7 @@ function AdminProgramsPage() {
           ]}
           data={programs}
           searchKeys={["name", "facultyName", "levelLabel"]}
-          emptyMessage="Aún no hay programas registrados"
+          emptyMessage="No hay programas registrados"
         />
       ) : (
         <DataTable
@@ -362,7 +362,7 @@ function AdminProgramsPage() {
           ]}
           data={faculties}
           searchKeys={["name"]}
-          emptyMessage="Aún no hay facultades registradas"
+          emptyMessage="No hay facultades registradas"
         />
       )}
 
@@ -397,7 +397,7 @@ function AdminProgramsPage() {
               options={activeFacultyOptions}
               value={programFaculty}
               onChange={setProgramFaculty}
-              placeholder="Selecciona facultad"
+              placeholder="Seleccione facultad"
               disabled={submitting}
             />
           </FormField>
@@ -407,7 +407,7 @@ function AdminProgramsPage() {
               options={levelOptions}
               value={programLevel}
               onChange={setProgramLevel}
-              placeholder="Selecciona nivel"
+              placeholder="Seleccione nivel"
               disabled={submitting}
             />
           </FormField>

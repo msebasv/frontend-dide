@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { useAuth } from "../../global/hooks/useAuth";
 import LoadingState from "../../global/components/loadingState";
 import {
+  canCreateProcesses,
   isLeaderRole,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
@@ -31,7 +32,7 @@ function Home() {
     processes,
     loading: processesLoading,
     loadProcesses,
-  } = useVirtualizationProcesses();
+  } = useVirtualizationProcesses(user?.email ?? "", currentRole);
 
   const leaderView = isLeaderRole(currentRole);
 
@@ -59,10 +60,12 @@ function Home() {
   if (isLeaderRole(currentRole)) {
     const roleLabel =
       currentRole === USER_ROLES.ADMIN
-        ? "Administrador"
+        ? USER_ROLES.ADMIN
         : currentRole === USER_ROLES.DIDE_COORDINATOR
-          ? "Coordinador DIDE"
-          : "Líder de Virtualización";
+          ? USER_ROLES.DIDE_COORDINATOR
+          : currentRole === USER_ROLES.DESIGNER_COORDINATOR
+            ? USER_ROLES.DESIGNER_COORDINATOR
+            : "Líder de Virtualización";
 
     return (
       <LeaderDashboard
@@ -70,6 +73,7 @@ function Home() {
         userName={userName}
         processes={processes}
         roleLabel={roleLabel}
+        canManageProcesses={canCreateProcesses(currentRole)}
       />
     );
   }
@@ -88,7 +92,7 @@ function Home() {
         <ValidatorDashboard
           metrics={metrics}
           userName={userName}
-          roleLabel="Validador disciplinar"
+          roleLabel={USER_ROLES.VALIDATOR}
           courses={courses}
         />
       );
@@ -106,7 +110,7 @@ function Home() {
         <ValidatorDashboard
           metrics={metrics}
           userName={userName}
-          roleLabel="Diseñador DIDE"
+          roleLabel={USER_ROLES.DIDE_DESIGNER}
           courses={courses}
           mode="finalize"
         />
@@ -118,7 +122,7 @@ function Home() {
             Bienvenido, {userName}
           </h1>
           <p className="mt-2 text-muted">
-            Selecciona una opción del menú lateral para comenzar.
+            Seleccione una opción del menú lateral para comenzar.
           </p>
         </div>
       );

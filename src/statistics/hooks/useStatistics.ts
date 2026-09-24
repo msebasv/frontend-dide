@@ -10,9 +10,8 @@ import {
   type PeriodFilterType,
 } from "../../global/utils/semesterUtils";
 import {
-  canonicalizeUserRole,
   isGlobalStatisticsRole,
-  USER_ROLES,
+  isVirtualizationLeaderRole,
 } from "../../global/constants/domainConstants";
 import { isAdvisorRole } from "../../courses/mappers/courseMappers";
 import {
@@ -48,7 +47,7 @@ const resolveStatisticsScope = (
     return { mode: "advisor", email: normalizedEmail };
   }
 
-  if (canonicalizeUserRole(role) === USER_ROLES.LEADER) {
+  if (isVirtualizationLeaderRole(role)) {
     return { mode: "leader", email: normalizedEmail };
   }
 

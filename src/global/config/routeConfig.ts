@@ -12,13 +12,16 @@ export const routeTitles: { pattern: RegExp; title: string }[] = [
   { pattern: /^\/virtualization-processes$/, title: "Procesos de Virtualización" },
   { pattern: /^\/virtualization-processes\/create$/, title: "Crear Proceso" },
   { pattern: /^\/virtualization-processes\/create-course$/, title: "Crear Curso" },
+  { pattern: /^\/virtualization-processes\/[^/]+\/assign-validator$/, title: "Asignar Validador" },
+  { pattern: /^\/virtualization-processes\/[^/]+\/assign-designer$/, title: "Asignar Diseñador DIDE" },
+  { pattern: /^\/virtualization-processes\/[^/]+\/edit$/, title: "Editar Proceso" },
   { pattern: /^\/admin\/people$/, title: "Personas y roles" },
   { pattern: /^\/admin\/programs$/, title: "Programas y facultades" },
   { pattern: /^\/admin\/leader-users$/, title: "Usuarios líderes" },
   { pattern: /^\/admin\/categories$/, title: "Entregables" },
   { pattern: /^\/virtualization-processes\/[^/]+$/, title: "Ver Proceso" },
   { pattern: /^\/courses\/[^/]+\/upload$/, title: "Cargar Curso" },
-  { pattern: /^\/courses\/[^/]+$/, title: "Ver Curso" },
+  { pattern: /^\/courses\/[^/]+$/, title: "Ver Proceso" },
 ];
 
 export const getPageTitle = (pathname: string): string => {

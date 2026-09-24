@@ -48,7 +48,7 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
             {title}
           </h1>
           <p className="hidden truncate text-xs text-muted sm:block">
-            Universidad El Bosque · DiDE
+            Universidad El Bosque · DIDE
           </p>
         </div>
       </div>

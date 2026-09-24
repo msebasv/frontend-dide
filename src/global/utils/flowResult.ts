@@ -79,7 +79,7 @@ const normalizeStatus = (status: string): string =>
 /** Mensaje amigable a partir del error crudo del conector/flujo. */
 export const toFriendlyFlowError = (
   error: unknown,
-  fallback = "No se pudo completar la operación. Intenta de nuevo.",
+  fallback = "No se pudo completar la operación. Intente nuevamente.",
 ): string => {
   const raw = getRawErrorMessage(error);
   const lower = raw.toLowerCase();
@@ -91,7 +91,7 @@ export const toFriendlyFlowError = (
     lower.includes("gateway") ||
     lower.includes("noresponse")
   ) {
-    return "La operación tardó demasiado en responder. El proceso pudo completarse en segundo plano; revisa el estado en unos segundos.";
+    return "La operación tardó demasiado en responder. El proceso pudo completarse en segundo plano; consulte el estado en unos segundos.";
   }
 
   if (
@@ -100,7 +100,7 @@ export const toFriendlyFlowError = (
     lower.includes("error")
   ) {
     if (lower.includes("timeout") || lower.includes("timed out")) {
-      return "La operación tardó demasiado y no se pudo confirmar. Revisa el estado en unos minutos.";
+      return "La operación tardó demasiado y no se pudo confirmar. Consulte el estado en unos minutos.";
     }
   }
 
@@ -177,7 +177,7 @@ export const assertFlowResult = <T>(
 
     if (FAILED_STATUSES.has(normalized)) {
       throw new Error(
-        `La operación falló mientras se procesaba (${actionLabel}). Intenta de nuevo.`,
+        `La operación falló mientras se procesaba (${actionLabel}). Intente nuevamente.`,
       );
     }
   }
@@ -218,7 +218,7 @@ export const waitUntil = async (
 
   throw new Error(
     options.timeoutMessage ??
-      "La operación sigue en proceso y no se pudo confirmar a tiempo. Revisa el estado en unos minutos.",
+      "La operación sigue en proceso y no se pudo confirmar a tiempo. Consulte el estado en unos minutos.",
   );
 };
 

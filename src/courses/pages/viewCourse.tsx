@@ -12,18 +12,26 @@ import CourseDetailView, {
   type MaterialValidationContext,
 } from "../components/courseDetailView";
 import ValidationModals from "../components/validationModals";
+import GuideUploadModal from "../components/guideUploadModal";
 import {
   approveCourseMaterial,
+  confirmClassroomUpload,
   returnCourseMaterial,
+  uploadCourseMaterial,
 } from "../services/courseService";
 import {
+  canUserConfirmClassroomStatus,
   canUserFinalizeStatus,
   canUserValidateStatus,
+  hasAssignedDideDesigner,
+  isAdvisorGuideUploadStatus,
   isAdvisorRole,
   isDideDesignerRole,
   isValidatorRole,
 } from "../mappers/courseMappers";
 import type { CourseMaterial } from "../types/course.types";
+import ClassroomConfirmModal from "../components/classroomConfirmModal";
+import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 
 const ViewCourse = () => {
   const { processId } = useParams<{ processId: string }>();
@@ -36,8 +44,15 @@ const ViewCourse = () => {
   const [materialToValidate, setMaterialToValidate] =
     useState<CourseMaterial | null>(null);
   const [deliverableLabel, setDeliverableLabel] = useState<string | undefined>();
+  const [deliverableStateLabel, setDeliverableStateLabel] = useState<
+    string | undefined
+  >();
   const [showApprove, setShowApprove] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
+  const [showGuideUpload, setShowGuideUpload] = useState(false);
+  const [guideDeliverableId, setGuideDeliverableId] = useState("");
+  const [guideDeliverableLabel, setGuideDeliverableLabel] = useState("");
+  const [showClassroomConfirm, setShowClassroomConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -63,34 +78,63 @@ const ViewCourse = () => {
     });
   }, [detail]);
 
+  const isFinalized = detail?.status === PROCESS_PHASES.COMPLETED;
+
   const isValidationUserRole =
     isValidatorRole(currentRole) ||
     isAdvisorRole(currentRole) ||
     isDideDesignerRole(currentRole);
 
+  const guideBlockedWithoutDesigner = useMemo(() => {
+    if (isFinalized || !detail || !isAdvisorRole(currentRole)) return false;
+    if (hasAssignedDideDesigner(detail.assignedRoles)) return false;
+    if (isAdvisorGuideUploadStatus(detail.status)) return true;
+    return detail.materials.some((material) =>
+      isAdvisorGuideUploadStatus(material.status),
+    );
+  }, [detail, currentRole, isFinalized]);
+
   const canValidate = useMemo(
     () =>
-      isValidationUserRole ||
-      (detail ? canUserValidateStatus(currentRole, detail.status) : false),
-    [isValidationUserRole, currentRole, detail],
+      !isFinalized &&
+      (isValidationUserRole ||
+        (detail ? canUserValidateStatus(currentRole, detail.status) : false)),
+    [isValidationUserRole, currentRole, detail, isFinalized],
   );
 
   const canFinalize = useMemo(
     () =>
-      isDideDesignerRole(currentRole) ||
-      (detail ? canUserFinalizeStatus(currentRole, detail.status) : false),
-    [currentRole, detail],
+      !isFinalized &&
+      (isDideDesignerRole(currentRole) ||
+        (detail ? canUserFinalizeStatus(currentRole, detail.status) : false)),
+    [currentRole, detail, isFinalized],
+  );
+
+  const canConfirmClassroom = useMemo(
+    () =>
+      !isFinalized &&
+      (detail
+        ? canUserConfirmClassroomStatus(currentRole, detail.status)
+        : false),
+    [currentRole, detail, isFinalized],
   );
 
   const clearValidationTarget = () => {
     setMaterialToValidate(null);
     setDeliverableLabel(undefined);
+    setDeliverableStateLabel(undefined);
+  };
+
+  const clearGuideTarget = () => {
+    setGuideDeliverableId("");
+    setGuideDeliverableLabel("");
   };
 
   const handleApproveRequest = (context: MaterialValidationContext) => {
     setSelectedActivityId(context.material.activityId);
     setMaterialToValidate(context.material);
     setDeliverableLabel(context.deliverableName);
+    setDeliverableStateLabel(context.deliverableStateLabel);
     setShowApprove(true);
   };
 
@@ -98,17 +142,25 @@ const ViewCourse = () => {
     setSelectedActivityId(context.material.activityId);
     setMaterialToValidate(context.material);
     setDeliverableLabel(context.deliverableName);
+    setDeliverableStateLabel(context.deliverableStateLabel);
     setShowReturn(true);
   };
 
-  const handleApprove = async (files: File[]) => {
+  const handleGuideUploadRequest = (context: {
+    deliverableId: string;
+    deliverableName: string;
+  }) => {
+    setGuideDeliverableId(context.deliverableId);
+    setGuideDeliverableLabel(context.deliverableName);
+    setShowGuideUpload(true);
+  };
+
+  const handleApprove = async (files: File[], observations: string) => {
     if (!processId || !materialToValidate) return;
 
-    const successMessage = isDideDesignerRole(currentRole)
-      ? "El documento se registró correctamente y el proceso avanzará al Asesor pedagógico."
-      : isAdvisorRole(currentRole)
-        ? "La guía instruccional se registró correctamente y el proceso quedó finalizado."
-        : "La validación se registró correctamente y el proceso avanzará a la siguiente fase.";
+    const successTitle = isDideDesignerRole(currentRole)
+      ? "Cargue registrado"
+      : "Material aprobado";
 
     try {
       setSubmitting(true);
@@ -120,11 +172,17 @@ const ViewCourse = () => {
             activityId: materialToValidate.activityId,
             deliverableId: materialToValidate.deliverableId || undefined,
             files,
+            observations,
+            currentStatus: deliverableStateLabel,
           }),
         {
-          successTitle: "Material aprobado",
-          successMessage,
-          errorTitle: "No se pudo aprobar el material",
+          successTitle,
+          successMessage: isDideDesignerRole(currentRole)
+            ? "Los enlaces quedaron registrados."
+            : "La aprobación se registró correctamente.",
+          errorTitle: isDideDesignerRole(currentRole)
+            ? "No se pudo cargar"
+            : "No se pudo aprobar",
           onSuccess: () => {
             setShowApprove(false);
             clearValidationTarget();
@@ -153,12 +211,12 @@ const ViewCourse = () => {
             deliverableId: materialToValidate.deliverableId || undefined,
             comments,
             files,
+            currentStatus: deliverableStateLabel,
           }),
         {
           successTitle: "Material devuelto",
-          successMessage:
-            "La devolución se registró correctamente. El autor recibirá tus comentarios y podrá cargar las correcciones.",
-          errorTitle: "No se pudo devolver el material",
+          successMessage: "La devolución se registró correctamente.",
+          errorTitle: "No se pudo devolver",
           onSuccess: () => {
             setShowReturn(false);
             clearValidationTarget();
@@ -173,6 +231,57 @@ const ViewCourse = () => {
     }
   };
 
+  const handleGuideUpload = async (file: File) => {
+    if (!processId || !guideDeliverableId) return;
+
+    try {
+      setSubmitting(true);
+      await runAction(
+        () =>
+          uploadCourseMaterial({
+            activityName: "Guión instruccional",
+            description: "",
+            processId,
+            files: [file],
+            deliverableId: guideDeliverableId,
+            userRole: currentRole,
+          }),
+        {
+          successTitle: "Guión instruccional cargado",
+          successMessage: "El documento se registró correctamente.",
+          errorTitle: "No se pudo cargar",
+          onSuccess: () => {
+            setShowGuideUpload(false);
+            clearGuideTarget();
+          },
+          onSuccessClose: () => {
+            void loadDetail(processId);
+          },
+        },
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmClassroom = async () => {
+    if (!processId) return;
+    try {
+      setSubmitting(true);
+      await runAction(() => confirmClassroomUpload({ processId }), {
+        successTitle: PROCESS_PHASES.COMPLETED,
+        successMessage: "El cargue en el aula quedó confirmado.",
+        errorTitle: "No se pudo confirmar",
+        onSuccess: () => setShowClassroomConfirm(false),
+        onSuccessClose: () => {
+          void loadDetail(processId);
+        },
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading || !detail) {
     return <LoadingState message="Cargando detalle del curso..." />;
   }
@@ -180,13 +289,13 @@ const ViewCourse = () => {
   return (
     <div>
       <PageHeader
-        title="Ver Curso"
-        description={
-          detail.programName
-            ? `${detail.courseName} · ${detail.programName}`
-            : detail.courseName
-        }
+        title="Ver Proceso"
+        description={detail.processName}
         backTo="/my-courses"
+        compact
+        badge={
+          guideBlockedWithoutDesigner ? "Diseñador pendiente" : undefined
+        }
       />
 
       <CourseDetailView
@@ -199,6 +308,13 @@ const ViewCourse = () => {
         onSelectedMaterialChange={setSelectedActivityId}
         onApproveRequest={handleApproveRequest}
         onReturnRequest={handleReturnRequest}
+        onGuideUploadRequest={
+          !isFinalized && isAdvisorRole(currentRole)
+            ? handleGuideUploadRequest
+            : undefined
+        }
+        canConfirmClassroom={canConfirmClassroom}
+        onConfirmClassroomRequest={() => setShowClassroomConfirm(true)}
       />
 
       <ValidationModals
@@ -206,12 +322,8 @@ const ViewCourse = () => {
         showReturn={showReturn}
         materialName={materialToValidate?.name}
         deliverableLabel={deliverableLabel}
-        instructionalGuideFor={
-          isDideDesignerRole(currentRole)
-            ? "designer"
-            : isAdvisorRole(currentRole)
-              ? "advisor"
-              : undefined
+        approveMode={
+          isDideDesignerRole(currentRole) ? "designer" : undefined
         }
         onCloseApprove={() => {
           setShowApprove(false);
@@ -223,6 +335,27 @@ const ViewCourse = () => {
         }}
         onConfirmApprove={handleApprove}
         onConfirmReturn={handleReturn}
+        loading={submitting}
+      />
+
+      <GuideUploadModal
+        isOpen={showGuideUpload}
+        deliverableLabel={guideDeliverableLabel}
+        onClose={() => {
+          setShowGuideUpload(false);
+          clearGuideTarget();
+        }}
+        onConfirm={handleGuideUpload}
+        loading={submitting}
+      />
+
+      <ClassroomConfirmModal
+        isOpen={showClassroomConfirm}
+        processName={detail.processName}
+        onClose={() => setShowClassroomConfirm(false)}
+        onConfirm={() => {
+          void handleConfirmClassroom();
+        }}
         loading={submitting}
       />
 

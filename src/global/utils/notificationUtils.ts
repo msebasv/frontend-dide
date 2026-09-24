@@ -1,7 +1,7 @@
 /**
  * Construye notificaciones de acción pendiente según el rol activo.
  */
-import { PENDING_APPROVAL_PHASES, USER_ROLES } from "../constants/domainConstants";
+import { PENDING_APPROVAL_PHASES, PROCESS_PHASES, USER_ROLES } from "../constants/domainConstants";
 import type { Course } from "../../courses/types/course.types";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
 import type { AppNotification } from "../types/notification.types";
@@ -25,18 +25,33 @@ export const buildCourseNotifications = (
 
   if (role === USER_ROLES.VALIDATOR || role === USER_ROLES.ADVISOR) {
     return courses
-      .filter((course) => course.canValidate)
+      .filter((course) => course.canValidate || course.canUpload)
       .slice(0, 8)
-      .map((course) => ({
-        id: `validate-${course.processId}`,
-        title:
+      .map((course) => {
+        const avPending =
+          (course.phaseBreakdown?.counts[PROCESS_PHASES.ADVISOR_AV_APPROVAL] ??
+            0) > 0;
+        const guidePending =
+          (course.phaseBreakdown?.counts[PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD] ??
+            0) > 0;
+
+        const title =
           role === USER_ROLES.VALIDATOR
             ? "Curso pendiente de validación"
-            : "Curso pendiente de asesoría",
-        description: course.processName || course.courseName,
-        link: `/courses/${course.processId}`,
-        kind: "validate" as const,
-      }));
+            : avPending
+              ? "Pendiente: aprobar material audiovisual DIDE"
+              : guidePending
+                ? "Pendiente: cargar guión instruccional"
+                : "Curso pendiente de asesoría";
+
+        return {
+          id: `validate-${course.processId}`,
+          title,
+          description: course.processName || course.courseName,
+          link: `/courses/${course.processId}`,
+          kind: "validate" as const,
+        };
+      });
   }
 
   if (role === USER_ROLES.DIDE_DESIGNER) {
@@ -45,7 +60,7 @@ export const buildCourseNotifications = (
       .slice(0, 8)
       .map((course) => ({
         id: `approve-dide-${course.processId}`,
-        title: "Curso pendiente de aprobación DIDE",
+        title: "Curso pendiente de cargue DIDE",
         description: course.processName || course.courseName,
         link: `/courses/${course.processId}`,
         kind: "validate" as const,

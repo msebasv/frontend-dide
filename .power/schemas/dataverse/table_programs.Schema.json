@@ -108,7 +108,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "f0de1b73-ea41-f111-bec7-002248df1759",
+          "x-ms-optionsetmetadataid": "1126ade9-d3b7-49b1-9bb4-2f7e69b722cb",
           "x-ms-isGlobal": true,
           "x-ms-optionsetdisplayname": "levels",
           "x-ms-optionSetType": "Picklist"
@@ -322,7 +322,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "dff680b3-875a-4df8-bb99-200840b5d590",
+          "x-ms-optionsetmetadataid": "de13be9a-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -353,7 +353,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "8943e046-2bf2-4cec-af05-96f1a2c5dab2",
+          "x-ms-optionsetmetadataid": "e813be9a-7cb5-f111-aaad-6045bd3c44fb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

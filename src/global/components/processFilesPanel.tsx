@@ -176,7 +176,7 @@ function ProcessFilesPanel({
           <p className="text-sm font-medium text-primary">
             {folderBase.trim() || processId
               ? "No se encontró ningún archivo"
-              : "Este proceso aún no tiene una carpeta configurada"}
+              : "Este proceso no tiene una carpeta configurada"}
           </p>
           <p className="max-w-sm text-xs text-muted">
             {folderBase.trim() || processId
@@ -276,7 +276,7 @@ function ProcessFilesPanel({
                 <div className="flex h-56 flex-col items-center justify-center gap-2">
                   <IoDocumentTextOutline className="text-gray-300" size={32} />
                   <p className="text-sm text-muted">
-                    Selecciona un archivo para ver la vista previa
+                    Seleccione un archivo para consultar la vista previa
                   </p>
                 </div>
               ) : previewLoading ? (

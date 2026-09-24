@@ -54,6 +54,8 @@ const STATUS_FILTER_ORDER = [
   PROCESS_PHASES.VALIDATOR_REVIEW,
   PROCESS_PHASES.ADVISOR_REVIEW,
   PROCESS_PHASES.DIDE_REVIEW,
+  PROCESS_PHASES.ADVISOR_AV_APPROVAL,
+  PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM,
   PROCESS_PHASES.COMPLETED,
 ] as const;
 
@@ -102,7 +104,7 @@ const mapStatisticsDeliverables = (
         name: row.dev_namedeliverable?.trim() || "Entregable",
         creditNumber,
         creditLabel:
-          creditNumber === 0 ? "General" : `Crédito / Unidad ${creditNumber}`,
+          creditNumber === 0 ? "General" : `Unidad ${creditNumber}`,
         stateLabel: resolveDeliverableStateLabel(row),
         processId,
         processName: process.processName,
@@ -391,7 +393,8 @@ export const buildUserWorkloadStats = (
     if (!normalizedEmail) return;
 
     const phaseKey =
-      PHASE_SHORT_LABELS[status] ?? formatDomainLabel(status || "Sin estado");
+      PHASE_SHORT_LABELS[status] ??
+      formatDomainLabel(status || PROCESS_PHASES.UNKNOWN);
     const key = `${role}::${normalizedEmail}`;
     const current = map.get(key) ?? {
       email: normalizedEmail,

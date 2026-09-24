@@ -65,7 +65,7 @@ function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
       <DashboardHero
         userName={userName}
         role="Autor de Asignatura"
-        description="Carga y gestiona el material académico de tus cursos asignados para el proceso de virtualización."
+        description="Cargue y gestione el material académico de sus cursos asignados para el proceso de virtualización."
       >
         <Link to="/my-courses">
           <Button size="sm">
@@ -82,7 +82,7 @@ function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
           value={metrics.total}
           icon={<IoBookOutline size={22} />}
           color="primary"
-          subtitle="Bajo tu responsabilidad"
+          subtitle="Bajo su responsabilidad"
         />
         <StatCard
           label="Por cargar"
@@ -110,7 +110,7 @@ function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <PhaseDistribution
-            title="Estado de mis cursos"
+            title="Distribución por fase"
             items={phaseItems}
             total={metrics.total}
           />
@@ -122,7 +122,7 @@ function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
             items={recentItems}
             viewAllLink="/my-courses"
             viewAllLabel="Ver todos"
-            emptyMessage="No tienes cursos asignados aún"
+            emptyMessage="No hay cursos asignados"
           />
         </div>
       </div>

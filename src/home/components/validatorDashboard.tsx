@@ -16,13 +16,14 @@ import Button from "../../global/components/button";
 import FormatsFolderButton from "../../global/components/formatsFolderButton";
 
 import type { Course, DashboardMetrics } from "../../courses/types/course.types";
+import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 
 interface ValidatorDashboardProps {
   metrics: DashboardMetrics;
   userName: string;
   roleLabel: string;
   courses: Course[];
-  /** validate = aprobar/devolver; finalize = aprobar con Word (Diseñador DIDE). */
+  /** validate = aprobar/devolver; finalize = cargar enlaces (Diseñador DIDE). */
   mode?: "validate" | "finalize";
 }
 
@@ -35,26 +36,53 @@ function ValidatorDashboard({
 }: ValidatorDashboardProps) {
   const isDide = mode === "finalize";
   const isAdvisor = roleLabel.toLowerCase().includes("asesor");
-  const pendingCourses = courses.filter((c) =>
-    isDide ? c.canFinalize : c.canValidate,
-  );
+  const pendingCourses = courses.filter((c) => {
+    if (isDide) return c.canFinalize;
+    if (isAdvisor) {
+      const guidePending =
+        (c.phaseBreakdown?.counts[PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD] ?? 0) >
+        0;
+      const avPending =
+        (c.phaseBreakdown?.counts[PROCESS_PHASES.ADVISOR_AV_APPROVAL] ?? 0) > 0;
+      return c.canValidate || (c.canUpload && guidePending) || avPending;
+    }
+    return c.canValidate || c.canUpload;
+  });
 
-  const recentItems = pendingCourses.slice(0, 5).map((c) => ({
-    id: c.processId,
-    title: c.processName,
-    subtitle: `${c.courseName} · Autor: ${c.authorName}`,
-    badge: isDide ? "Por aprobar" : "Por validar",
-    badgeColor: isDide ? "#86c127" : "#004040",
-    link: `/courses/${c.processId}`,
-    icon: isDide ? (
-      <IoCheckmarkCircleOutline size={16} />
-    ) : (
-      <IoShieldCheckmarkOutline size={16} />
-    ),
-  }));
+  const recentItems = pendingCourses.slice(0, 5).map((c) => {
+    const avPending =
+      (c.phaseBreakdown?.counts[PROCESS_PHASES.ADVISOR_AV_APPROVAL] ?? 0) > 0;
+    const guidePending =
+      (c.phaseBreakdown?.counts[PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD] ?? 0) > 0;
+    const badge = isDide
+      ? "Por registrar enlaces"
+      : c.canValidate && avPending
+        ? "Aprobar AV DIDE"
+        : c.canValidate
+          ? "Por validar"
+          : guidePending
+            ? "Cargar guión"
+            : "Pendiente";
+
+    return {
+      id: c.processId,
+      title: c.processName,
+      subtitle: `${c.courseName} · Autor: ${c.authorName}`,
+      badge,
+      badgeColor: isDide ? "#86c127" : "#004040",
+      link: `/courses/${c.processId}`,
+      icon: isDide ? (
+        <IoCheckmarkCircleOutline size={16} />
+      ) : (
+        <IoShieldCheckmarkOutline size={16} />
+      ),
+    };
+  });
 
   const otherItems = courses
-    .filter((c) => (isDide ? !c.canFinalize : !c.canValidate))
+    .filter((c) =>
+      isDide ? !c.canFinalize : !(c.canValidate || c.canUpload),
+    )
     .slice(0, 3)
     .map((c) => ({
       id: c.processId,
@@ -71,8 +99,10 @@ function ValidatorDashboard({
         role={roleLabel}
         description={
           isDide
-            ? "Revisa el material, adjunta el Word y aprueba para enviarlo al Asesor pedagógico. No puedes devolverlo."
-            : "Revisa el material académico cargado por los autores, aprueba o devuelve con observaciones para garantizar la calidad."
+            ? "Revise el material, registre los enlaces audiovisuales y confirme el cargue para avanzar. No es posible devolverlo."
+            : isAdvisor
+              ? "Tienes tres momentos: (1) revisar el material, (2) cargar el guión instruccional y (3) aprobar el material audiovisual DIDE."
+              : "Revise el material académico cargado por los autores; apruebe o devuelva con observaciones para garantizar la calidad."
         }
       >
         <Link to="/my-courses">
@@ -98,15 +128,15 @@ function ValidatorDashboard({
           value={metrics.total}
           icon={<IoBookOutline size={22} />}
           color="primary"
-          subtitle="Bajo tu supervisión"
+          subtitle="Bajo su supervisión"
         />
         <StatCard
-          label={isDide ? "Por aprobar" : "Por validar"}
+          label={isDide ? "Por cargar" : "Por validar"}
           value={pendingCourses.length}
           icon={<IoWarningOutline size={22} />}
           color="warning"
           subtitle={
-            isDide ? "Listos para tu aprobación" : "Requieren tu revisión"
+            isDide ? "Listos para su cargue" : "Requieren su revisión"
           }
         />
         <StatCard
@@ -121,14 +151,14 @@ function ValidatorDashboard({
           value={metrics.completed}
           icon={<IoCheckmarkDoneOutline size={22} />}
           color="success"
-          subtitle={isDide ? "Procesos aprobados" : "Material aprobado"}
+          subtitle={isDide ? "Procesos con enlaces cargados" : "Material aprobado"}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <RecentList
           title={
-            isDide ? "Pendientes de aprobación" : "Pendientes de validación"
+            isDide ? "Pendientes de cargue" : "Pendientes de validación"
           }
           items={recentItems}
           viewAllLink="/my-courses"
@@ -158,18 +188,18 @@ function ValidatorDashboard({
               <p className="text-sm font-bold text-primary">
                 {pendingCourses.length} curso
                 {pendingCourses.length > 1 ? "s" : ""}{" "}
-                {isDide ? "esperan tu aprobación" : "esperan tu validación"}
+                {isDide ? "esperan su cargue" : "esperan su validación"}
               </p>
               <p className="mt-1 text-xs text-muted">
                 {isDide
-                  ? "Revisa el material, adjunta el Word de aprobación y confirma."
-                  : "Revisa el material y emite tu aprobación o devolución con comentarios."}
+                  ? "Revise el material, registre los enlaces audiovisuales y confirme."
+                  : "Revise el material y emita su aprobación o devolución con comentarios."}
               </p>
               <Link
                 to={`/courses/${pendingCourses[0].processId}`}
                 className="mt-3 inline-flex items-center rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                {isDide ? "Revisar y aprobar →" : "Comenzar validación →"}
+                {isDide ? "Revisar y cargar →" : "Comenzar validación →"}
               </Link>
             </div>
           </div>

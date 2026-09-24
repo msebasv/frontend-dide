@@ -59,7 +59,7 @@ function PhaseDonutChart({
     subtitle ??
     (onPhaseClick
       ? "Clic en una fase para ver los procesos de ese estado"
-      : "Estado actual de los procesos de virtualización");
+      : "Distribución actual de los procesos de virtualización");
 
   return (
     <ChartCard title={title} subtitle={resolvedSubtitle}>

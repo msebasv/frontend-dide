@@ -1,0 +1,135 @@
+{
+  "name": "dev_tablecategoryphasetemplate",
+  "title": "table-category-phase-template",
+  "schema": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "x-ms-dataverse-entity": true,
+      "x-ms-dataverse-entityset": "dev_tablecategoryphasetemplates",
+      "x-ms-dataverse-primary-id": "dev_tablecategoryphasetemplateid",
+      "x-ms-dataverse-primary-name": "dev_tablecategoryphasetemplateid",
+      "properties": {
+        "createdby": {
+          "type": "string",
+          "title": "Created By",
+          "x-ms-dataverse-attribute": "createdby",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "CreatedBy",
+          "x-ms-read-only": true
+        },
+        "createdon": {
+          "type": "string",
+          "title": "Created On",
+          "x-ms-dataverse-attribute": "createdon",
+          "x-ms-dataverse-type": "DateTimeType",
+          "x-ms-schema-name": "CreatedOn",
+          "x-ms-read-only": true
+        },
+        "dev_tablecategoryphasetemplateid": {
+          "type": "string",
+          "title": "table-category-phase-template",
+          "x-ms-dataverse-attribute": "dev_tablecategoryphasetemplateid",
+          "x-ms-dataverse-type": "UniqueidentifierType",
+          "x-ms-schema-name": "dev_tablecategoryphasetemplateId",
+          "x-ms-dataverse-primary-id": true,
+          "required": true,
+          "x-ms-keyType": "primary"
+        },
+        "dev_tablecategorytemplate": {
+          "type": "string",
+          "title": "table-category-template",
+          "x-ms-dataverse-attribute": "dev_tablecategorytemplate",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "dev_tablecategorytemplate",
+          "required": true
+        },
+        "dev_tablecategorytemplatename": {
+          "type": "string",
+          "title": "dev_tablecategorytemplatename",
+          "x-ms-dataverse-attribute": "dev_tablecategorytemplatename",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "dev_tablecategorytemplateName",
+          "x-ms-read-only": true,
+          "maxLength": 850
+        },
+        "dev_tablephasetemplate": {
+          "type": "string",
+          "title": "table-phase-template",
+          "x-ms-dataverse-attribute": "dev_tablephasetemplate",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "dev_tablephasetemplate",
+          "required": true
+        },
+        "dev_tablephasetemplatename": {
+          "type": "string",
+          "title": "dev_tablephasetemplatename",
+          "x-ms-dataverse-attribute": "dev_tablephasetemplatename",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "dev_tablephasetemplateName",
+          "x-ms-read-only": true,
+          "maxLength": 850
+        },
+        "modifiedby": {
+          "type": "string",
+          "title": "Modified By",
+          "x-ms-dataverse-attribute": "modifiedby",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "ModifiedBy",
+          "x-ms-read-only": true
+        },
+        "modifiedon": {
+          "type": "string",
+          "title": "Modified On",
+          "x-ms-dataverse-attribute": "modifiedon",
+          "x-ms-dataverse-type": "DateTimeType",
+          "x-ms-schema-name": "ModifiedOn",
+          "x-ms-read-only": true
+        },
+        "ownerid": {
+          "type": "string",
+          "title": "Owner",
+          "x-ms-dataverse-attribute": "ownerid",
+          "x-ms-dataverse-type": "OwnerType",
+          "x-ms-schema-name": "OwnerId",
+          "required": true
+        },
+        "owneridtype": {
+          "type": "string",
+          "title": "owneridtype",
+          "x-ms-dataverse-attribute": "owneridtype",
+          "x-ms-dataverse-type": "EntityNameType",
+          "x-ms-schema-name": "OwnerIdType",
+          "required": true
+        },
+        "statecode": {
+          "type": "string",
+          "title": "Status",
+          "x-ms-dataverse-attribute": "statecode",
+          "x-ms-dataverse-type": "StateType",
+          "x-ms-schema-name": "statecode",
+          "required": true,
+          "enum": ["Active", "Inactive"],
+          "x-ms-enum-values": [0, 1]
+        },
+        "statuscode": {
+          "type": "string",
+          "title": "Status Reason",
+          "x-ms-dataverse-attribute": "statuscode",
+          "x-ms-dataverse-type": "StatusType",
+          "x-ms-schema-name": "statuscode",
+          "enum": ["Active", "Inactive"],
+          "x-ms-enum-values": [1, 2]
+        }
+      },
+      "required": [
+        "dev_tablecategoryphasetemplateid",
+        "dev_tablecategorytemplate",
+        "dev_tablephasetemplate",
+        "ownerid",
+        "owneridtype",
+        "statecode"
+      ]
+    }
+  }
+}

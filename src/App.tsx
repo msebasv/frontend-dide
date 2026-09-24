@@ -17,6 +17,8 @@ import VirtualizationProcessList from "./processVirtualization/pages/virtualizat
 import CreateProcess from "./processVirtualization/pages/createProcess";
 import CreateCourse from "./processVirtualization/pages/createCourse";
 import EditProcess from "./processVirtualization/pages/editProcess";
+import AssignValidator from "./processVirtualization/pages/assignValidator";
+import AssignDideDesigner from "./processVirtualization/pages/assignDideDesigner";
 import ViewProcess from "./processVirtualization/pages/viewProcess";
 import CourseList from "./courses/pages/courseList";
 import UploadCourse from "./courses/pages/uploadCourse";
@@ -64,6 +66,14 @@ function App() {
         <Route
           path="/virtualization-processes/:processId/edit"
           element={<EditProcess />}
+        />
+        <Route
+          path="/virtualization-processes/:processId/assign-validator"
+          element={<AssignValidator />}
+        />
+        <Route
+          path="/virtualization-processes/:processId/assign-designer"
+          element={<AssignDideDesigner />}
         />
         <Route
           path="/virtualization-processes/:processId"

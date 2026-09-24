@@ -1,6 +1,7 @@
 /**
  * Tipos del módulo de procesos de virtualización (vista global del líder).
  */
+import type { CoursePhaseBreakdown } from "../../courses/types/course.types";
 
 /** Datos para el formulario de edición del líder. */
 export interface ProcessEditData {
@@ -14,6 +15,10 @@ export interface ProcessEditData {
   authorEmail: string;
   validatorEmail: string;
   advisorEmail: string;
+  /** Diseñador DIDE asignado al proceso (opcional hasta la fase de guión). */
+  designerEmail: string;
+  /** true si close-ready: el proceso ya no se puede editar. */
+  isFinalized: boolean;
 }
 
 export interface VirtualizationProcess {
@@ -44,6 +49,29 @@ export interface VirtualizationProcess {
   leaderEmail: string;
   /** Etiqueta visible del líder (nombre o correo). */
   leaderLabel: string;
+  /** Correo del diseñador DIDE asignado (si existe). */
+  designerEmail: string;
+  /** Etiqueta visible del diseñador DIDE (nombre o correo). */
+  designerLabel: string;
   /** true si el proceso está en fase de carga de syllabus del líder. */
   canUploadSyllabus: boolean;
+  /**
+   * true si el syllabus está pendiente pero aún falta asignar el validador.
+   */
+  needsValidatorAssignment: boolean;
+  /**
+   * true si aún no hay Diseñador DIDE (el coordinador puede asignarlo
+   * en cualquier momento desde la creación del proceso).
+   */
+  needsDesignerAssignment: boolean;
+  /**
+   * true si el líder puede confirmar el cargue en el aula
+   * (cierre del proceso tras el audiovisual DIDE).
+   */
+  canConfirmClassroom: boolean;
+  /**
+   * Conteo de entregables por fase (datos reales de Dataverse).
+   * Si falta, la UI cae al estado único `status`.
+   */
+  phaseBreakdown?: CoursePhaseBreakdown;
 }

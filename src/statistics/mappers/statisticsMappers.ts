@@ -6,6 +6,7 @@ import type { Dev_tableactivities } from "../../generated/models/Dev_tableactivi
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 import type { Dev_tablevirtualizationprocesses } from "../../generated/models/Dev_tablevirtualizationprocessesModel";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
+import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 import {
   COMPLETED_STATUS,
   PHASE_STATS_CONFIG,
@@ -15,9 +16,6 @@ import {
   DELIVERABLE_STATS_CONFIG,
   resolveDeliverableStatBucket,
 } from "../constants/deliverableStatsConfig";
-
-const VALIDATOR_STATUS = "Revisión y aprobación evaluador disciplinar";
-const ADVISOR_STATUS = "Revisión y aprobación asesor pedagógico";
 
 const isSameMonth = (dateStr: string, reference: Date): boolean => {
   const date = new Date(dateStr);
@@ -67,7 +65,7 @@ const shortenRoleName = (role: string): string => {
 
   return normalized
     .replace("Revisión y aprobación ", "")
-    .replace("Cargue de documentos por el autor", "Cargue autor")
+    .replace(PROCESS_PHASES.AUTHOR_UPLOAD, "Cargue autor")
     .slice(0, 28);
 };
 
@@ -81,10 +79,15 @@ export const buildLeaderStatistics = (
   const totalProcesses = processes.length;
   const completed = processes.filter((p) => p.status === COMPLETED_STATUS).length;
   const pendingApproval = processes.filter(
-    (p) => p.status === VALIDATOR_STATUS || p.status === ADVISOR_STATUS,
+    (p) =>
+      p.status === PROCESS_PHASES.VALIDATOR_REVIEW ||
+      p.status === PROCESS_PHASES.ADVISOR_REVIEW,
   ).length;
   const inProgress = processes.filter(
-    (p) => p.status !== COMPLETED_STATUS && p.status !== "Sin estado" && p.status !== "",
+    (p) =>
+      p.status !== COMPLETED_STATUS &&
+      p.status !== PROCESS_PHASES.UNKNOWN &&
+      p.status !== "",
   ).length;
 
   const phaseIds = new Set(phases.map((phase) => phase.dev_tablephaseid));
@@ -224,7 +227,7 @@ const buildDeliverableAggregates = (
 
   const countByState = new Map<string, number>();
   for (const item of deliverables) {
-    const key = item.stateLabel || "Sin estado";
+    const key = item.stateLabel || PROCESS_PHASES.UNKNOWN;
     countByState.set(key, (countByState.get(key) ?? 0) + 1);
   }
 

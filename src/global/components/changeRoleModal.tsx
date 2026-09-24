@@ -61,13 +61,13 @@ const ChangeRoleModal = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Cambiar Rol"
-      icon={<FaExchangeAlt className="size-3 fill-white" />}
+      icon={<FaExchangeAlt className="size-3.5 text-primary" />}
     >
       <Select
         options={roleOptions}
         value={selectedRole}
         onChange={setSelectedRole}
-        placeholder="Selecciona un rol"
+        placeholder="Seleccione un rol"
       />
       <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&_button]:w-full sm:[&_button]:w-auto">
         <Button onClick={onClose} variant="secondary">
