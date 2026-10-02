@@ -20,7 +20,6 @@ import {
   canCreateOrEditProcesses,
   PROCESS_PHASES,
 } from "../../global/constants/domainConstants";
-
 /**
  * Columnas del listado global de procesos. El resumen de materiales por estado
  * es el mismo de "Mis cursos": depende del rol que mira la tabla.

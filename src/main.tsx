@@ -13,12 +13,15 @@ import "./index.css";
 import App from "./App.tsx";
 import { HashRouter } from "react-router-dom";
 import AuthProvider from "./global/providers/authProvider.tsx";
+import { ActionFeedbackProvider } from "./global/providers/actionFeedbackProvider.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <HashRouter>
       <AuthProvider>
-        <App />
+        <ActionFeedbackProvider>
+          <App />
+        </ActionFeedbackProvider>
       </AuthProvider>
     </HashRouter>
   </StrictMode>,

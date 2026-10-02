@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
@@ -8,8 +8,8 @@ import Select from "../../global/components/select";
 import Button from "../../global/components/button";
 import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import LoadingState from "../../global/components/loadingState";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { PENDING_ACTION_COPY } from "../../global/constants/operationCopy";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
   canCreateProcesses,
@@ -32,16 +32,24 @@ type SelectOption = { label: string; value: string };
 
 function CreateCourse() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentRole } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending } = useActionFeedback();
 
-  // El coordinador DIDE entra desde Seguimiento; no tiene el listado de procesos.
-  const returnTo = isDideCoordinatorRole(currentRole)
-    ? "/tracking"
-    : "/virtualization-processes";
+  const locationReturnTo = (
+    location.state as { returnTo?: string } | null
+  )?.returnTo;
+
+  // Si viene desde Crear proceso, vuelve allí; si no, listado / tracking.
+  const returnTo =
+    locationReturnTo ||
+    (isDideCoordinatorRole(currentRole)
+      ? "/tracking"
+      : "/virtualization-processes");
   const canManage = canCreateProcesses(currentRole);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const formBusy = submitting || isOperationPending;
 
   const [courseName, setCourseName] = useState("");
   const [faculties, setFaculties] = useState<Dev_table_faculties[]>([]);
@@ -124,7 +132,8 @@ function CreateCourse() {
           successMessage: "El curso se registró correctamente en el sistema.",
           errorTitle: "No se pudo crear el curso",
           errorMessage:
-            "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
+            "Verifique el nombre y el programa. Si el curso ya existe, selecciónelo al crear el proceso.",
+          ...PENDING_ACTION_COPY.createCourse,
           onSuccessClose: () => navigate(returnTo),
         },
       );
@@ -150,8 +159,12 @@ function CreateCourse() {
       />
 
       <FormBusyOverlay
-        busy={submitting}
-        message="Creando curso..."
+        busy={formBusy}
+        message={
+          isOperationPending && !submitting
+            ? "La solicitud permanece en procesamiento..."
+            : "Creando curso..."
+        }
         className="mx-auto w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]"
       >
         <div className="border-b border-border bg-gradient-to-r from-secondary/5 to-transparent px-6 py-4 sm:px-8">
@@ -172,7 +185,7 @@ function CreateCourse() {
               placeholder="Nombre del curso"
               maxLength={FIELD_LIMITS.title}
               invalid={Boolean(courseName.trim() && !courseNameCheck.ok)}
-              disabled={submitting}
+              disabled={formBusy}
             />
           </FormField>
 
@@ -187,7 +200,7 @@ function CreateCourse() {
                 value={selectedFaculty}
                 onChange={handleFacultyChange}
                 placeholder="Seleccione una facultad"
-                disabled={submitting}
+                disabled={formBusy}
               />
             </FormField>
 
@@ -207,7 +220,7 @@ function CreateCourse() {
                       : "Sin programas en esta facultad"
                     : "Seleccione primero una facultad"
                 }
-                disabled={submitting || !selectedFaculty}
+                disabled={formBusy || !selectedFaculty}
               />
             </FormField>
           </div>
@@ -216,28 +229,19 @@ function CreateCourse() {
             <Button
               variant="secondary"
               onClick={() => navigate(returnTo)}
-              disabled={submitting}
+              disabled={formBusy}
             >
               Cancelar
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={submitting || !formIsValid}
+              disabled={formBusy || !formIsValid}
             >
               Crear curso
             </Button>
           </div>
         </div>
       </FormBusyOverlay>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 }

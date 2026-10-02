@@ -13,6 +13,55 @@ const matchesOrganizationDomain = (email: string | undefined): boolean =>
 export const isOrganizationEmail = (email: string): boolean =>
   /^[a-z0-9._%+-]+@unbosque\.edu\.co$/i.test(email.trim());
 
+/**
+ * True si el correo existe en el directorio del tenant y es @unbosque.edu.co.
+ * Lanza si el directorio no responde, para no tratar un fallo de red como "no existe".
+ */
+export const organizationUserExists = async (email: string): Promise<boolean> => {
+  const normalized = email.trim().toLowerCase();
+  if (!isOrganizationEmail(normalized)) return false;
+
+  try {
+    const profile = await Office365UsersService.UserProfile_V2(
+      normalized,
+      "mail,userPrincipalName",
+    );
+    const mail = profile.data?.mail?.trim().toLowerCase();
+    const upn = profile.data?.userPrincipalName?.trim().toLowerCase();
+    if (profile.success !== false && (mail === normalized || upn === normalized)) {
+      return true;
+    }
+  } catch {
+    // El perfil por identificador a veces no acepta el correo. Se confirma con la búsqueda.
+  }
+
+  try {
+    const matches = await searchOrganizationUsers(normalized);
+    return matches.some((user) => user.email.trim().toLowerCase() === normalized);
+  } catch {
+    throw new Error(
+      "No se pudo comprobar si el correo existe en el directorio. Intente de nuevo.",
+    );
+  }
+};
+
+export const assertDirectoryEmails = async (emails: string[]): Promise<void> => {
+  const unique = [
+    ...new Set(
+      emails.map((email) => email.trim().toLowerCase()).filter(Boolean),
+    ),
+  ];
+
+  for (const email of unique) {
+    const exists = await organizationUserExists(email);
+    if (!exists) {
+      throw new Error(
+        `El correo ${email} no existe en el directorio de ${ORGANIZATION_EMAIL_DOMAIN}.`,
+      );
+    }
+  }
+};
+
 export const searchOrganizationUsers = async (
   query: string,
 ): Promise<OrganizationUser[]> => {

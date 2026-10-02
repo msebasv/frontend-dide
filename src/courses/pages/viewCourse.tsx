@@ -3,10 +3,13 @@ import { useParams, useLocation } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import LoadingState from "../../global/components/loadingState";
-import FeedbackModal from "../../global/components/feedbackModal";
 
 import { useAuth } from "../../global/hooks/useAuth";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import {
+  OPERATION_COPY,
+  PENDING_ACTION_COPY,
+} from "../../global/constants/operationCopy";
 import { useCourseDetail } from "../hooks/useCourseDetail";
 import CourseDetailView, {
   type MaterialValidationContext,
@@ -38,7 +41,7 @@ const ViewCourse = () => {
   const location = useLocation();
   const { currentRole } = useAuth();
   const { detail, loading, loadDetail } = useCourseDetail();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending, showFeedback } = useActionFeedback();
 
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [materialToValidate, setMaterialToValidate] =
@@ -54,10 +57,25 @@ const ViewCourse = () => {
   const [guideDeliverableLabel, setGuideDeliverableLabel] = useState("");
   const [showClassroomConfirm, setShowClassroomConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const formBusy = submitting || isOperationPending;
+
+  const notifyBusyConflict = (message: string) => {
+    showFeedback({
+      isOpen: true,
+      type: "warning",
+      title: OPERATION_COPY.busyConflictDefaultTitle,
+      message,
+    });
+  };
 
   useEffect(() => {
     if (processId) void loadDetail(processId);
-  }, [processId, loadDetail, location.key]);
+  }, [
+    processId,
+    loadDetail,
+    location.key,
+    (location.state as { refreshAt?: number } | null)?.refreshAt,
+  ]);
 
   useEffect(() => {
     if (!detail?.materials.length) {
@@ -131,6 +149,10 @@ const ViewCourse = () => {
   };
 
   const handleApproveRequest = (context: MaterialValidationContext) => {
+    if (isOperationPending) {
+      notifyBusyConflict(OPERATION_COPY.busyConflictDefaultMessage);
+      return;
+    }
     setSelectedActivityId(context.material.activityId);
     setMaterialToValidate(context.material);
     setDeliverableLabel(context.deliverableName);
@@ -139,6 +161,10 @@ const ViewCourse = () => {
   };
 
   const handleReturnRequest = (context: MaterialValidationContext) => {
+    if (isOperationPending) {
+      notifyBusyConflict(OPERATION_COPY.busyConflictDefaultMessage);
+      return;
+    }
     setSelectedActivityId(context.material.activityId);
     setMaterialToValidate(context.material);
     setDeliverableLabel(context.deliverableName);
@@ -150,6 +176,10 @@ const ViewCourse = () => {
     deliverableId: string;
     deliverableName: string;
   }) => {
+    if (isOperationPending) {
+      notifyBusyConflict(OPERATION_COPY.busyConflictDefaultMessage);
+      return;
+    }
     setGuideDeliverableId(context.deliverableId);
     setGuideDeliverableLabel(context.deliverableName);
     setShowGuideUpload(true);
@@ -183,12 +213,19 @@ const ViewCourse = () => {
           errorTitle: isDideDesignerRole(currentRole)
             ? "No se pudo cargar"
             : "No se pudo aprobar",
-          onSuccess: () => {
+          ...(isDideDesignerRole(currentRole)
+            ? PENDING_ACTION_COPY.designerUpload
+            : PENDING_ACTION_COPY.approveMaterial),
+          onSoftTimeout: () => {
+            setShowApprove(false);
+          },
+          onSuccess: async () => {
             setShowApprove(false);
             clearValidationTarget();
+            await loadDetail(processId, { refresh: true });
           },
           onSuccessClose: () => {
-            void loadDetail(processId);
+            void loadDetail(processId, { refresh: true });
           },
         },
       );
@@ -217,12 +254,17 @@ const ViewCourse = () => {
           successTitle: "Material devuelto",
           successMessage: "La devolución se registró correctamente.",
           errorTitle: "No se pudo devolver",
-          onSuccess: () => {
+          ...PENDING_ACTION_COPY.returnMaterial,
+          onSoftTimeout: () => {
+            setShowReturn(false);
+          },
+          onSuccess: async () => {
             setShowReturn(false);
             clearValidationTarget();
+            await loadDetail(processId, { refresh: true });
           },
           onSuccessClose: () => {
-            void loadDetail(processId);
+            void loadDetail(processId, { refresh: true });
           },
         },
       );
@@ -250,12 +292,21 @@ const ViewCourse = () => {
           successTitle: "Guión instruccional cargado",
           successMessage: "El documento se registró correctamente.",
           errorTitle: "No se pudo cargar",
-          onSuccess: () => {
+          ...PENDING_ACTION_COPY.uploadGuide,
+          pendingResourceLock: {
+            processId,
+            deliverableId: guideDeliverableId,
+          },
+          onSoftTimeout: () => {
+            setShowGuideUpload(false);
+          },
+          onSuccess: async () => {
             setShowGuideUpload(false);
             clearGuideTarget();
+            await loadDetail(processId, { refresh: true });
           },
           onSuccessClose: () => {
-            void loadDetail(processId);
+            void loadDetail(processId, { refresh: true });
           },
         },
       );
@@ -266,15 +317,26 @@ const ViewCourse = () => {
 
   const handleConfirmClassroom = async () => {
     if (!processId) return;
+    if (isOperationPending) {
+      notifyBusyConflict(
+        PENDING_ACTION_COPY.confirmClassroom.busyConflictMessage,
+      );
+      return;
+    }
     try {
       setSubmitting(true);
       await runAction(() => confirmClassroomUpload({ processId }), {
         successTitle: PROCESS_PHASES.COMPLETED,
         successMessage: "El cargue en el aula quedó confirmado.",
         errorTitle: "No se pudo confirmar",
-        onSuccess: () => setShowClassroomConfirm(false),
+        ...PENDING_ACTION_COPY.confirmClassroom,
+        onSoftTimeout: () => setShowClassroomConfirm(false),
+        onSuccess: async () => {
+          setShowClassroomConfirm(false);
+          await loadDetail(processId, { refresh: true });
+        },
         onSuccessClose: () => {
-          void loadDetail(processId);
+          void loadDetail(processId, { refresh: true });
         },
       });
     } finally {
@@ -303,7 +365,7 @@ const ViewCourse = () => {
         isValidationMode={canValidate || canFinalize}
         canApprove={canValidate || canFinalize}
         canReturn={canValidate}
-        actionsDisabled={submitting}
+        actionsDisabled={formBusy}
         selectedMaterialId={selectedActivityId}
         onSelectedMaterialChange={setSelectedActivityId}
         onApproveRequest={handleApproveRequest}
@@ -314,7 +376,15 @@ const ViewCourse = () => {
             : undefined
         }
         canConfirmClassroom={canConfirmClassroom}
-        onConfirmClassroomRequest={() => setShowClassroomConfirm(true)}
+        onConfirmClassroomRequest={() => {
+          if (isOperationPending) {
+            notifyBusyConflict(
+              PENDING_ACTION_COPY.confirmClassroom.busyConflictMessage,
+            );
+            return;
+          }
+          setShowClassroomConfirm(true);
+        }}
       />
 
       <ValidationModals
@@ -335,7 +405,7 @@ const ViewCourse = () => {
         }}
         onConfirmApprove={handleApprove}
         onConfirmReturn={handleReturn}
-        loading={submitting}
+        loading={formBusy}
       />
 
       <GuideUploadModal
@@ -346,7 +416,7 @@ const ViewCourse = () => {
           clearGuideTarget();
         }}
         onConfirm={handleGuideUpload}
-        loading={submitting}
+        loading={formBusy}
       />
 
       <ClassroomConfirmModal
@@ -356,16 +426,7 @@ const ViewCourse = () => {
         onConfirm={() => {
           void handleConfirmClassroom();
         }}
-        loading={submitting}
-      />
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
+        loading={formBusy}
       />
     </div>
   );

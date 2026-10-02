@@ -5,6 +5,8 @@
  */
 import { semesterFromDate } from "./semesterUtils";
 
+import { PROCESS_NAME_MAX_LENGTH } from "./inputValidation";
+
 /** Sufijo final: " - 001", " - 98", etc. */
 const PROCESS_CODE_PATTERN = /\s-\s(\d+)\s*$/;
 
@@ -80,6 +82,22 @@ export const parseProcessDisplayName = (
     semester: match[2].trim(),
     code: formatProcessCode(Number(match[3])),
   };
+};
+
+/** Caracteres que ocupan semestre y código: " - 2026-1 - 001". */
+export const processNameSuffixLength = (semester: string, code: string): number =>
+  ` - ${semester} - ${code}`.length;
+
+/** Cupo del título para que el nombre completo no pase de 200 caracteres. */
+export const processBaseNameMaxLength = (
+  semester?: string | null,
+  code?: string | null,
+): number => {
+  if (!semester || !code) return PROCESS_NAME_MAX_LENGTH;
+  return Math.max(
+    1,
+    PROCESS_NAME_MAX_LENGTH - processNameSuffixLength(semester, code),
+  );
 };
 
 /** Reconstruye el nombre conservando semestre y código (edición). */

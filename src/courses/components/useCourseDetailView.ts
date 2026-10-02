@@ -207,11 +207,20 @@ export function useCourseDetailView({
       return Boolean(selectedDeliverableStatus?.canUpload);
     }
 
-    // Autor carga los entregables que no sean syllabus
+    // Autor: solo cargue de documentos / correcciones. Nunca guión instruccional.
     if (isAuthorRole(currentRole)) {
       // Mientras el proceso esté en cargue de syllabus, el autor no puede cargar
       if (isLeaderSyllabusStatus(detail.status)) return false;
       if (isSyllabus) return false;
+      // Guión instruccional: solo el asesor pedagógico (tras asignar diseñador DIDE).
+      if (isAdvisorGuideUploadStatus(selectedDeliverable.stateLabel)) {
+        return false;
+      }
+      if (
+        isAdvisorGuideUploadStatus(selectedDeliverableStatus?.label ?? "")
+      ) {
+        return false;
+      }
       if (selectedDeliverableStatus?.canUpload) return true;
 
       const norm = normalizeFolderSegment(selectedDeliverable.stateLabel);
@@ -226,13 +235,20 @@ export function useCourseDetailView({
         (norm.includes("registrar") && norm.includes("enlace")) ||
         norm.includes("aprobado") ||
         norm.includes("terminado") ||
-        norm.includes("finalizado");
+        norm.includes("finalizado") ||
+        norm.includes("guion") ||
+        norm.includes("guia instruct");
 
       if (isReviewOrApproved) return false;
 
       return (
-        norm.includes("cargue") ||
-        norm.includes("autor") ||
+        // Evitar que "Cargar Guión..." coincida por la palabra "cargue/cargar".
+        (norm.includes("cargue") &&
+          !norm.includes("guion") &&
+          !norm.includes("guia")) ||
+        (norm.includes("autor") &&
+          !norm.includes("guion") &&
+          !norm.includes("guia")) ||
         norm.includes("pendiente") ||
         norm.includes("sin cargar") ||
         norm.includes("devuelto") ||

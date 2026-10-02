@@ -6,7 +6,9 @@ import {
   normalizeInput,
 } from "../utils/inputValidation";
 import {
+  isOrganizationEmail,
   ORGANIZATION_EMAIL_DOMAIN,
+  organizationUserExists,
   searchOrganizationUsers,
 } from "../../courses/services/userService";
 
@@ -16,6 +18,8 @@ interface EmailAutocompleteProps {
   placeholder?: string;
   disabled?: boolean;
   invalid?: boolean;
+  /** False mientras el correo institucional no esté confirmado en el directorio. */
+  onDirectoryReady?: (ready: boolean) => void;
 }
 
 function EmailAutocomplete({
@@ -24,6 +28,7 @@ function EmailAutocomplete({
   placeholder = `correo@${ORGANIZATION_EMAIL_DOMAIN}`,
   disabled = false,
   invalid = false,
+  onDirectoryReady,
 }: EmailAutocompleteProps) {
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,6 +38,42 @@ function EmailAutocomplete({
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [directoryStatus, setDirectoryStatus] = useState<
+    "idle" | "checking" | "found" | "missing" | "unavailable"
+  >("idle");
+  const onDirectoryReadyRef = useRef(onDirectoryReady);
+  onDirectoryReadyRef.current = onDirectoryReady;
+
+  useEffect(() => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || !isOrganizationEmail(normalized)) {
+      setDirectoryStatus("idle");
+      onDirectoryReadyRef.current?.(true);
+      return;
+    }
+
+    let cancelled = false;
+    setDirectoryStatus("checking");
+    onDirectoryReadyRef.current?.(false);
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const exists = await organizationUserExists(normalized);
+        if (cancelled) return;
+        setDirectoryStatus(exists ? "found" : "missing");
+        onDirectoryReadyRef.current?.(exists);
+      } catch {
+        if (cancelled) return;
+        setDirectoryStatus("unavailable");
+        onDirectoryReadyRef.current?.(false);
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [value]);
 
   useEffect(() => {
     if (!isOpen || value.trim().length < 2) {
@@ -120,7 +161,7 @@ function EmailAutocomplete({
         role="combobox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
-        aria-invalid={invalid || undefined}
+        aria-invalid={invalid || directoryStatus === "missing" || directoryStatus === "unavailable" || undefined}
         onFocus={() => setIsOpen(true)}
         onChange={(event) => {
           onChange(normalizeInput(event.target.value));
@@ -131,7 +172,9 @@ function EmailAutocomplete({
           "w-full rounded-lg border bg-white px-3 py-2.5 text-base text-gray-900 sm:py-2 sm:text-sm",
           "focus:outline-none focus:ring-2",
           "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500",
-          invalid
+          invalid ||
+          directoryStatus === "missing" ||
+          directoryStatus === "unavailable"
             ? "border-danger focus:ring-danger/40"
             : "border-gray-300 focus:ring-primary",
         )}
@@ -178,8 +221,45 @@ function EmailAutocomplete({
       <p className="mt-1 text-xs text-muted">
         Escribe el correo o busca por nombre. Solo usuarios @{ORGANIZATION_EMAIL_DOMAIN}
       </p>
+      {directoryStatus === "checking" && (
+        <p className="mt-1 text-xs text-muted">
+          Comprobando que el correo exista en el directorio...
+        </p>
+      )}
+      {directoryStatus === "missing" && (
+        <p className="mt-1 text-xs text-danger">
+          Ese correo no existe en el directorio de {ORGANIZATION_EMAIL_DOMAIN}.
+        </p>
+      )}
+      {directoryStatus === "unavailable" && (
+        <p className="mt-1 text-xs text-danger">
+          No se pudo comprobar el correo. Intente de nuevo.
+        </p>
+      )}
     </div>
   );
 }
+
+export const useDirectoryEmailReady = () => {
+  const readyRef = useRef<Record<string, boolean>>({});
+  const callbacksRef = useRef<Record<string, (ready: boolean) => void>>({});
+  const [, setTick] = useState(0);
+
+  const bind = (key: string) => {
+    if (!callbacksRef.current[key]) {
+      callbacksRef.current[key] = (ready: boolean) => {
+        if (readyRef.current[key] === ready) return;
+        readyRef.current[key] = ready;
+        setTick((value) => value + 1);
+      };
+    }
+    return callbacksRef.current[key];
+  };
+
+  const allReady = (...keys: string[]) =>
+    keys.every((key) => readyRef.current[key] === true);
+
+  return { bind, allReady };
+};
 
 export default EmailAutocomplete;

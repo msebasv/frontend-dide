@@ -118,7 +118,7 @@ function ValidationModals({
     ? `¿Desea confirmar el cargue de «${subject}»?`
     : `¿Desea aprobar «${subject}»?`;
   const approveHint = isDesignerLoad
-    ? "Registre los enlaces o notas correspondientes."
+    ? "Puede registrar varios enlaces: uno por línea, con un texto descriptivo opcional delante de cada URL."
     : "Al confirmar, el material avanzará a la siguiente fase.";
 
   return (
@@ -151,8 +151,10 @@ function ValidationModals({
                 <TextArea
                   value={approveObservations}
                   onChange={setApproveObservations}
-                  placeholder="https://..."
-                  rows={4}
+                  placeholder={
+                    "Video guía 1 https://...\nVideo sesión 2 https://..."
+                  }
+                  rows={5}
                   maxLength={FIELD_LIMITS.description}
                   invalid={Boolean(
                     approveObservations.trim() && !observationsCheck.ok,

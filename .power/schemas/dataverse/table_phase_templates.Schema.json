@@ -91,7 +91,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "1bb026af-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "6c9e0ce3-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "blocks-later-phases",
           "x-ms-optionSetType": "Boolean"
@@ -152,7 +152,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "16b1ffc7-44e5-4698-a6f5-7a12273136dd",
+          "x-ms-optionsetmetadataid": "e7ba30a7-dc84-48a2-bb94-7afd5be982c9",
           "x-ms-isGlobal": true,
           "x-ms-optionsetdisplayname": "dev_deliverablestate",
           "x-ms-optionSetType": "Picklist"
@@ -183,7 +183,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "1fb026af-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "709e0ce3-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "is-mandatory",
           "x-ms-optionSetType": "Boolean"
@@ -231,7 +231,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "6f13d521-32cb-47c2-9178-f4a061462eb0",
+          "x-ms-optionsetmetadataid": "64184754-0df2-4372-b50b-af09852ac7d2",
           "x-ms-isGlobal": true,
           "x-ms-optionsetdisplayname": "dev_scope",
           "x-ms-optionSetType": "Picklist"
@@ -419,7 +419,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "dfaf26af-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "309e0ce3-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -450,7 +450,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "e9af26af-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "3a9e0ce3-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

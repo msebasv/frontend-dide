@@ -4,22 +4,25 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
 import InputText from "../../global/components/inputText";
-import EmailAutocomplete from "../../global/components/emailAutocomplete";
+import EmailAutocomplete, {
+  useDirectoryEmailReady,
+} from "../../global/components/emailAutocomplete";
 import Select from "../../global/components/select";
 import Button from "../../global/components/button";
 import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import LoadingState from "../../global/components/loadingState";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { PENDING_ACTION_COPY } from "../../global/constants/operationCopy";
 import { useAuth } from "../../global/hooks/useAuth";
 import { canCreateOrEditProcesses, USER_ROLES } from "../../global/constants/domainConstants";
 import {
-  FIELD_LIMITS,
+  PROCESS_CREDITS_MIN,
   validateOrganizationEmail,
-  validateTitle,
+  validateProcessName,
 } from "../../global/utils/inputValidation";
 import {
   parseProcessDisplayName,
+  processBaseNameMaxLength,
   rebuildProcessDisplayName,
 } from "../../global/utils/processNameUtils";
 
@@ -34,11 +37,12 @@ function EditProcess() {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();
   const { user, currentRole, refreshRoles } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending } = useActionFeedback();
   const canManage = canCreateOrEditProcesses(currentRole);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const formBusy = submitting || isOperationPending;
   const [rolesError, setRolesError] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
@@ -62,18 +66,20 @@ function EditProcess() {
     advisor: "",
   });
 
-  const processNameCheck = validateTitle(processName, {
-    label: "El nombre del proceso",
+  const processNameMaxLength = processBaseNameMaxLength(semester, code);
+  const processNameCheck = validateProcessName(processName, {
+    maxLength: processNameMaxLength,
   });
   const leaderCheck = validateOrganizationEmail(leaderEmail);
   const authorCheck = validateOrganizationEmail(authorEmail);
   const validatorCheck = validateOrganizationEmail(validatorEmail);
   const advisorCheck = validateOrganizationEmail(advisorEmail);
+  const directoryEmails = useDirectoryEmailReady();
   const creditsNumber = Number(credits);
   const creditsValid =
     credits.trim() !== "" &&
     Number.isInteger(creditsNumber) &&
-    creditsNumber >= 1;
+    creditsNumber >= PROCESS_CREDITS_MIN;
 
   const namePreview =
     processNameCheck.ok && semester && code
@@ -90,6 +96,7 @@ function EditProcess() {
     authorCheck.ok &&
     validatorCheck.ok &&
     advisorCheck.ok &&
+    directoryEmails.allReady("leader", "author", "validator", "advisor") &&
     Boolean(roleIds.leader) &&
     Boolean(roleIds.author) &&
     Boolean(roleIds.validator) &&
@@ -198,6 +205,7 @@ function EditProcess() {
           errorTitle: "No se pudo actualizar el proceso",
           errorMessage:
             "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
+          ...PENDING_ACTION_COPY.updateProcess,
           onSuccess: async () => {
             const me = user?.email?.trim().toLowerCase() ?? "";
             const assigned = [
@@ -263,8 +271,12 @@ function EditProcess() {
       />
 
       <FormBusyOverlay
-        busy={submitting}
-        message="Guardando cambios..."
+        busy={formBusy}
+        message={
+          isOperationPending && !submitting
+            ? "La solicitud permanece en procesamiento..."
+            : "Guardando cambios..."
+        }
         className="mx-auto w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]"
       >
         <div className="border-b border-border bg-gradient-to-r from-primary/5 to-transparent px-6 py-4 sm:px-8">
@@ -283,19 +295,15 @@ function EditProcess() {
             label="Nombre del proceso"
             required
             error={processName.trim() ? processNameCheck.message : undefined}
-            hint={
-              semester && code
-                ? "Puede modificar el título. El semestre y el código se conservan."
-                : "Edita el nombre completo del proceso."
-            }
+            hint="Solo letras, números y espacios. El nombre completo, con semestre y código, no supera 200 caracteres."
           >
             <InputText
               value={processName}
               onChange={setProcessName}
               placeholder="Nombre del proceso"
-              maxLength={FIELD_LIMITS.title}
+              maxLength={processNameMaxLength}
               invalid={Boolean(processName.trim() && !processNameCheck.ok)}
-              disabled={submitting}
+              disabled={formBusy}
             />
           </FormField>
 
@@ -324,18 +332,20 @@ function EditProcess() {
             required
             error={
               credits.trim() && !creditsValid
-                ? "Ingrese un número entero mayor o igual a 1."
+                ? "Ingrese un número entero desde 1."
                 : undefined
             }
-            hint="Cantidad de créditos del proceso de virtualización."
+            hint="Número entero desde 1."
           >
             <InputText
               type="number"
               value={credits}
               onChange={setCredits}
               placeholder="Ej. 3"
+              min={PROCESS_CREDITS_MIN}
+              step={1}
               invalid={Boolean(credits.trim() && !creditsValid)}
-              disabled={submitting}
+              disabled={formBusy}
             />
           </FormField>
 
@@ -355,7 +365,8 @@ function EditProcess() {
                   onChange={setLeaderEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(leaderEmail.trim() && !leaderCheck.ok)}
-                  disabled={submitting}
+                  disabled={formBusy}
+                  onDirectoryReady={directoryEmails.bind("leader")}
                 />
               </FormField>
 
@@ -370,7 +381,8 @@ function EditProcess() {
                   onChange={setAuthorEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(authorEmail.trim() && !authorCheck.ok)}
-                  disabled={submitting}
+                  disabled={formBusy}
+                  onDirectoryReady={directoryEmails.bind("author")}
                 />
               </FormField>
 
@@ -387,7 +399,8 @@ function EditProcess() {
                   onChange={setValidatorEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(validatorEmail.trim() && !validatorCheck.ok)}
-                  disabled={submitting}
+                  disabled={formBusy}
+                  onDirectoryReady={directoryEmails.bind("validator")}
                 />
               </FormField>
 
@@ -402,7 +415,8 @@ function EditProcess() {
                   onChange={setAdvisorEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(advisorEmail.trim() && !advisorCheck.ok)}
-                  disabled={submitting}
+                  disabled={formBusy}
+                  onDirectoryReady={directoryEmails.bind("advisor")}
                 />
               </FormField>
             </div>
@@ -414,7 +428,7 @@ function EditProcess() {
               onClick={() =>
                 navigate(`/virtualization-processes/${processId}`)
               }
-              disabled={submitting}
+              disabled={formBusy}
             >
               Cancelar
             </Button>
@@ -424,15 +438,6 @@ function EditProcess() {
           </div>
         </div>
       </FormBusyOverlay>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from "../../global/utils/inputValidation";
 import { canonicalizeUserRole, USER_ROLES } from "../../global/constants/domainConstants";
 import { findRoleId } from "../../courses/utils/roleUtils";
+import { assertDirectoryEmails } from "../../courses/services/userService";
 
 export const PROGRAM_LEVEL_OPTIONS = [
   { value: 775730000, label: "Carrera universitaria" },
@@ -289,6 +290,7 @@ export const createLeaderUser = async (params: {
   if (!emailCheck.ok) {
     throw new Error(emailCheck.message || "Correo institucional inválido.");
   }
+  await assertDirectoryEmails([emailCheck.value]);
 
   const roleName = canonicalizeUserRole(params.roleName);
   if (roleName === USER_ROLES.LEADER) {

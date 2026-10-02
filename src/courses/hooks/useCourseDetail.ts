@@ -2,7 +2,7 @@
  * Hook de detalle de un proceso de virtualización.
  * Usado en viewCourse y viewProcess para mostrar materiales y metadatos.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 import { getCourseDetail } from "../services/courseService";
 import type { CourseDetail } from "../types/course.types";
@@ -10,20 +10,35 @@ import type { CourseDetail } from "../types/course.types";
 export const useCourseDetail = () => {
   const [detail, setDetail] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const requestRef = useRef(0);
 
-  const loadDetail = useCallback(async (processId: string) => {
-    try {
-      setLoading(true);
-      setDetail(null);
-      const data = await getCourseDetail(processId);
-      setDetail(data);
-    } catch (error) {
-      console.error("Error cargando detalle del curso", error);
-      setDetail(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadDetail = useCallback(
+    async (processId: string, options?: { refresh?: boolean }) => {
+      const requestId = ++requestRef.current;
+      const refresh = options?.refresh === true;
+
+      if (!refresh) {
+        setLoading(true);
+        setDetail(null);
+      }
+
+      try {
+        const data = await getCourseDetail(processId);
+        if (requestRef.current !== requestId) return;
+        setDetail(data);
+      } catch (error) {
+        console.error("Error cargando detalle del curso", error);
+        if (requestRef.current === requestId && !refresh) {
+          setDetail(null);
+        }
+      } finally {
+        if (requestRef.current === requestId) {
+          setLoading(false);
+        }
+      }
+    },
+    [],
+  );
 
   return { detail, loading, loadDetail };
 };

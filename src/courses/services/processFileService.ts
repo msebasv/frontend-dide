@@ -221,8 +221,13 @@ const mapSharePointItems = (
         name,
         siteUrl,
       );
+      const fromItemPath = path
+        ? toConnectorFilePath(path, folderPath, name, siteUrl)
+        : "";
+      const fromLink = pathFromSharePointLink(previewUrl, siteUrl, name);
       const connectorPath =
-        pathFromSharePointLink(previewUrl, siteUrl, name) ||
+        (fromItemPath.includes("/") ? fromItemPath : "") ||
+        fromLink ||
         toConnectorFilePath(serverPath, folderPath, name, siteUrl);
 
       return enrichProcessFileVersionMeta({
@@ -664,6 +669,64 @@ const assertSharePointResult = (
   if (message) throw new Error(message);
 };
 
+const MAX_FOLDER_WALK_DEPTH = 8;
+
+/**
+ * ListFolder solo devuelve un nivel. Los archivos del entregable viven en
+ * proceso / categoría / crédito / vNN, así que hay que bajar carpeta por carpeta
+ * y guardar esa ruta: el conector a veces no trae el Path completo.
+ */
+const walkFolderFiles = async (
+  siteUrl: string,
+  folderId: string,
+  folderPath: string,
+  depth: number,
+  seen: Set<string>,
+): Promise<SharePointBlobItem[]> => {
+  if (depth > MAX_FOLDER_WALK_DEPTH || seen.has(folderId)) return [];
+  seen.add(folderId);
+
+  const listResult = await SharePointOnlineService.ListFolder({
+    dataset: siteUrl,
+    id: folderId,
+  });
+
+  assertSharePointResult(listResult, "ListFolder");
+
+  const files: SharePointBlobItem[] = [];
+
+  for (const item of parseItemsArray(listResult.data)) {
+    const name = getItemName(item);
+    if (!name || name === "Archivo sin nombre") continue;
+
+    const childPath = `${folderPath}/${name}`.replace(/\/{2,}/g, "/");
+
+    if (isFolderItem(item)) {
+      const childId = item.Id ?? getItemId(item);
+      if (!childId) continue;
+      const nested = await walkFolderFiles(
+        siteUrl,
+        childId,
+        childPath,
+        depth + 1,
+        seen,
+      );
+      files.push(...nested);
+      continue;
+    }
+
+    files.push({
+      ...item,
+      Name: item.Name || name,
+      Path: item.Path || childPath,
+      "{Path}": item["{Path}"] || childPath,
+      "{FilenameWithExtension}": item["{FilenameWithExtension}"] || name,
+    });
+  }
+
+  return files;
+};
+
 const listFilesFromFolderMetadata = async (
   siteUrl: string,
   metadataPath: string,
@@ -678,14 +741,7 @@ const listFilesFromFolderMetadata = async (
   const folderId = getFolderId(folderMeta.data);
   if (!folderId) return [];
 
-  const listResult = await SharePointOnlineService.ListFolder({
-    dataset: siteUrl,
-    id: folderId,
-  });
-
-  assertSharePointResult(listResult, "ListFolder");
-
-  return parseItemsArray(listResult.data);
+  return walkFolderFiles(siteUrl, folderId, metadataPath, 0, new Set());
 };
 
 const listFilesFromGetFileItems = async (
@@ -777,7 +833,16 @@ export const listProcessFiles = async (
           )
         : documentLibraryFiles;
 
-      if (filtered.length > 0 || !activityId) {
+      const hasNestedFile = filtered.some((file) => {
+        const path = (file.connectorPath || file.path || "").toLowerCase();
+        const token = folderToken.toLowerCase();
+        const index = path.indexOf(`/${token}/`);
+        if (index < 0) return false;
+        const rest = path.slice(index + token.length + 2);
+        return rest.split("/").filter(Boolean).length >= 2;
+      });
+
+      if (hasNestedFile && (filtered.length > 0 || !activityId)) {
         return filtered;
       }
     }
@@ -792,13 +857,21 @@ export const listProcessFiles = async (
     effectiveFolderBase,
     activityFolderPath || folderToken,
   );
-  const metadataPaths = buildMetadataPaths(
-    siteUrl,
-    library,
-    activityFolderPath || folderPath,
-    activityFolderPath || folderToken,
-    effectiveFolderBase,
-  );
+  const metadataPaths = uniqueStrings([
+    ...buildMetadataPaths(
+      siteUrl,
+      library,
+      activityFolderPath || folderPath,
+      activityFolderPath || folderToken,
+      effectiveFolderBase,
+    ),
+    `Documentos compartidos/${folderToken}`,
+    `/Documentos compartidos/${folderToken}`,
+    `Documents/${folderToken}`,
+    `/Documents/${folderToken}`,
+    `${library}/${folderToken}`,
+    `/${library}/${folderToken}`,
+  ]);
 
   const resolvedFolderPath = activityFolderPath || folderPath || folderToken;
 
@@ -808,6 +881,29 @@ export const listProcessFiles = async (
       fileBelongsToActivity(file.connectorPath || file.path || "", activityId),
     );
   };
+
+  for (const metadataPath of metadataPaths) {
+    try {
+      const folderItems = await listFilesFromFolderMetadata(
+        siteUrl,
+        metadataPath,
+      );
+      const mappedFolderItems = filterByActivity(
+        mapSharePointItems(
+          folderItems,
+          siteUrl,
+          library,
+          resolvedFolderPath,
+        ),
+      );
+
+      if (mappedFolderItems.length > 0) {
+        return mappedFolderItems;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
 
   for (const libraryName of libraries) {
     for (const candidateFolderPath of getFileItemsPaths) {
@@ -828,29 +924,6 @@ export const listProcessFiles = async (
 
         if (mappedFileItems.length > 0) {
           return mappedFileItems;
-        }
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    for (const metadataPath of metadataPaths) {
-      try {
-        const folderItems = await listFilesFromFolderMetadata(
-          siteUrl,
-          metadataPath,
-        );
-        const mappedFolderItems = filterByActivity(
-          mapSharePointItems(
-            folderItems,
-            siteUrl,
-            libraryName,
-            resolvedFolderPath,
-          ),
-        );
-
-        if (mappedFolderItems.length > 0) {
-          return mappedFolderItems;
         }
       } catch (error) {
         lastError = error;

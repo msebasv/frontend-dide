@@ -52,4 +52,5 @@ export * from './services/Fl_dev_cu_activityService';
 export * from './services/Fl_dev_cu_template_categoryService';
 export * from './services/Fl_dev_cu_virtualization_processService';
 export * from './services/Office365UsersService';
+export * from './services/SharePointOnlineService';
 export * from './services/SharePointService';

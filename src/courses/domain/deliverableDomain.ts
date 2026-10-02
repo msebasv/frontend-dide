@@ -13,6 +13,7 @@ import {
   DELIVERABLE_STATES,
   PROCESS_PHASES,
 } from "../../global/constants/domainConstants";
+import { isActivityProcessingStatus } from "./processRules";
 import type { CourseMaterial, ProcessFile } from "../types/course.types";
 export interface ProcessDeliverableItem {
   id: string;
@@ -207,6 +208,19 @@ export const isCreditGroupApproved = (
  * Evalúa el estado de carga de un entregable con base en las actividades registradas.
  * Garantiza que no se dupliquen entregas cuando ya están en revisión o aprobadas.
  */
+const processingUploadStatus = (
+  latest?: CourseMaterial,
+): DeliverableUploadStatusInfo => ({
+  kind: "pending",
+  canUpload: false,
+  label: "Carga en procesamiento",
+  badgeText: "En proceso",
+  badgeVariant: "info",
+  detailMessage:
+    "El flujo de carga sigue en ejecución. El material figurará como cargado cuando termine.",
+  latestMaterial: latest,
+});
+
 export const getDeliverableUploadStatus = (
   deliverable: ProcessDeliverableItem,
   materials: CourseMaterial[] = [],
@@ -254,6 +268,18 @@ export const getDeliverableUploadStatus = (
     );
 
     if (hasAdvisorGuide) {
+      const guideMaterial = linkedMaterials.find((material) =>
+        isAdvisorGuideMaterialLabel(
+          `${material.name} ${material.description ?? ""}`,
+        ),
+      );
+      if (
+        guideMaterial &&
+        isActivityProcessingStatus(guideMaterial.status)
+      ) {
+        return processingUploadStatus(guideMaterial);
+      }
+
       return {
         kind: "in_review",
         canUpload: false,
@@ -279,6 +305,10 @@ export const getDeliverableUploadStatus = (
   }
 
   if (latest) {
+    if (isActivityProcessingStatus(latest.status)) {
+      return processingUploadStatus(latest);
+    }
+
     if (isReturnedStatus(latest.status)) {
       return {
         kind: "returned",

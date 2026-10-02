@@ -16,6 +16,7 @@ import PhaseDistribution from "../../global/components/phaseDistribution";
 import RecentList from "../../global/components/recentList";
 import Button from "../../global/components/button";
 import FormatsFolderButton from "../../global/components/formatsFolderButton";
+import VideoTutorialsButton from "../../global/components/videoTutorialsButton";
 
 import { processStatusColors } from "../../processVirtualization/constants/processStatusStyles";
 import type { DashboardMetrics } from "../../courses/types/course.types";
@@ -121,6 +122,7 @@ function LeaderDashboard({
           </>
         )}
         <FormatsFolderButton />
+        <VideoTutorialsButton />
       </DashboardHero>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

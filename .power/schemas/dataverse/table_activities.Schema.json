@@ -217,38 +217,6 @@
           "required": true,
           "maxLength": 100
         },
-        "msft_datastate": {
-          "type": "string",
-          "title": "msft_DataState",
-          "x-ms-dataverse-attribute": "msft_datastate",
-          "x-ms-dataverse-type": "PicklistType",
-          "x-ms-schema-name": "msft_DataState",
-          "x-ms-read-only": true,
-          "enum": [
-            "Default",
-            "Retain"
-          ],
-          "x-ms-enum-values": [
-            0,
-            1
-          ],
-          "Color": [
-            null,
-            null
-          ],
-          "x-ms-optionsetmetadataid": "452b04a4-68b4-f111-aaad-002248386dc1",
-          "x-ms-isGlobal": true,
-          "x-ms-optionsetdisplayname": "DataState",
-          "x-ms-optionSetType": "Picklist"
-        },
-        "msft_datastatename": {
-          "type": "string",
-          "title": "msft_datastatename",
-          "x-ms-dataverse-attribute": "msft_datastatename",
-          "x-ms-dataverse-type": "VirtualType",
-          "x-ms-schema-name": "msft_datastateName",
-          "x-ms-read-only": true
-        },
         "overriddencreatedon": {
           "type": "string",
           "title": "Record Created On",
@@ -345,7 +313,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "b714be9a-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "6a5232c5-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -400,7 +368,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "c114be9a-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "745232c5-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

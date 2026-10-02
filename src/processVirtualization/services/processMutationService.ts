@@ -9,13 +9,24 @@ import { Fl_dev_c_course_instanceService } from "../../generated/services/Fl_dev
 import { Fl_dev_cu_virtualization_processService } from "../../generated/services/Fl_dev_cu_virtualization_processService";
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
 import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
-import { runFlowAndConfirm } from "../../global/utils/flowResult";
+import { runFlowAndConfirm, FlowConfirmationTimeoutError, SOFT_CONFIRM_TIMEOUT_MS } from "../../global/utils/flowResult";
+import { assertDirectoryEmails } from "../../courses/services/userService";
 import {
+  assertProcessCredits,
+  assertProcessName,
   assertSafeTitle,
   escapeODataString,
+  PROCESS_CREDITS_MIN,
+  PROCESS_NAME_MAX_LENGTH,
   validateOrganizationEmail,
 } from "../../global/utils/inputValidation";
-import { buildProcessDisplayName } from "../../global/utils/processNameUtils";
+import {
+  buildProcessDisplayName,
+  parseProcessDisplayName,
+  processBaseNameMaxLength,
+  rebuildProcessDisplayName,
+} from "../../global/utils/processNameUtils";
+import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
   getCurrentStatus,
   isLeaderSyllabusStatus,
@@ -26,18 +37,60 @@ import {
   getProcessForEdit,
   getRoles,
 } from "../../courses/services/courseQueryService";
+import {
+  acquireOperationLock,
+  buildOperationLockKey,
+  refreshOperationLock,
+  releaseOperationLock,
+} from "../../global/utils/operationLock";
+import {
+  clearPendingOperation,
+  PENDING_OPERATION_TTL_MS,
+  savePendingOperation,
+  type PendingCreateWatch,
+} from "../../global/utils/pendingOperation";
+
+const courseNameKey = (course: {
+  dev_namecourse?: string;
+  dev_namecoursenormalized?: string;
+}): string => {
+  const fromNormalized = course.dev_namecoursenormalized?.trim();
+  if (fromNormalized) {
+    return normalizeComparableText(fromNormalized);
+  }
+  return normalizeComparableText(course.dev_namecourse ?? "");
+};
 
 export const createCourseInstance = async (
   courseName: string,
   programId: string,
 ): Promise<void> => {
   const trimmedName = assertSafeTitle(courseName, "El nombre del curso");
+  const normalizedName = normalizeComparableText(trimmedName);
 
   const beforeResult = await Dev_tablecourseinstancesService.getAll();
+  const existingCourses = beforeResult.data ?? [];
+
+  const duplicate = existingCourses.some((course) => {
+    if (course.statecode === 1) return false;
+    if (
+      programId &&
+      course._dev_tableprogram_value &&
+      course._dev_tableprogram_value !== programId
+    ) {
+      return false;
+    }
+    return courseNameKey(course) === normalizedName;
+  });
+
+  if (duplicate) {
+    throw new Error(
+      `Ya existe un curso llamado "${trimmedName}". Use otro nombre o selecciónelo al crear el proceso.`,
+    );
+  }
+
   const idsBefore = new Set(
-    (beforeResult.data ?? []).map(
-      (course) => course.dev_tablecourseinstanceid,
-    ),
+    existingCourses.map((course) => course.dev_tablecourseinstanceid),
   );
 
   await runFlowAndConfirm(
@@ -52,16 +105,15 @@ export const createCourseInstance = async (
         const coursesResult = await Dev_tablecourseinstancesService.getAll();
         return (coursesResult.data ?? []).some((course) => {
           const id = course.dev_tablecourseinstanceid;
-          const nameMatches =
-            course.dev_namecourse?.trim().toLowerCase() ===
-            trimmedName.toLowerCase();
+          const nameMatches = courseNameKey(course) === normalizedName;
           return Boolean(id) && nameMatches && !idsBefore.has(id);
         });
       },
-      timeoutMs: 90_000,
-      intervalMs: 2_000,
+      timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
+      intervalMs: 1_000,
+      softTimeout: true,
       timeoutMessage:
-        "El curso se envió a crear, pero aún no aparece en el sistema. Consulte en unos minutos o intente nuevamente.",
+        "La creación del curso fue registrada y permanece en procesamiento. El sistema notificará el resultado al concluir.",
     },
   );
 };
@@ -81,16 +133,12 @@ export const createVirtualizationProcess = async (params: {
   authorRoleId: string;
   validatorRoleId?: string;
   advisorRoleId: string;
+  /** Se llama cuando el registro del proceso ya es visible (útil en soft-timeout). */
+  onProcessIdKnown?: (processId: string) => void;
 }): Promise<string> => {
-  const baseName = assertSafeTitle(
-    params.processName,
-    "El nombre del proceso",
-  );
+  const baseName = assertProcessName(params.processName);
 
-  const credits = Math.trunc(Number(params.credits));
-  if (!Number.isFinite(credits) || credits < 1) {
-    throw new Error("Los créditos deben ser un número entero mayor o igual a 1.");
-  }
+  const credits = assertProcessCredits(params.credits);
 
   const leaderEmail = validateOrganizationEmail(params.leaderEmail);
   const authorEmail = validateOrganizationEmail(params.authorEmail);
@@ -130,11 +178,18 @@ export const createVirtualizationProcess = async (params: {
     });
   }
 
+  await assertDirectoryEmails(assignedRoles.map((item) => item.Email));
+
   const beforeResult = await Dev_tablevirtualizationprocessesService.getAll();
   const existingNames = (beforeResult.data ?? [])
     .map((process) => process.dev_nameprocess?.trim() ?? "")
     .filter(Boolean);
   const processName = buildProcessDisplayName(baseName, existingNames);
+  if (processName.length > PROCESS_NAME_MAX_LENGTH) {
+    throw new Error(
+      `El nombre del proceso no puede superar ${PROCESS_NAME_MAX_LENGTH} caracteres.`,
+    );
+  }
 
   const idsBefore = new Set(
     (beforeResult.data ?? []).map(
@@ -142,105 +197,161 @@ export const createVirtualizationProcess = async (params: {
     ),
   );
 
-  const findCreatedProcessId = async (): Promise<string | null> => {
-    const processesResult =
-      await Dev_tablevirtualizationprocessesService.getAll();
-
-    const created = (processesResult.data ?? []).find((process) => {
-      const id = process.dev_tablevirtualizationprocessid;
-      if (!id || idsBefore.has(id)) return false;
-
-      const nameMatches =
-        process.dev_nameprocess?.trim().toLowerCase() ===
-        processName.toLowerCase();
-      const courseMatches =
-        process._dev_tablecourse_value === params.courseId;
-
-      return nameMatches || courseMatches;
-    });
-
-    return created?.dev_tablevirtualizationprocessid ?? null;
+  const createWatch: PendingCreateWatch = {
+    kind: "create-process",
+    processName,
+    courseId: params.courseId,
+    idsBefore: [...idsBefore],
+    expectedRoleIds: assignedRoles.map((item) => item.RoleID),
+    actionLabel: "creación de proceso",
   };
 
-  /**
-   * El flujo responde succeeded cuando crea el registro del proceso, pero las
-   * fases (Cargue Syllabus) y assign-roles pueden llegar después. No damos
-   * éxito en UI hasta que el detalle ya sea consultable.
-   */
-  const isCreatedProcessReady = async (processId: string): Promise<boolean> => {
-    const expectedRoleIds = assignedRoles.map((item) => item.RoleID);
-    const filter = `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}' and statecode eq 0`;
+  // Si el proceso ya quedó creado, no se vuelve a llamar al flujo.
+  const alreadyId = await findCreatedProcessFromWatch(createWatch);
+  if (
+    alreadyId &&
+    (await isCreatedProcessReady(alreadyId, createWatch.expectedRoleIds))
+  ) {
+    return alreadyId;
+  }
 
-    const [assignRolesResult, phasesResult, templatesResult] =
-      await Promise.all([
-        Dev_tableassignrolesService.getAll({
-          filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
+  const lockKey = buildOperationLockKey("create-process", [
+    params.courseId,
+    processName,
+  ]);
+  acquireOperationLock(lockKey, PENDING_OPERATION_TTL_MS);
+  savePendingOperation(createWatch);
+  let knownProcessId = "";
+
+  try {
+    await runFlowAndConfirm(
+      () =>
+        Fl_dev_cu_virtualization_processService.Run({
+          text: processName,
+          text_1: JSON.stringify(assignedRoles),
+          text_2: params.courseId,
+          number: credits,
         }),
-        Dev_tablephasesService.getAll({ filter }),
-        Dev_tableactivitytemplatesService.getAll(),
-      ]);
-
-    const assignedRoleIds = new Set(
-      (assignRolesResult.data ?? [])
-        .map((item) => item._dev_tablerole_value ?? "")
-        .filter(Boolean),
-    );
-    const allRolesAssigned = expectedRoleIds.every((roleId) =>
-      assignedRoleIds.has(roleId),
-    );
-    if (!allRolesAssigned) return false;
-
-    const processPhases = (phasesResult.data ?? []) as PhaseWithFormatted[];
-    if (processPhases.length === 0) return false;
-
-    const templatesMap = new Map(
-      (templatesResult.data ?? []).map((template) => [
-        template.dev_tableactivitytemplateid,
-        template,
-      ]),
-    );
-    const status = getCurrentStatus(processPhases, templatesMap);
-    return isLeaderSyllabusStatus(status);
-  };
-
-  await runFlowAndConfirm(
-    () =>
-      Fl_dev_cu_virtualization_processService.Run({
-        text: processName,
-        text_1: JSON.stringify(assignedRoles),
-        text_2: params.courseId,
-        text_3: "0",
-        number: credits,
-      }),
-    {
-      actionLabel: "creación de proceso",
-      confirm: async () => {
-        const processId = await findCreatedProcessId();
-        if (!processId) return false;
-        return isCreatedProcessReady(processId);
+      {
+        actionLabel: "creación de proceso",
+        confirm: createProcessWatcher(createWatch, (processId) => {
+          knownProcessId = processId;
+          params.onProcessIdKnown?.(processId);
+        }),
+        timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
+        intervalMs: 1_000,
+        softTimeout: true,
       },
-      timeoutMs: 180_000,
-      intervalMs: 2_500,
-      timeoutMessage:
-        "El proceso se envió a crear, pero aún no está listo (fases o roles pendientes). Consulte la lista en unos minutos.",
-    },
-  );
+    );
+  } catch (error) {
+    if (error instanceof FlowConfirmationTimeoutError) {
+      refreshOperationLock(lockKey, PENDING_OPERATION_TTL_MS);
+      error.releaseLock = () => releaseOperationLock(lockKey);
+      throw error;
+    }
+    clearPendingOperation();
+    releaseOperationLock(lockKey);
+    throw error;
+  }
 
-  const processId = await findCreatedProcessId();
-  if (!processId) {
+  const processId =
+    knownProcessId || (await findCreatedProcessFromWatch(createWatch));
+  if (processId) {
+    params.onProcessIdKnown?.(processId);
+  } else {
+    clearPendingOperation();
+    releaseOperationLock(lockKey);
     throw new Error(
       "El proceso se creó, pero no se pudo obtener su identificador. Consulte la lista de procesos.",
     );
   }
 
-  // Doble chequeo por si el último poll fue justo al límite.
-  if (!(await isCreatedProcessReady(processId))) {
-    throw new Error(
-      "El proceso aparece en el sistema, pero aún no terminó de provisionarse (estado o roles). Espere unos segundos y ábralo desde la lista.",
-    );
+  clearPendingOperation();
+  releaseOperationLock(lockKey);
+  return processId;
+};
+
+const findCreatedProcessFromWatch = async (
+  watch: PendingCreateWatch,
+): Promise<string | null> => {
+  const idsBefore = new Set(watch.idsBefore);
+  const processesResult = await Dev_tablevirtualizationprocessesService.getAll();
+  const created = (processesResult.data ?? []).find((process) => {
+    const id = process.dev_tablevirtualizationprocessid;
+    if (!id || idsBefore.has(id)) return false;
+
+    const nameMatches =
+      process.dev_nameprocess?.trim().toLowerCase() ===
+      watch.processName.toLowerCase();
+    const courseMatches = process._dev_tablecourse_value === watch.courseId;
+    return nameMatches || courseMatches;
+  });
+
+  return created?.dev_tablevirtualizationprocessid ?? null;
+};
+
+const isCreatedProcessReady = async (
+  processId: string,
+  expectedRoleIds: string[],
+): Promise<boolean> => {
+  const filter = `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}' and statecode eq 0`;
+  const [assignRolesResult, phasesResult, templatesResult] = await Promise.all([
+    Dev_tableassignrolesService.getAll({
+      filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
+    }),
+    Dev_tablephasesService.getAll({ filter }),
+    Dev_tableactivitytemplatesService.getAll(),
+  ]);
+
+  const assignedRoleIds = new Set(
+    (assignRolesResult.data ?? [])
+      .map((item) => item._dev_tablerole_value ?? "")
+      .filter(Boolean),
+  );
+  if (!expectedRoleIds.every((roleId) => assignedRoleIds.has(roleId))) {
+    return false;
   }
 
-  return processId;
+  const processPhases = (phasesResult.data ?? []) as PhaseWithFormatted[];
+  if (processPhases.length === 0) return false;
+
+  const templatesMap = new Map(
+    (templatesResult.data ?? []).map((template) => [
+      template.dev_tableactivitytemplateid,
+      template,
+    ]),
+  );
+  return isLeaderSyllabusStatus(getCurrentStatus(processPhases, templatesMap));
+};
+
+/** Confirma la creación guardada, también después de recargar. */
+export const createProcessWatcher = (
+  watch: PendingCreateWatch,
+  onProcessIdKnown?: (processId: string) => void,
+): (() => Promise<boolean>) => {
+  return async () => {
+    const processId = await findCreatedProcessFromWatch(watch);
+    if (!processId) return false;
+    onProcessIdKnown?.(processId);
+    return isCreatedProcessReady(processId, watch.expectedRoleIds);
+  };
+};
+
+const assignedRolesMatch = async (
+  processId: string,
+  expected: { roleId: string; email: string }[],
+): Promise<boolean> => {
+  const assignRolesResult = await Dev_tableassignrolesService.getAll({
+    filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
+  });
+  const rows = assignRolesResult.data ?? [];
+  return expected.every((item) =>
+    rows.some(
+      (row) =>
+        row._dev_tablerole_value === item.roleId &&
+        row.dev_person?.trim().toLowerCase() === item.email,
+    ),
+  );
 };
 
 /** Carga nombre, curso y correos de roles para editar un proceso existente. */
@@ -261,7 +372,7 @@ export const updateVirtualizationProcess = async (params: {
   advisorRoleId: string;
 }): Promise<void> => {
   // En actualización el flujo exige id-process (text_3) con el GUID real.
-  // En creación se envía "0".
+  // En creación no se envía id-process.
   const processId = params.processId.trim();
   if (!processId || processId === "0") {
     throw new Error(
@@ -269,15 +380,22 @@ export const updateVirtualizationProcess = async (params: {
     );
   }
 
-  const processName = assertSafeTitle(
-    params.processName,
-    "El nombre del proceso",
+  const parsedName = parseProcessDisplayName(params.processName);
+  const baseName = assertProcessName(
+    parsedName.baseName,
+    processBaseNameMaxLength(parsedName.semester, parsedName.code),
   );
-
-  const credits = Math.trunc(Number(params.credits));
-  if (!Number.isFinite(credits) || credits < 1) {
-    throw new Error("Los créditos deben ser un número entero mayor o igual a 1.");
+  const processName =
+    parsedName.semester && parsedName.code
+      ? rebuildProcessDisplayName(baseName, parsedName.semester, parsedName.code)
+      : baseName;
+  if (processName.length > PROCESS_NAME_MAX_LENGTH) {
+    throw new Error(
+      `El nombre del proceso no puede superar ${PROCESS_NAME_MAX_LENGTH} caracteres.`,
+    );
   }
+
+  const credits = assertProcessCredits(params.credits);
 
   const leaderEmail = validateOrganizationEmail(params.leaderEmail);
   const authorEmail = validateOrganizationEmail(params.authorEmail);
@@ -310,6 +428,8 @@ export const updateVirtualizationProcess = async (params: {
     { Email: advisorEmail.value, RoleID: params.advisorRoleId },
   ];
 
+  await assertDirectoryEmails(assignedRoles.map((item) => item.Email));
+
   const expectedAssignments = assignedRoles.map((item) => ({
     roleId: item.RoleID,
     email: item.Email.trim().toLowerCase(),
@@ -321,37 +441,23 @@ export const updateVirtualizationProcess = async (params: {
         text: processName,
         text_1: JSON.stringify(assignedRoles),
         text_2: params.courseId,
-        text_3: processId, // id-process
+        text_3: processId,
         number: credits,
       }),
     {
       actionLabel: "actualización de proceso",
       confirm: async () => {
-        const [processResult, assignRolesResult] = await Promise.all([
-          Dev_tablevirtualizationprocessesService.get(processId),
-          Dev_tableassignrolesService.getAll({
-            filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
-          }),
-        ]);
-
+        const processResult =
+          await Dev_tablevirtualizationprocessesService.get(processId);
         const nameMatches =
           processResult.data?.dev_nameprocess?.trim().toLowerCase() ===
           processName.toLowerCase();
         if (!nameMatches) return false;
-
-        const rows = assignRolesResult.data ?? [];
-        return expectedAssignments.every((expected) =>
-          rows.some(
-            (item) =>
-              item._dev_tablerole_value === expected.roleId &&
-              item.dev_person?.trim().toLowerCase() === expected.email,
-          ),
-        );
+        return assignedRolesMatch(processId, expectedAssignments);
       },
-      timeoutMs: 180_000,
-      intervalMs: 2_500,
-      timeoutMessage:
-        "La actualización se envió correctamente, pero los roles aún no se reflejan. Consulte en unos minutos o intente nuevamente.",
+      timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
+      intervalMs: 1_000,
+      softTimeout: true,
     },
   );
 };
@@ -384,7 +490,10 @@ export const assignProcessValidator = async (params: {
     throw new Error("El proceso no tiene un curso asociado.");
   }
 
-  if (editData.credits < 1) {
+  if (
+    !Number.isInteger(editData.credits) ||
+    editData.credits < PROCESS_CREDITS_MIN
+  ) {
     throw new Error(
       "El proceso no tiene créditos válidos. Usa Editar proceso para corregirlos.",
     );
@@ -448,7 +557,10 @@ export const assignProcessDideDesigner = async (params: {
     throw new Error("El proceso no tiene un curso asociado.");
   }
 
-  if (editData.credits < 1) {
+  if (
+    !Number.isInteger(editData.credits) ||
+    editData.credits < PROCESS_CREDITS_MIN
+  ) {
     throw new Error(
       "El proceso no tiene créditos válidos. Usa Editar proceso para corregirlos.",
     );
@@ -519,6 +631,8 @@ export const assignProcessDideDesigner = async (params: {
     });
   }
 
+  await assertDirectoryEmails(assignedRoles.map((item) => item.Email));
+
   const expectedAssignments = assignedRoles.map((item) => ({
     roleId: item.RoleID,
     email: item.Email.trim().toLowerCase(),
@@ -535,25 +649,10 @@ export const assignProcessDideDesigner = async (params: {
       }),
     {
       actionLabel: "asignación de diseñador DIDE",
-      confirm: async () => {
-        const assignRolesResult = await Dev_tableassignrolesService.getAll({
-          filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
-        });
-
-        const rows = assignRolesResult.data ?? [];
-        // Debe existir el diseñador en su rol y el resto de responsables enviados.
-        return expectedAssignments.every((expected) =>
-          rows.some(
-            (item) =>
-              item._dev_tablerole_value === expected.roleId &&
-              item.dev_person?.trim().toLowerCase() === expected.email,
-          ),
-        );
-      },
-      timeoutMs: 180_000,
-      intervalMs: 2_500,
-      timeoutMessage:
-        "La asignación se envió correctamente, pero el diseñador DIDE aún no figura en el proceso. Consulte en unos minutos o intente nuevamente.",
+      confirm: () => assignedRolesMatch(processId, expectedAssignments),
+      timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
+      intervalMs: 1_000,
+      softTimeout: true,
     },
   );
 };

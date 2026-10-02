@@ -35,6 +35,7 @@ import {
 } from "../../courses/services/deliverableService";
 import { getUserFriendlySharePointMessage } from "../../courses/errors/sharePointSetupError";
 import type { ProcessFile } from "../../courses/types/course.types";
+import type { AudiovisualLinkEntry } from "../../global/utils/inputValidation";
 import ProcessFilesPanel from "./processFilesPanel";
 
 interface ProcessDeliverablesFilesPanelProps {
@@ -52,7 +53,7 @@ interface ProcessDeliverablesFilesPanelProps {
    */
   includeGuideFolderFallback?: boolean;
   /** Enlaces audiovisuales del diseñador DIDE (no viven en SharePoint). */
-  audiovisualLinks?: string[];
+  audiovisualLinks?: AudiovisualLinkEntry[];
   /**
    * Comentarios/notas del registro de enlaces (texto sin URLs).
    * `undefined` = no es la vista de enlaces; string (aunque vacío) = sí lo es.
@@ -219,13 +220,18 @@ function ProcessDeliverablesFilesPanel({
           activityId,
         ),
       );
-      if (byActivity.length > 0 || !includeGuideFolderFallback) {
-        return byActivity;
+      if (byActivity.length > 0) return byActivity;
+
+      if (includeGuideFolderFallback) {
+        const guides = scoped.filter((file) =>
+          pathLooksLikeAdvisorGuide(file.connectorPath || file.path || ""),
+        );
+        if (guides.length > 0) return guides;
       }
-      // Guión: si el GUID de actividad no está en la carpeta, buscar por nombre.
-      return scoped.filter((file) =>
-        pathLooksLikeAdvisorGuide(file.connectorPath || file.path || ""),
-      );
+      // El archivo está en la carpeta del entregable aunque el sufijo de
+      // actividad no coincida con la fila seleccionada.
+      if (scoped.length > 0) return scoped;
+      return byActivity;
     }
 
     if (selectedDeliverable) return scoped;
@@ -262,7 +268,9 @@ function ProcessDeliverablesFilesPanel({
     }
   }, [sortedFiles, selectedFileKey]);
 
-  const audiovisualLinksKey = audiovisualLinks.join("\0");
+  const audiovisualLinksKey = audiovisualLinks
+    .map((entry) => `${entry.label}\0${entry.url}`)
+    .join("\0");
   useEffect(() => {
     setSelectedLinkIndex(null);
   }, [activityId, audiovisualLinksKey]);
@@ -322,7 +330,7 @@ function ProcessDeliverablesFilesPanel({
   const hasListItems = sortedFiles.length > 0 || hasAudiovisualLinks;
 
   const audiovisualNotesBlock = isAudiovisualView ? (
-    <div className="border-b border-border bg-acacia-5/50 px-4 py-3 sm:px-5">
+    <div className="shrink-0 border-b border-border bg-acacia-5/50 px-4 py-3 sm:px-5">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
         Observaciones / comentarios
       </p>
@@ -339,8 +347,8 @@ function ProcessDeliverablesFilesPanel({
   ) : null;
 
   const filesSection = (
-    <div className="grid gap-0 lg:grid-cols-5">
-      <div className="border-b border-border lg:col-span-2 lg:border-b-0 lg:border-r">
+    <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-5">
+      <div className="min-h-0 overflow-y-auto border-b border-border lg:col-span-2 lg:border-b-0 lg:border-r">
         {filesLoading ? (
           <div className="p-4">
             <LoadingState message="Cargando archivos..." />
@@ -354,11 +362,17 @@ function ProcessDeliverablesFilesPanel({
               {isAudiovisualView
                 ? "No hay enlaces ni archivos en este registro"
                 : activityId
-                  ? "No hay archivos para la actividad seleccionada"
+                  ? "No hay archivos visibles para la actividad seleccionada"
                   : selectedDeliverable
-                    ? "No hay archivos cargados para este entregable y unidad"
+                    ? "No hay archivos visibles para este entregable"
                     : "Seleccione un entregable para consultar sus archivos"}
             </p>
+            {selectedDeliverable && !isAudiovisualView ? (
+              <p className="max-w-sm text-xs text-muted">
+                Si el archivo ya se cargó y no aparece, su cuenta no tiene
+                permiso para ver la carpeta en SharePoint.
+              </p>
+            ) : null}
             {filesLocationLabel && !isAudiovisualView ? (
               <p className="font-mono text-[11px] text-muted/80">
                 {filesLocationLabel}
@@ -368,7 +382,7 @@ function ProcessDeliverablesFilesPanel({
         ) : (
           <ul className="divide-y divide-border-light">
             {hasAudiovisualLinks
-              ? audiovisualLinks.map((link, index) => {
+              ? audiovisualLinks.map((entry, index) => {
                   const isSelected = selectedLinkIndex === index;
                   return (
                     <li key={`link-${index}`}>
@@ -397,10 +411,10 @@ function ProcessDeliverablesFilesPanel({
                         </div>
                         <div className="min-w-0 flex-1">
                           <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted">
-                            Enlace {index + 1}
+                            {entry.label || `Enlace ${index + 1}`}
                           </span>
                           <span className="mt-0.5 block break-all font-medium text-primary">
-                            {link}
+                            {entry.url}
                           </span>
                         </div>
                       </button>
@@ -470,15 +484,20 @@ function ProcessDeliverablesFilesPanel({
         )}
       </div>
 
-      <div className="min-w-0 p-3 sm:p-5 lg:col-span-3">
+      <div className="min-h-0 min-w-0 overflow-y-auto p-3 sm:p-5 lg:col-span-3">
         {selectedLink ? (
           <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.03] px-6 text-center">
             <IoLinkOutline className="text-primary" size={28} />
+            {selectedLink.label ? (
+              <p className="text-sm font-semibold text-primary">
+                {selectedLink.label}
+              </p>
+            ) : null}
             <p className="max-w-full break-all text-sm font-medium text-primary">
-              {selectedLink}
+              {selectedLink.url}
             </p>
             <a
-              href={selectedLink}
+              href={selectedLink.url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
@@ -526,8 +545,8 @@ function ProcessDeliverablesFilesPanel({
 
   if (hideNavigator) {
     return (
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]">
-        <div className="border-b border-border bg-gradient-to-r from-primary/5 to-transparent px-4 py-3 sm:px-5 sm:py-3.5">
+      <div className="flex h-[min(32rem,58dvh)] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)] lg:h-[min(36rem,65dvh)]">
+        <div className="shrink-0 border-b border-border bg-gradient-to-r from-primary/5 to-transparent px-4 py-3 sm:px-5 sm:py-3.5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">

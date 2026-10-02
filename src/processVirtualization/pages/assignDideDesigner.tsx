@@ -3,12 +3,14 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
-import EmailAutocomplete from "../../global/components/emailAutocomplete";
+import EmailAutocomplete, {
+  useDirectoryEmailReady,
+} from "../../global/components/emailAutocomplete";
 import Button from "../../global/components/button";
 import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import LoadingState from "../../global/components/loadingState";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { PENDING_ACTION_COPY } from "../../global/constants/operationCopy";
 import { useAuth } from "../../global/hooks/useAuth";
 import { canAssignDideDesigner, USER_ROLES } from "../../global/constants/domainConstants";
 import { validateOrganizationEmail } from "../../global/utils/inputValidation";
@@ -22,10 +24,11 @@ function AssignDideDesigner() {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();
   const { user, currentRole, refreshRoles } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending } = useActionFeedback();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const formBusy = submitting || isOperationPending;
   const [notFound, setNotFound] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
   const [processName, setProcessName] = useState("");
@@ -33,7 +36,9 @@ function AssignDideDesigner() {
   const [designerEmail, setDesignerEmail] = useState("");
 
   const designerCheck = validateOrganizationEmail(designerEmail);
-  const formIsValid = designerCheck.ok;
+  const directoryEmails = useDirectoryEmailReady();
+  const formIsValid =
+    designerCheck.ok && directoryEmails.allReady("designer");
   const backTo = processId
     ? `/virtualization-processes/${processId}`
     : "/tracking";
@@ -101,6 +106,13 @@ function AssignDideDesigner() {
           errorTitle: "No se pudo asignar el diseñador",
           errorMessage:
             "Verifique el correo e intente nuevamente. Si el problema persiste, contacte al administrador.",
+          ...PENDING_ACTION_COPY.assignDesigner,
+          onSoftTimeout: () => {
+            navigate(backTo, { replace: true });
+          },
+          onPendingDismiss: () => {
+            navigate(backTo, { replace: true });
+          },
           onSuccess: async () => {
             const me = user?.email?.trim().toLowerCase() ?? "";
             if (me && me === designerCheck.value.trim().toLowerCase()) {
@@ -109,11 +121,11 @@ function AssignDideDesigner() {
                 void refreshRoles();
               }, 4_000);
             }
-          },
-          onSuccessClose: () =>
             navigate(backTo, {
               replace: true,
-            }),
+              state: { refreshAt: Date.now() },
+            });
+          },
         },
       );
     } finally {
@@ -150,8 +162,12 @@ function AssignDideDesigner() {
       />
 
       <FormBusyOverlay
-        busy={submitting}
-        message="Asignando diseñador..."
+        busy={formBusy}
+        message={
+          isOperationPending && !submitting
+            ? "La solicitud permanece en procesamiento..."
+            : "Asignando diseñador..."
+        }
         className="mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]"
       >
         <div className="border-b border-border bg-gradient-to-r from-primary/5 to-transparent px-6 py-4 sm:px-8">
@@ -185,7 +201,8 @@ function AssignDideDesigner() {
               onChange={setDesignerEmail}
               placeholder="Buscar correo"
               invalid={Boolean(designerEmail.trim() && !designerCheck.ok)}
-              disabled={submitting}
+              disabled={formBusy}
+              onDirectoryReady={directoryEmails.bind("designer")}
             />
           </FormField>
 
@@ -193,7 +210,7 @@ function AssignDideDesigner() {
             <Button
               variant="secondary"
               onClick={() => navigate(backTo)}
-              disabled={submitting}
+              disabled={formBusy}
             >
               Cancelar
             </Button>
@@ -208,15 +225,6 @@ function AssignDideDesigner() {
           </div>
         </div>
       </FormBusyOverlay>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 }

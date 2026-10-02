@@ -8,6 +8,9 @@ interface InputTextProps {
   type?: string;
   disabled?: boolean;
   maxLength?: number;
+  min?: number;
+  max?: number;
+  step?: number;
   invalid?: boolean;
 }
 
@@ -18,6 +21,9 @@ const InputText = ({
   type = "text",
   disabled = false,
   maxLength,
+  min,
+  max,
+  step,
   invalid = false,
 }: InputTextProps) => {
   return (
@@ -26,6 +32,9 @@ const InputText = ({
       value={value}
       disabled={disabled}
       maxLength={maxLength}
+      min={min}
+      max={max}
+      step={step}
       aria-invalid={invalid || undefined}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}

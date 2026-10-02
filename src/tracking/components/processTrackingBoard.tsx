@@ -29,6 +29,21 @@ const progressStyles: Record<ActorProgressCode, string> = {
   na: "bg-gray-50 text-muted",
 };
 
+/** Cabecera fija (Entregable / Fase). */
+const metaHead =
+  "border-b border-r border-border bg-acacia-5 px-4 py-3 align-middle text-xs font-semibold uppercase tracking-wider text-muted";
+/** Etiqueta de macrofase (fila superior). */
+const groupHeadStart =
+  "border-b border-l border-border bg-acacia-5 px-3 pb-1 pt-2.5 text-center text-[10px] font-semibold tracking-wide text-muted";
+/** Roles bajo cada macrofase. */
+const roleHead =
+  "border-b border-border bg-acacia-5 px-3 pb-2.5 pt-1 text-xs font-semibold text-primary";
+const roleHeadStart = `${roleHead} border-l border-border`;
+/** Celdas de cuerpo. */
+const metaCell = "border-r border-border-light px-4 py-3 align-middle";
+const bodyCell = "px-3 py-3 align-middle";
+const bodyCellStart = `${bodyCell} border-l border-border-light`;
+
 const ProgressChip = ({
   code,
   label,
@@ -38,7 +53,7 @@ const ProgressChip = ({
 }) => (
   <span
     className={clsx(
-      "inline-flex max-w-full truncate rounded-lg px-2 py-1 text-[11px] font-semibold",
+      "inline-flex max-w-full truncate rounded-md px-2 py-0.5 text-[11px] font-medium",
       progressStyles[code],
     )}
     title={label}
@@ -95,6 +110,7 @@ function ProcessTrackingBoard({
         row.authorLabel,
         row.validatorLabel,
         row.advisorLabel,
+        row.designerLabel,
         row.phaseShort,
         ...row.deliverables.map((item) => item.name),
       ]
@@ -269,60 +285,141 @@ function ProcessTrackingBoard({
                               {creditOpen && (
                                 <div className="table-scroll border-t border-border">
                                   <table className="min-w-full text-left text-sm">
-                                    <thead className="bg-acacia-5/70 text-[11px] uppercase tracking-wide text-muted">
+                                    <thead>
                                       <tr>
-                                        <th className="px-3 py-2 font-semibold">
+                                        <th
+                                          rowSpan={2}
+                                          className={metaHead}
+                                        >
                                           Entregable
                                         </th>
-                                        <th className="px-3 py-2 font-semibold">
+                                        <th
+                                          rowSpan={2}
+                                          className={metaHead}
+                                        >
                                           Fase
                                         </th>
-                                        <th className="px-3 py-2 font-semibold">
+                                        {group.creditNumber === 0 && (
+                                          <th
+                                            colSpan={1}
+                                            className={groupHeadStart}
+                                          >
+                                            Pre validación documental
+                                          </th>
+                                        )}
+                                        <th
+                                          colSpan={3}
+                                          className={groupHeadStart}
+                                        >
+                                          Fase documental
+                                        </th>
+                                        <th
+                                          colSpan={2}
+                                          className={groupHeadStart}
+                                        >
+                                          Creación documental DIDE
+                                        </th>
+                                        <th
+                                          colSpan={1}
+                                          className={groupHeadStart}
+                                        >
+                                          Validación cargue en el aula
+                                        </th>
+                                      </tr>
+                                      <tr>
+                                        {group.creditNumber === 0 && (
+                                          <th className={roleHeadStart}>
+                                            Líder
+                                          </th>
+                                        )}
+                                        <th className={roleHeadStart}>
                                           Autor
                                         </th>
-                                        <th className="px-3 py-2 font-semibold">
+                                        <th className={roleHead}>
                                           Validador Disciplinar
                                         </th>
-                                        <th className="px-3 py-2 font-semibold">
+                                        <th className={roleHead}>
                                           Asesor
+                                        </th>
+                                        <th className={roleHeadStart}>
+                                          Diseñador DIDE
+                                        </th>
+                                        <th className={roleHead}>
+                                          Asesor
+                                        </th>
+                                        <th className={roleHeadStart}>
+                                          Líder
                                         </th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border-light">
                                       {group.deliverables.map((item) => (
-                                        <tr key={item.id}>
-                                          <td className="px-3 py-2.5">
+                                        <tr
+                                          key={item.id}
+                                          className="bg-white transition-colors hover:bg-acacia-5/60"
+                                        >
+                                          <td className={metaCell}>
                                             <p className="font-medium text-primary">
                                               {item.name}
                                             </p>
-                                            <p className="text-[11px] text-muted">
+                                            <p className="mt-0.5 text-[11px] font-normal text-muted">
                                               {item.activityCount === 0
                                                 ? "Sin historial"
                                                 : `${item.activityCount} en historial`}
                                             </p>
                                           </td>
-                                          <td className="px-3 py-2.5">
+                                          <td className={metaCell}>
                                             <ProcessStatus
                                               status={item.phase}
                                               compact
                                             />
                                           </td>
-                                          <td className="px-3 py-2.5">
+                                          {group.creditNumber === 0 && (
+                                            <td className={bodyCellStart}>
+                                              <ProgressChip
+                                                code={item.leaderPreStatus}
+                                                label={
+                                                  item.leaderPreStatusLabel
+                                                }
+                                              />
+                                            </td>
+                                          )}
+                                          <td className={bodyCellStart}>
                                             <ProgressChip
                                               code={item.authorStatus}
                                               label={item.authorStatusLabel}
                                             />
                                           </td>
-                                          <td className="px-3 py-2.5">
+                                          <td className={bodyCell}>
                                             <ProgressChip
                                               code={item.validatorStatus}
                                               label={item.validatorStatusLabel}
                                             />
                                           </td>
-                                          <td className="px-3 py-2.5">
+                                          <td className={bodyCell}>
                                             <ProgressChip
                                               code={item.advisorStatus}
                                               label={item.advisorStatusLabel}
+                                            />
+                                          </td>
+                                          <td className={bodyCellStart}>
+                                            <ProgressChip
+                                              code={item.designerStatus}
+                                              label={item.designerStatusLabel}
+                                            />
+                                          </td>
+                                          <td className={bodyCell}>
+                                            <ProgressChip
+                                              code={item.advisorAvStatus}
+                                              label={item.advisorAvStatusLabel}
+                                            />
+                                          </td>
+                                          <td className={bodyCellStart}>
+                                            <ProgressChip
+                                              code={item.leaderClassroomStatus}
+                                              label={
+                                                item.leaderClassroomStatusLabel
+                                              }
                                             />
                                           </td>
                                         </tr>
@@ -355,6 +452,12 @@ function ProcessTrackingBoard({
                           Asesor:
                         </span>{" "}
                         {row.advisorLabel}
+                      </span>
+                      <span>
+                        <span className="font-semibold text-primary">
+                          Diseñador DIDE:
+                        </span>{" "}
+                        {row.designerLabel}
                       </span>
                     </div>
                   </div>

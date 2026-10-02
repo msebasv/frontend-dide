@@ -3,7 +3,7 @@
  * Asesor → solo asignados. Líder / Coordinador / Admin → todos.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import LoadingState from "../../global/components/loadingState";
@@ -34,6 +34,7 @@ import { useProcessTracking } from "../hooks/useProcessTracking";
 import ProcessTrackingBoard from "../components/processTrackingBoard";
 
 function ProcessTrackingPage() {
+  const location = useLocation();
   const { user, currentRole } = useAuth();
   const canAccess =
     isLeaderRole(currentRole) || isAdvisorRole(currentRole);
@@ -44,9 +45,12 @@ function ProcessTrackingPage() {
   );
   const [activeTab, setActiveTab] = useState<ProcessStatusFilterTab>("all");
 
+  const refreshAt = (location.state as { refreshAt?: number } | null)
+    ?.refreshAt;
+
   useEffect(() => {
     if (canAccess) void loadTracking();
-  }, [canAccess, loadTracking]);
+  }, [canAccess, loadTracking, refreshAt]);
 
   const tabCounts = useMemo(
     () => countByProcessStatusTab(rows, (row) => row.phase),

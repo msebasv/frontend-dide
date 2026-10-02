@@ -4,13 +4,15 @@ import { Navigate, useNavigate } from "react-router-dom";
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
 import InputText from "../../global/components/inputText";
-import EmailAutocomplete from "../../global/components/emailAutocomplete";
+import EmailAutocomplete, {
+  useDirectoryEmailReady,
+} from "../../global/components/emailAutocomplete";
 import Select from "../../global/components/select";
 import Button from "../../global/components/button";
 import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import LoadingState from "../../global/components/loadingState";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { PENDING_ACTION_COPY } from "../../global/constants/operationCopy";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
   canCreateProcesses,
@@ -18,11 +20,16 @@ import {
   USER_ROLES,
 } from "../../global/constants/domainConstants";
 import {
-  FIELD_LIMITS,
+  PROCESS_CREDITS_MIN,
   validateOrganizationEmail,
-  validateTitle,
+  validateProcessName,
 } from "../../global/utils/inputValidation";
-import { buildProcessDisplayName } from "../../global/utils/processNameUtils";
+import {
+  buildProcessDisplayName,
+  getCurrentSemester,
+  getNextProcessCode,
+  processBaseNameMaxLength,
+} from "../../global/utils/processNameUtils";
 
 import {
   getAvailableCourses,
@@ -37,12 +44,14 @@ import type { Dev_table_faculties } from "../../generated/models/Dev_table_facul
 import type { Dev_table_programs } from "../../generated/models/Dev_table_programsModel";
 import type { Dev_tablecourseinstances } from "../../generated/models/Dev_tablecourseinstancesModel";
 
-type SelectOption = { label: string; value: string };
+type SelectOption = { label: string; value: string; action?: boolean };
+
+const CREATE_COURSE_OPTION_VALUE = "__create_course__";
 
 function CreateProcess() {
   const navigate = useNavigate();
   const { user, currentRole, refreshRoles } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending } = useActionFeedback();
 
   // El coordinador DIDE entra desde Seguimiento; no tiene el listado de procesos.
   const returnTo = isDideCoordinatorRole(currentRole)
@@ -71,6 +80,7 @@ function CreateProcess() {
   const [selectedCourse, setSelectedCourse] = useState<SelectOption | null>(
     null,
   );
+  const formBusy = submitting || isOperationPending;
 
   const [leaderEmail, setLeaderEmail] = useState("");
   const [authorEmail, setAuthorEmail] = useState("");
@@ -83,17 +93,26 @@ function CreateProcess() {
     advisor: "",
   });
 
-  const processNameCheck = validateTitle(processName, {
-    label: "El nombre del proceso",
+  const processNameMaxLength = useMemo(
+    () =>
+      processBaseNameMaxLength(
+        getCurrentSemester(),
+        getNextProcessCode(existingProcessNames),
+      ),
+    [existingProcessNames],
+  );
+  const processNameCheck = validateProcessName(processName, {
+    maxLength: processNameMaxLength,
   });
   const leaderCheck = validateOrganizationEmail(leaderEmail);
   const authorCheck = validateOrganizationEmail(authorEmail);
   const advisorCheck = validateOrganizationEmail(advisorEmail);
+  const directoryEmails = useDirectoryEmailReady();
   const creditsNumber = Number(credits);
   const creditsValid =
     credits.trim() !== "" &&
     Number.isInteger(creditsNumber) &&
-    creditsNumber >= 1;
+    creditsNumber >= PROCESS_CREDITS_MIN;
 
   const namePreview = processNameCheck.ok
     ? buildProcessDisplayName(processNameCheck.value, existingProcessNames)
@@ -128,7 +147,7 @@ function CreateProcess() {
   const courseOptions = useMemo(() => {
     if (!selectedProgram) return [];
 
-    return [...courses]
+    const items = [...courses]
       .filter(
         (course) => course._dev_tableprogram_value === selectedProgram.value,
       )
@@ -137,17 +156,32 @@ function CreateProcess() {
         value: course.dev_tablecourseinstanceid,
       }))
       .sort((a, b) => a.label.localeCompare(b.label, "es"));
+
+    return [
+      ...items,
+      {
+        label: "Crear curso",
+        value: CREATE_COURSE_OPTION_VALUE,
+        action: true,
+      },
+    ];
   }, [courses, selectedProgram]);
+
+  const courseListCount = courseOptions.filter(
+    (option) => option.value !== CREATE_COURSE_OPTION_VALUE,
+  ).length;
 
   const formIsValid =
     processNameCheck.ok &&
     Boolean(selectedFaculty) &&
     Boolean(selectedProgram) &&
     Boolean(selectedCourse) &&
+    selectedCourse?.value !== CREATE_COURSE_OPTION_VALUE &&
     creditsValid &&
     leaderCheck.ok &&
     authorCheck.ok &&
     advisorCheck.ok &&
+    directoryEmails.allReady("leader", "author", "advisor") &&
     Boolean(roleIds.leader) &&
     Boolean(roleIds.author) &&
     Boolean(roleIds.advisor);
@@ -161,6 +195,16 @@ function CreateProcess() {
   const handleProgramChange = (program: SelectOption | null) => {
     setSelectedProgram(program);
     setSelectedCourse(null);
+  };
+
+  const handleCourseChange = (course: SelectOption | null) => {
+    if (course?.value === CREATE_COURSE_OPTION_VALUE) {
+      navigate("/virtualization-processes/create-course", {
+        state: { returnTo: "/virtualization-processes/create" },
+      });
+      return;
+    }
+    setSelectedCourse(course);
   };
 
   useEffect(() => {
@@ -227,6 +271,9 @@ function CreateProcess() {
             leaderRoleId: roleIds.leader,
             authorRoleId: roleIds.author,
             advisorRoleId: roleIds.advisor,
+            onProcessIdKnown: (id) => {
+              createdProcessId = id;
+            },
           });
         },
         {
@@ -236,6 +283,21 @@ function CreateProcess() {
           errorTitle: "No se pudo crear el proceso",
           errorMessage:
             "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
+          ...PENDING_ACTION_COPY.createProcess,
+          viewActionLabel: "Ver proceso",
+          onViewAction: () => {
+            navigate(
+              createdProcessId
+                ? `/virtualization-processes/${createdProcessId}`
+                : returnTo,
+            );
+          },
+          onSoftTimeout: () => {
+            navigate(returnTo, { replace: true });
+          },
+          onPendingDismiss: () => {
+            navigate(returnTo, { replace: true });
+          },
           onSuccess: async () => {
             const me = user?.email?.trim().toLowerCase() ?? "";
             const assigned = [
@@ -244,19 +306,18 @@ function CreateProcess() {
               advisorCheck.value,
             ].map((email) => email.trim().toLowerCase());
 
-            if (!me || !assigned.includes(me)) return;
+            if (me && assigned.includes(me)) {
+              await refreshRoles();
+              window.setTimeout(() => {
+                void refreshRoles();
+              }, 4_000);
+            }
 
-            await refreshRoles();
-            window.setTimeout(() => {
-              void refreshRoles();
-            }, 4_000);
+            navigate(returnTo, {
+              replace: true,
+              state: { refreshAt: Date.now() },
+            });
           },
-          onSuccessClose: () =>
-            navigate(
-              createdProcessId
-                ? `/virtualization-processes/${createdProcessId}`
-                : returnTo,
-            ),
         },
       );
     } finally {
@@ -281,8 +342,12 @@ function CreateProcess() {
       />
 
       <FormBusyOverlay
-        busy={submitting}
-        message="Creando proceso..."
+        busy={formBusy}
+        message={
+          isOperationPending && !submitting
+            ? "La solicitud permanece en procesamiento..."
+            : "Creando proceso..."
+        }
         className="mx-auto w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]"
       >
         <div className="border-b border-border bg-gradient-to-r from-primary/5 to-transparent px-6 py-4 sm:px-8">
@@ -301,15 +366,15 @@ function CreateProcess() {
             label="Nombre del proceso"
             required
             error={processName.trim() ? processNameCheck.message : undefined}
-            hint="Indique solo el título (ej. Desarrollo Web I). El semestre y el código consecutivo se agregan automáticamente."
+            hint="Solo letras, números y espacios. El nombre completo, con semestre y código, no supera 200 caracteres."
           >
             <InputText
               value={processName}
               onChange={setProcessName}
               placeholder="Nombre del proceso"
-              maxLength={FIELD_LIMITS.title}
+              maxLength={processNameMaxLength}
               invalid={Boolean(processName.trim() && !processNameCheck.ok)}
-              disabled={submitting}
+              disabled={formBusy}
             />
           </FormField>
 
@@ -331,7 +396,7 @@ function CreateProcess() {
                 value={selectedFaculty}
                 onChange={handleFacultyChange}
                 placeholder="Seleccione una facultad"
-                disabled={submitting}
+                disabled={formBusy}
               />
             </FormField>
 
@@ -351,27 +416,27 @@ function CreateProcess() {
                       : "Sin programas en esta facultad"
                     : "Seleccione primero una facultad"
                 }
-                disabled={submitting || !selectedFaculty}
+                disabled={formBusy || !selectedFaculty}
               />
             </FormField>
 
             <FormField
               label="Curso"
               required
-              hint="Solo se listan cursos del programa elegido. Al crear el proceso solo se envía el curso."
+              hint="Solo se listan cursos del programa elegido. Si no aparece, use Crear curso al final de la lista."
             >
               <Select
                 options={courseOptions}
                 value={selectedCourse}
-                onChange={setSelectedCourse}
+                onChange={handleCourseChange}
                 placeholder={
                   selectedProgram
-                    ? courseOptions.length
+                    ? courseListCount
                       ? "Seleccione un curso"
-                      : "Sin cursos en este programa"
+                      : "Sin cursos — cree uno nuevo"
                     : "Seleccione primero un programa"
                 }
-                disabled={submitting || !selectedProgram}
+                disabled={formBusy || !selectedProgram}
               />
             </FormField>
           </div>
@@ -381,18 +446,20 @@ function CreateProcess() {
             required
             error={
               credits.trim() && !creditsValid
-                ? "Ingrese un número entero mayor o igual a 1."
+                ? "Ingrese un número entero desde 1."
                 : undefined
             }
-            hint="Cantidad de créditos del proceso de virtualización."
+            hint="Número entero desde 1."
           >
             <InputText
               type="number"
               value={credits}
               onChange={setCredits}
               placeholder="Ej. 3"
+              min={PROCESS_CREDITS_MIN}
+              step={1}
               invalid={Boolean(credits.trim() && !creditsValid)}
-              disabled={submitting}
+              disabled={formBusy}
             />
           </FormField>
 
@@ -412,7 +479,8 @@ function CreateProcess() {
                   onChange={setLeaderEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(leaderEmail.trim() && !leaderCheck.ok)}
-                  disabled={submitting}
+                  disabled={formBusy}
+                  onDirectoryReady={directoryEmails.bind("leader")}
                 />
               </FormField>
 
@@ -427,7 +495,8 @@ function CreateProcess() {
                   onChange={setAuthorEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(authorEmail.trim() && !authorCheck.ok)}
-                  disabled={submitting}
+                  disabled={formBusy}
+                  onDirectoryReady={directoryEmails.bind("author")}
                 />
               </FormField>
 
@@ -442,7 +511,8 @@ function CreateProcess() {
                   onChange={setAdvisorEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(advisorEmail.trim() && !advisorCheck.ok)}
-                  disabled={submitting}
+                  disabled={formBusy}
+                  onDirectoryReady={directoryEmails.bind("advisor")}
                 />
               </FormField>
             </div>
@@ -458,7 +528,7 @@ function CreateProcess() {
             <Button
               variant="secondary"
               onClick={() => navigate(returnTo)}
-              disabled={submitting}
+              disabled={formBusy}
             >
               Cancelar
             </Button>
@@ -471,15 +541,6 @@ function CreateProcess() {
           </div>
         </div>
       </FormBusyOverlay>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 }

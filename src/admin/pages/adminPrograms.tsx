@@ -15,7 +15,6 @@ import Modal from "../../global/components/modal";
 import FormField from "../../global/components/formField";
 import InputText from "../../global/components/inputText";
 import Select from "../../global/components/select";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useAuth } from "../../global/hooks/useAuth";
 import { isAdminRole } from "../../global/constants/domainConstants";
@@ -41,7 +40,7 @@ type CatalogTab = "programs" | "faculties";
 
 function AdminProgramsPage() {
   const { currentRole } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction } = useActionFeedback();
 
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<CatalogTab>("programs");
@@ -491,15 +490,6 @@ function AdminProgramsPage() {
           </div>
         </div>
       </Modal>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 }

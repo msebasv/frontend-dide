@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import {
   IoCheckmarkCircleOutline,
   IoCloudUploadOutline,
@@ -10,10 +10,13 @@ import {
 import PageHeader from "../../global/components/pageHeader";
 import LoadingState from "../../global/components/loadingState";
 import Button from "../../global/components/button";
-import FeedbackModal from "../../global/components/feedbackModal";
 
 import { useAuth } from "../../global/hooks/useAuth";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import {
+  OPERATION_COPY,
+  PENDING_ACTION_COPY,
+} from "../../global/constants/operationCopy";
 import { useCourseDetail } from "../../courses/hooks/useCourseDetail";
 import CourseDetailView from "../../courses/components/courseDetailView";
 import ClassroomConfirmModal from "../../courses/components/classroomConfirmModal";
@@ -36,15 +39,25 @@ import {
 
 const ViewProcess = () => {
   const { processId } = useParams<{ processId: string }>();
+  const location = useLocation();
   const { currentRole } = useAuth();
   const { detail, loading, loadDetail } = useCourseDetail();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending, pendingResourceLock } =
+    useActionFeedback();
   const [showClassroomConfirm, setShowClassroomConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const formBusy = submitting || isOperationPending;
+  const syllabusUploadLocked =
+    Boolean(processId) && pendingResourceLock?.processId === processId;
 
   useEffect(() => {
     if (processId) void loadDetail(processId);
-  }, [processId, loadDetail]);
+  }, [
+    processId,
+    loadDetail,
+    location.key,
+    (location.state as { refreshAt?: number } | null)?.refreshAt,
+  ]);
 
   const isFinalized = detail?.status === PROCESS_PHASES.COMPLETED;
 
@@ -112,9 +125,14 @@ const ViewProcess = () => {
         successTitle: PROCESS_PHASES.COMPLETED,
         successMessage: "El cargue en el aula quedó confirmado.",
         errorTitle: "No se pudo confirmar",
-        onSuccess: () => setShowClassroomConfirm(false),
+        ...PENDING_ACTION_COPY.confirmClassroom,
+        onSoftTimeout: () => setShowClassroomConfirm(false),
+        onSuccess: async () => {
+          setShowClassroomConfirm(false);
+          await loadDetail(processId, { refresh: true });
+        },
         onSuccessClose: () => {
-          void loadDetail(processId);
+          void loadDetail(processId, { refresh: true });
         },
       });
     } finally {
@@ -169,12 +187,23 @@ const ViewProcess = () => {
               </Link>
             )}
             {canUpload && processId && (
-              <Link to={`/courses/${processId}/upload`}>
-                <Button size="sm">
+              syllabusUploadLocked ? (
+                <Button
+                  size="sm"
+                  disabled
+                  title={OPERATION_COPY.uploadLockedTitle}
+                >
                   <IoCloudUploadOutline size={16} />
-                  Cargar syllabus
+                  {OPERATION_COPY.uploadLockedLabel}
                 </Button>
-              </Link>
+              ) : (
+                <Link to={`/courses/${processId}/upload`}>
+                  <Button size="sm">
+                    <IoCloudUploadOutline size={16} />
+                    Cargar syllabus
+                  </Button>
+                </Link>
+              )
             )}
             {canConfirmClassroom && (
               <Button
@@ -232,16 +261,7 @@ const ViewProcess = () => {
         onConfirm={() => {
           void handleConfirmClassroom();
         }}
-        loading={submitting}
-      />
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
+        loading={formBusy}
       />
     </div>
   );
