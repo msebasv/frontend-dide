@@ -23,7 +23,6 @@ import FormField from "../../global/components/formField";
 import InputText from "../../global/components/inputText";
 import TextArea from "../../global/components/textArea";
 import Select from "../../global/components/select";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
@@ -61,7 +60,7 @@ const resolveGranularityOption = (code: number | null): SelectOption => {
 
 function AdminCategoryTemplatesPage() {
   const { currentRole } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction } = useActionFeedback();
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<CategoryTemplateRow[]>([]);
@@ -467,14 +466,6 @@ function AdminCategoryTemplatesPage() {
           </div>
         </div>
       </Modal>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-      />
     </div>
   );
 }

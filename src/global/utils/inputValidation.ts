@@ -13,6 +13,11 @@ export const FIELD_LIMITS = {
   maxFileBytes: 25 * 1024 * 1024,
 } as const;
 
+/** Nombre oficial del proceso, incluido semestre y código. */
+export const PROCESS_NAME_MAX_LENGTH = 200;
+
+export const PROCESS_CREDITS_MIN = 1;
+
 export const ACCEPTED_FILE_TYPES =
   ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt";
 
@@ -67,12 +72,15 @@ const DANGEROUS_PATTERNS: RegExp[] = [
 /** Títulos / nombres: letras, números, espacios y puntuación (sin / ni guiones tipográficos – —). */
 const TITLE_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#!?*%@]+$/u;
 
+/** Nombre de proceso escrito por el usuario: letras, números y espacios. */
+const PROCESS_NAME_ALLOWED = /^[\p{L}\p{N}\s]+$/u;
+
 /** Descripciones / comentarios: igual + saltos de línea (sin / ni guiones tipográficos – —). */
 const DESCRIPTION_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#\n\r!?*%@]+$/u;
 
-/** Observaciones con URLs en texto plano (permite / ? = & # %). */
+/** Observaciones con URLs en texto plano (permite caracteres típicos de enlace). */
 const DESCRIPTION_WITH_URLS_ALLOWED =
-  /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#\n\r!?*%@/=?#&%]+$/u;
+  /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#\n\r!?*%@/=?#&%$[\]~+]+$/u;
 
 const normalizePlainMultiline = (value: string): string =>
   value
@@ -161,6 +169,62 @@ export const validateTitle = (
   }
 
   return { ok: true, value };
+};
+
+/**
+ * Nombre base del proceso. Sin símbolos.
+ * `maxLength` es el cupo del título para que el nombre completo no pase de 200.
+ */
+export const validateProcessName = (
+  raw: string,
+  options?: { maxLength?: number },
+): ValidationResult => {
+  const label = "El nombre del proceso";
+  const maxLength = options?.maxLength ?? PROCESS_NAME_MAX_LENGTH;
+  const value = collapseSpaces(
+    raw.replace(CONTROL_CHARS, "").replace(WEIRD_SPACES, " ").replace(/[\n\r]/g, " "),
+  );
+
+  if (!value) {
+    return { ok: false, message: `${label} es obligatorio.`, value: "" };
+  }
+
+  if (value.length > maxLength) {
+    return {
+      ok: false,
+      message: `${label} no puede superar ${PROCESS_NAME_MAX_LENGTH} caracteres.`,
+      value,
+    };
+  }
+
+  if (!PROCESS_NAME_ALLOWED.test(value)) {
+    return {
+      ok: false,
+      message: `${label} solo permite letras, números y espacios.`,
+      value,
+    };
+  }
+
+  return { ok: true, value };
+};
+
+export const assertProcessName = (
+  raw: string,
+  maxLength = PROCESS_NAME_MAX_LENGTH,
+): string => {
+  const result = validateProcessName(raw, { maxLength });
+  if (!result.ok) throw new Error(result.message);
+  return result.value;
+};
+
+export const assertProcessCredits = (raw: number): number => {
+  const credits = Number(raw);
+  if (!Number.isInteger(credits) || credits < PROCESS_CREDITS_MIN) {
+    throw new Error(
+      `Los créditos deben ser un número entero desde ${PROCESS_CREDITS_MIN}.`,
+    );
+  }
+  return credits;
 };
 
 export const validateDescription = (
@@ -406,6 +470,12 @@ export const assertSafeWordGuide = (files: File[]): File[] =>
 const HTTP_URL_PATTERN =
   /^https?:\/\/[^\s<>"'`{}|\\^[\]]+$/i;
 
+const HTTP_URL_IN_TEXT =
+  /https?:\/\/[^\s<>"'\)\]]+/gi;
+
+const cleanExtractedUrl = (url: string): string =>
+  url.replace(/[.,;:!?)]+$/g, "").trim();
+
 /**
  * Normaliza URLs sin romper barras ni query strings.
  * (normalizeInput genérico elimina `/`, incompatible con enlaces.)
@@ -526,44 +596,85 @@ export const parseAudiovisualLinksFromDocuments = (
     if (typeof parsed === "string") {
       const nested = parseAudiovisualLinksFromDocuments(parsed);
       if (nested.length > 0) return nested;
-      if (/^https?:\/\//i.test(parsed.trim())) return [parsed.trim()];
+      const single = cleanExtractedUrl(parsed);
+      if (HTTP_URL_PATTERN.test(single)) return [single];
     }
   } catch {
-    if (/^https?:\/\//i.test(raw)) return [raw];
+    // Texto plano (varias URLs / etiquetas): lo resuelve parseAudiovisualLinkEntries.
   }
 
   return [];
 };
 
-const HTTP_URL_IN_TEXT =
-  /https?:\/\/[^\s<>"'\)\]]+/gi;
+/**
+ * Entrada audiovisual: URL + etiqueta opcional (texto antes del enlace).
+ * Permite varias líneas / varios enlaces sin perder el contexto.
+ */
+export type AudiovisualLinkEntry = {
+  url: string;
+  /** Texto descriptivo asociado (p. ej. "Video guía 1" o "Link1"). */
+  label: string;
+};
+
+const cleanLinkLabel = (label: string): string =>
+  label
+    .replace(/\s*[:\-–—]\s*$/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
 /**
- * Extrae URLs desde texto plano (observaciones del diseñador) o JSON legacy.
+ * Parsea observaciones del diseñador en entradas { label, url }.
+ * - Una URL por línea con texto delante → una entrada con etiqueta.
+ * - Varias URLs en la misma línea → una entrada por URL (texto intermedio = etiqueta).
+ * - JSON legacy `["https://..."]` → entradas sin etiqueta.
  */
-export const extractHttpLinksFromText = (
+export const parseAudiovisualLinkEntries = (
   value: string | undefined | null,
-): string[] => {
+): AudiovisualLinkEntry[] => {
   const raw = (value ?? "").trim();
   if (!raw) return [];
 
   const fromJson = parseAudiovisualLinksFromDocuments(raw);
-  if (fromJson.length > 0) return [...new Set(fromJson)];
+  if (fromJson.length > 0) {
+    return fromJson.map((url) => ({ url, label: "" }));
+  }
 
-  const matches = raw.match(HTTP_URL_IN_TEXT) ?? [];
-  return [
-    ...new Set(
-      matches
-        .map((link) => link.replace(/[.,;:!?)]+$/g, "").trim())
-        .filter(Boolean),
-    ),
-  ];
+  const entries: AudiovisualLinkEntry[] = [];
+  const lines = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const matches = [
+      ...trimmed.matchAll(new RegExp(HTTP_URL_IN_TEXT.source, "gi")),
+    ];
+    if (matches.length === 0) continue;
+
+    let cursor = 0;
+    for (const match of matches) {
+      const url = cleanExtractedUrl(match[0] ?? "");
+      if (!url) continue;
+      const start = match.index ?? 0;
+      const label = cleanLinkLabel(trimmed.slice(cursor, start));
+      entries.push({ url, label });
+      cursor = start + (match[0]?.length ?? 0);
+    }
+  }
+
+  return entries;
 };
 
 /**
- * Quita las URLs del texto para dejar solo notas / comentarios.
- * También elimina etiquetas vacías tipo "Link1:" / "Enlace 2:" que quedan
- * cuando el diseñador solo pegó URLs bajo esos rótulos.
+ * Extrae URLs desde texto plano (observaciones del diseñador) o JSON legacy.
+ * Conserva el orden; no elimina duplicados (pueden tener etiquetas distintas).
+ */
+export const extractHttpLinksFromText = (
+  value: string | undefined | null,
+): string[] => parseAudiovisualLinkEntries(value).map((entry) => entry.url);
+
+/**
+ * Quita líneas que contienen URLs; deja solo notas sueltas sin enlace.
  */
 export const stripHttpLinksFromText = (
   value: string | undefined | null,
@@ -572,14 +683,15 @@ export const stripHttpLinksFromText = (
   if (!raw) return "";
   if (parseAudiovisualLinksFromDocuments(raw).length > 0) return "";
 
-  return raw
-    .replace(HTTP_URL_IN_TEXT, " ")
-    .replace(/(?:^|\n)\s*(?:link|enlace|url)\s*\d*\s*:\s*(?=\n|$)/gi, "\n")
-    .replace(/^[ \t]*(?:link|enlace|url)\s*\d*\s*:\s*$/gim, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  const lines = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const noteLines = lines
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false;
+      return !new RegExp(HTTP_URL_IN_TEXT.source, "i").test(line);
+    });
+
+  return noteLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 };
 
 /**

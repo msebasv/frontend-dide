@@ -38,13 +38,13 @@ export interface DocumentosBase {
   Title?: string;
   Modified?: string;
   "Editor#Claims"?: string;
-  OData__ColorTag?: string;
-  ComplianceAssetId?: string;
-  OData__ExtendedDescription?: string;
   Created?: string;
   "Author#Claims"?: string;
   "CheckoutUser#Claims"?: string;
   OData__DisplayName?: string;
+  OData__ColorTag?: string;
+  ComplianceAssetId?: string;
+  OData__ExtendedDescription?: string;
   "{Identifier}"?: string;
   "{IsFolder}"?: boolean;
   "{Thumbnail}"?: {

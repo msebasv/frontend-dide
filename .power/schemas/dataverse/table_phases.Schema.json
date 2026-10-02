@@ -322,7 +322,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "01af26af-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "559d0ce3-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -359,7 +359,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "0baf26af-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "5f9d0ce3-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

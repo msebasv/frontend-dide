@@ -91,6 +91,7 @@ export {
   LEADER_CLASSROOM_CONFIRM_STATUS,
   isLeaderSyllabusStatus,
   isLeaderClassroomConfirmStatus,
+  isActivityProcessingStatus,
   isAdvisorGuideUploadStatus,
   isAdvisorAudiovisualApprovalStatus,
   canUserUploadStatus,
@@ -486,9 +487,17 @@ const isAdvisorGuideTemplateName = (name: string): boolean => {
   );
 };
 
+/** Cargue de syllabus del líder. No es una versión del autor. */
+const isSyllabusUploadLabel = (name: string): boolean => {
+  if (isLeaderSyllabusStatus(name)) return true;
+  const normalized = normalizeActivityLabel(name);
+  return normalized.includes("syllabus");
+};
+
 const isAuthorUploadTemplateName = (name: string): boolean => {
   const normalized = normalizeActivityLabel(name);
   if (!normalized) return false;
+  if (isSyllabusUploadLabel(normalized)) return false;
   if (isAdvisorGuideTemplateName(normalized)) return false;
 
   return (
@@ -564,7 +573,8 @@ const collectAuthorUploadTemplateIds = (
     if (
       templateId &&
       isAuthorUploadTemplateName(label) &&
-      !isAdvisorGuideTemplateName(label)
+      !isAdvisorGuideTemplateName(label) &&
+      !isSyllabusUploadLabel(label)
     ) {
       authorIds.add(templateId);
     }
@@ -578,7 +588,9 @@ const collectAuthorUploadTemplateIds = (
       template.dev_typeactivityname ?? "",
     );
 
-    if (isAdvisorGuideTemplateName(name)) continue;
+    if (isAdvisorGuideTemplateName(name) || isSyllabusUploadLabel(name)) {
+      continue;
+    }
 
     const isAuthorByName = isAuthorUploadTemplateName(name);
     const isAuthorByRole =
@@ -656,6 +668,13 @@ const isAuthorUploadActivity = (
   const templateName = getActivityTemplateDisplayName(activity);
   const activityName = activity.dev_activityname ?? "";
   const observations = activity.dev_observations ?? "";
+
+  if (
+    isSyllabusUploadLabel(templateName) ||
+    isSyllabusUploadLabel(activityName)
+  ) {
+    return false;
+  }
 
   if (
     isAdvisorGuideTemplateName(templateName) ||
@@ -811,10 +830,20 @@ export const mapCourseDetail = ({
       );
       const isAuthorUpload = version != null;
       const templateRole = resolveHistoryRole(activity, template);
+      const templateLabel =
+        getActivityTemplateDisplayName(activity) ||
+        template?.dev_activityname?.trim() ||
+        "";
+      const isSyllabusUpload =
+        isSyllabusUploadLabel(templateLabel) ||
+        isSyllabusUploadLabel(activity.dev_activityname ?? "");
       // Cargas del autor: siempre el Autor del assign-role (createdby suele ser la cuenta de servicio).
-      const performedByRole = isAuthorUpload
-        ? USER_ROLES.AUTHOR
-        : templateRole;
+      // El syllabus lo carga el líder; no heredar el rol Autor de la plantilla.
+      const performedByRole = isSyllabusUpload
+        ? USER_ROLES.LEADER
+        : isAuthorUpload
+          ? USER_ROLES.AUTHOR
+          : templateRole;
       const actor = resolveHistoryActor(
         activity,
         processId,

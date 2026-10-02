@@ -14,6 +14,7 @@ import RecentList from "../../global/components/recentList";
 import PhaseDistribution from "../../global/components/phaseDistribution";
 import Button from "../../global/components/button";
 import FormatsFolderButton from "../../global/components/formatsFolderButton";
+import VideoTutorialsButton from "../../global/components/videoTutorialsButton";
 
 import type { Course, DashboardMetrics } from "../../courses/types/course.types";
 
@@ -74,6 +75,7 @@ function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
           </Button>
         </Link>
         <FormatsFolderButton />
+        <VideoTutorialsButton />
       </DashboardHero>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

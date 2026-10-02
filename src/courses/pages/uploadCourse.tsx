@@ -17,8 +17,8 @@ import Select, { type SelectOption } from "../../global/components/select";
 import Button from "../../global/components/button";
 import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import InfoCard from "../../global/components/infoCard";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { PENDING_ACTION_COPY, OPERATION_COPY } from "../../global/constants/operationCopy";
 import { useAuth } from "../../global/hooks/useAuth";
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import {
@@ -60,15 +60,17 @@ const UploadCourse = () => {
   const location = useLocation();
   const { currentRole } = useAuth();
   const { detail, loading, loadDetail } = useCourseDetail();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending, showFeedback } = useActionFeedback();
 
   const [resourceName, setResourceName] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const formBusy = submitting || isOperationPending;
   const [deliverables, setDeliverables] = useState<ProcessDeliverableItem[]>([]);
   const [deliverablesLoading, setDeliverablesLoading] = useState(true);
   const [deliverablesError, setDeliverablesError] = useState("");
+  const [deliverablesRefreshKey] = useState(0);
 
   // Selectores de ámbito y unidad
   const [selectedScope, setSelectedScope] = useState<ScopeType>("general");
@@ -224,7 +226,11 @@ const UploadCourse = () => {
   const canUploadSelected = isLeaderUpload
     ? Boolean(effectiveDeliverableId)
     : Boolean(effectiveDeliverableId) &&
-      Boolean(selectedDeliverableStatus?.canUpload);
+      Boolean(selectedDeliverableStatus?.canUpload) &&
+      !(
+        isAuthorRole(currentRole) &&
+        isAdvisorGuideUploadStatus(selectedDeliverable?.stateLabel ?? "")
+      );
 
   const resourceNameCheck = validateTitle(
     resourceName ||
@@ -275,9 +281,15 @@ const UploadCourse = () => {
         const available = filterDeliverablesForUpload(groups, {
           syllabusOnly: isLeaderUpload,
         }).filter((item) => {
-          if (!isAdvisorGuideUpload) return true;
-          // Solo entregables en "Cargar Guión instruccional".
-          return isAdvisorGuideUploadStatus(item.stateLabel);
+          if (isAdvisorGuideUpload) {
+            // Solo entregables en "Cargar Guión instruccional".
+            return isAdvisorGuideUploadStatus(item.stateLabel);
+          }
+          // Autor: nunca entregables en fase de guión (solo el asesor).
+          if (isAuthorRole(currentRole)) {
+            return !isAdvisorGuideUploadStatus(item.stateLabel);
+          }
+          return true;
         });
         setDeliverables(available);
 
@@ -344,7 +356,15 @@ const UploadCourse = () => {
     return () => {
       cancelled = true;
     };
-  }, [processId, isLeaderUpload, isAdvisorGuideUpload, detail?.materials, detail?.status]);
+  }, [
+    processId,
+    isLeaderUpload,
+    isAdvisorGuideUpload,
+    currentRole,
+    detail?.materials,
+    detail?.status,
+    deliverablesRefreshKey,
+  ]);
 
   const handleScopeChange = (option: SelectOption | null) => {
     const nextScope = (option?.value as ScopeType) ?? "general";
@@ -410,6 +430,16 @@ const UploadCourse = () => {
     )
       return;
 
+    if (isOperationPending) {
+      showFeedback({
+        isOpen: true,
+        type: "warning",
+        title: OPERATION_COPY.busyConflictDefaultTitle,
+        message: PENDING_ACTION_COPY.uploadMaterial.busyConflictMessage,
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       await runAction(
@@ -434,10 +464,33 @@ const UploadCourse = () => {
           errorTitle: "No se pudo cargar el material",
           errorMessage:
             "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
-          onSuccessClose: () =>
+          ...PENDING_ACTION_COPY.uploadMaterial,
+          pendingConfirmLabel: OPERATION_COPY.pendingConfirmLabel,
+          pendingResourceLock: {
+            processId,
+            deliverableId: effectiveDeliverableId,
+          },
+          viewActionLabel: "Ver curso",
+          onViewAction: () =>
             navigate(backTo, {
               replace: true,
               state: { fromUpload: true },
+            }),
+          onPendingDismiss: () =>
+            navigate(backTo, {
+              replace: true,
+              state: { fromUpload: true },
+            }),
+          onSuccess: () => {
+            navigate(backTo, {
+              replace: true,
+              state: { fromUpload: true, refreshAt: Date.now() },
+            });
+          },
+          onSuccessClose: () =>
+            navigate(backTo, {
+              replace: true,
+              state: { fromUpload: true, refreshAt: Date.now() },
             }),
         },
       );
@@ -702,8 +755,12 @@ const UploadCourse = () => {
         />
 
         <FormBusyOverlay
-          busy={submitting}
-          message="Cargando material..."
+          busy={formBusy}
+          message={
+            isOperationPending && !submitting
+              ? "La solicitud permanece en procesamiento..."
+              : "Cargando material..."
+          }
           className="w-full overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]"
         >
           <div className="border-b border-border bg-gradient-to-r from-secondary/5 to-transparent px-6 py-4 sm:px-8">
@@ -955,7 +1012,7 @@ const UploadCourse = () => {
                 placeholder="Nombre del recurso"
                 maxLength={FIELD_LIMITS.title}
                 invalid={Boolean(resourceName.trim() && !resourceNameCheck.ok)}
-                disabled={submitting}
+                disabled={formBusy}
               />
             </FormField>
 
@@ -970,7 +1027,7 @@ const UploadCourse = () => {
                 placeholder="Descripción (opcional)"
                 maxLength={FIELD_LIMITS.description}
                 invalid={Boolean(description.trim() && !descriptionCheck.ok)}
-                disabled={submitting}
+                disabled={formBusy}
               />
             </FormField>
 
@@ -998,7 +1055,7 @@ const UploadCourse = () => {
                     ? "Word o PDF · máx. 25 MB"
                     : undefined
                 }
-                disabled={submitting}
+                disabled={formBusy}
               />
             </FormField>
 
@@ -1006,7 +1063,7 @@ const UploadCourse = () => {
               <Button
                 variant="secondary"
                 onClick={() => navigate(backTo)}
-                disabled={submitting}
+                disabled={formBusy}
               >
                 Cancelar
               </Button>
@@ -1024,15 +1081,6 @@ const UploadCourse = () => {
           </div>
         </FormBusyOverlay>
       </div>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 };

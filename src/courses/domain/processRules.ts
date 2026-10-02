@@ -313,6 +313,12 @@ export const formatActivityStatus = (status: string): string => {
   return formatDomainLabel(trimmed);
 };
 
+/** La actividad se crea en "En proceso" mientras el flujo de carga sigue ejecutándose. */
+export const isActivityProcessingStatus = (status: string): boolean => {
+  const label = normalizePhaseLabel(formatActivityStatus(status));
+  return label === "en proceso" || label === "enproceso";
+};
+
 /**
  * Obtiene el estado crudo de una actividad desde Dataverse.
  * Preferimos statuscodename; si no viene, usamos statuscode (número o texto).

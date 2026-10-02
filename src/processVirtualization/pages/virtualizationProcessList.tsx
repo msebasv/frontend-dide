@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { IoAddCircleOutline } from "react-icons/io5";
 
 import DataTable from "../../global/components/dataTable";
@@ -22,6 +22,7 @@ import {
 } from "../../global/constants/domainConstants";
 
 const VirtualizationProcessList = () => {
+  const location = useLocation();
   const { user, currentRole } = useAuth();
   const { processes, loading, loadProcesses } = useVirtualizationProcesses(
     user?.email ?? "",
@@ -51,9 +52,12 @@ const VirtualizationProcessList = () => {
     [processes, activeTab],
   );
 
+  const refreshAt = (location.state as { refreshAt?: number } | null)
+    ?.refreshAt;
+
   useEffect(() => {
     void loadProcesses();
-  }, [loadProcesses]);
+  }, [loadProcesses, refreshAt]);
 
   return (
     <div>

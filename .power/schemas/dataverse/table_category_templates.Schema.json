@@ -99,7 +99,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "85202671-bd9c-432b-bd36-04e985d70e6e",
+          "x-ms-optionsetmetadataid": "1baf09f1-bfa3-4cb0-b89a-52963ec53310",
           "x-ms-isGlobal": true,
           "x-ms-optionsetdisplayname": "dev_granularity",
           "x-ms-optionSetType": "Picklist"
@@ -131,7 +131,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "5f717ca1-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "1a3cccd5-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "is-required",
           "x-ms-optionSetType": "Boolean"
@@ -181,7 +181,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "62717ca1-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "1d3cccd5-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "scope",
           "x-ms-optionSetType": "Picklist"
@@ -369,7 +369,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "22717ca1-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "dd3bccd5-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -400,7 +400,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "2c717ca1-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "e73bccd5-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

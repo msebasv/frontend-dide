@@ -19,9 +19,10 @@ import DataTable from "../../global/components/dataTable";
 import Button from "../../global/components/button";
 import Modal from "../../global/components/modal";
 import FormField from "../../global/components/formField";
-import EmailAutocomplete from "../../global/components/emailAutocomplete";
+import EmailAutocomplete, {
+  useDirectoryEmailReady,
+} from "../../global/components/emailAutocomplete";
 import Select from "../../global/components/select";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
@@ -43,7 +44,7 @@ type StatusFilter = "active" | "inactive" | "all";
 
 function AdminLeaderUsersPage() {
   const { currentRole } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction } = useActionFeedback();
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<LeaderUserRow[]>([]);
@@ -58,7 +59,9 @@ function AdminLeaderUsersPage() {
   });
 
   const emailCheck = validateOrganizationEmail(email);
-  const formIsValid = emailCheck.ok && Boolean(role);
+  const directoryEmails = useDirectoryEmailReady();
+  const formIsValid =
+    emailCheck.ok && directoryEmails.allReady("email") && Boolean(role);
 
   const roleOptions = useMemo(
     () =>
@@ -290,6 +293,7 @@ function AdminLeaderUsersPage() {
               placeholder="Buscar correo"
               invalid={Boolean(email.trim() && !emailCheck.ok)}
               disabled={submitting}
+              onDirectoryReady={directoryEmails.bind("email")}
             />
           </FormField>
 
@@ -325,15 +329,6 @@ function AdminLeaderUsersPage() {
           </div>
         </div>
       </Modal>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 }

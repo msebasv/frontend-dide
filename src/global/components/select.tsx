@@ -5,7 +5,7 @@ import {
   ListboxOptions,
 } from "@headlessui/react";
 
-import { FaAngleDown } from "react-icons/fa";
+import { FaAngleDown, FaPlus } from "react-icons/fa";
 import { FaCheck } from "react-icons/fa6";
 
 import clsx from "clsx";
@@ -15,6 +15,8 @@ export interface SelectOption {
   value: string;
   disabled?: boolean;
   hint?: string;
+  /** Opción de acción (p. ej. "Crear…"): estilo distinto y sin check de selección. */
+  action?: boolean;
   badge?: {
     text: string;
     variant?: "success" | "warning" | "neutral" | "info";
@@ -80,21 +82,33 @@ function Select({
                 "group flex cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm",
                 "data-focus:bg-primary/10",
                 "data-disabled:cursor-not-allowed data-disabled:opacity-60 data-disabled:bg-gray-50",
+                option.action &&
+                  "mt-0.5 border-t border-border bg-primary/[0.03] py-2.5 data-focus:bg-primary/10",
               )}
             >
               {({ selected, disabled: optionDisabled }) => (
                 <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <FaCheck
-                      className={clsx(
-                        "h-3 w-3 shrink-0 text-primary",
-                        selected ? "visible" : "invisible",
-                      )}
-                    />
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {option.action ? (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                        <FaPlus className="h-2.5 w-2.5" />
+                      </span>
+                    ) : (
+                      <FaCheck
+                        className={clsx(
+                          "h-3 w-3 shrink-0 text-primary",
+                          selected ? "visible" : "invisible",
+                        )}
+                      />
+                    )}
                     <span
                       className={clsx(
                         "min-w-0 truncate",
-                        optionDisabled ? "text-muted" : "text-primary font-normal",
+                        optionDisabled
+                          ? "text-muted"
+                          : option.action
+                            ? "font-semibold text-primary"
+                            : "font-normal text-primary",
                       )}
                     >
                       {option.label}

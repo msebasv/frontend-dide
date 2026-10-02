@@ -1,54 +1,43 @@
 {
   "version": "1.0",
-  "appId": "0559f98c-d0be-4e8b-a44c-850c20b402c3",
+  "appId": "ea549549-542b-4d4c-92ab-3d26ce7fc9dd",
   "appDisplayName": "AcademicPlusDev",
   "region": "prod",
-  "environmentId": "0c519c7e-6118-e58b-8859-5f8447eb0aec",
+  "environmentId": "432f8369-49cc-eeb4-96fc-07316fc316e7",
   "description": " ",
   "buildPath": "./dist",
   "buildEntryPoint": "index.html",
   "localAppUrl": "http://localhost:3000",
   "logoPath": "Default",
   "connectionReferences": {
-    "3fe53543-8134-45f2-ba95-4842a2dc2ccb": {
-      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+    "eb4877c0-64fa-4267-b7e8-3b97f6aa6b21": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365users",
+      "displayName": "Office 365 Users",
+      "dataSources": [
+        "office365users"
+      ],
+      "dataSets": {}
+    },
+    "62d2e942-642b-4203-bc6a-ff2d7a8d911d": {
+      "id": "/providers/microsoft.powerapps/apis/shared_sharepointonline",
       "displayName": "SharePoint",
       "dataSources": [
-        "documentos"
+        "sharepointonline",
+        "documents",
+        "sharepointonline_1"
       ],
       "dataSets": {
-        "https://unbosqueeduco.sharepoint.com/sites/development-sharepoint-academicplus-dide": {
+        "https://unbosqueeduco.sharepoint.com/sites/development-dide": {
           "dataSources": {
-            "documentos": {
-              "tableName": "ab693ae9-713b-4710-820b-c9fe067d62fd"
+            "documents": {
+              "tableName": "691335fc-2161-4ee3-b307-6f51481425dc"
             }
           }
         }
       },
       "xrmConnectionReferenceLogicalName": "dev_crsharepoint"
     },
-    "d6458b69-b062-474e-a684-6ccdd760e7ee": {
-      "id": "/providers/Microsoft.PowerApps/apis/shared_office365users",
-      "displayName": "Office 365 Users",
-      "dataSources": [
-        "office365users"
-      ],
-      "dataSets": {},
-      "xrmConnectionReferenceLogicalName": "dev_crofficeusers"
-    },
-    "d6ebd663-969f-4757-90ba-4fc5bb5cd2c6": {
-      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
-      "displayName": "Logic flows",
-      "dataSources": [
-        "fl_dev_c_course_instance"
-      ],
-      "workflowDetails": {
-        "workflowEntityId": "fc6a42ca-6526-f111-88b4-002248df1759",
-        "workflowDisplayName": "fl-dev-c-course-instance",
-        "workflowName": "dd9ea563-0b36-ebd5-4e2f-1a79d5a03875"
-      }
-    },
-    "c25b43b4-44e8-47b6-b0e3-a4fcde92ecba": {
+    "7a7ef52e-56f0-4cde-a6d0-3080febcc3b4": {
       "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
       "displayName": "Logic flows",
       "dataSources": [
@@ -57,22 +46,10 @@
       "workflowDetails": {
         "workflowEntityId": "30934191-8938-f111-88b5-002248df1759",
         "workflowDisplayName": "fl-dev-c-temp-folder",
-        "workflowName": "dec5fb35-000e-b3b6-ec73-9f70ae0543c2"
+        "workflowName": "eb461ec7-5704-e193-2bf7-fa0312f69917"
       }
     },
-    "181f7339-1af4-435c-988b-8fea233dc5b8": {
-      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
-      "displayName": "Logic flows",
-      "dataSources": [
-        "fl_dev_cu_activity"
-      ],
-      "workflowDetails": {
-        "workflowEntityId": "3c0b931f-bc2c-f111-88b5-002248df1759",
-        "workflowDisplayName": "fl-dev-cu-activity",
-        "workflowName": "011c0c73-a6da-44ea-167d-94b425b27098"
-      }
-    },
-    "d7781432-e672-44ce-87c1-6b7a7f2a426d": {
+    "b140d9b2-589a-42a6-acdd-d25d1bb91f85": {
       "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
       "displayName": "Logic flows",
       "dataSources": [
@@ -81,10 +58,34 @@
       "workflowDetails": {
         "workflowEntityId": "0660f31f-ed99-f111-b8dc-002248e028e8",
         "workflowDisplayName": "fl-dev-cu-template-category",
-        "workflowName": "78f7cb37-5fbe-0db6-cd37-2a4db10f6528"
+        "workflowName": "152e5729-0bde-fa3d-fcc6-1efbf7558abe"
       }
     },
-    "5b728611-0e3c-4065-bcae-dee21f60f478": {
+    "ec6d348f-4edb-49c9-a8d0-76c278b468f9": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_c_course_instance"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "fc6a42ca-6526-f111-88b4-002248df1759",
+        "workflowDisplayName": "fl-dev-c-course-instance",
+        "workflowName": "a6f97ede-a2b8-b61d-ef40-9297f6eab1f6"
+      }
+    },
+    "8e6533f7-d9bb-491f-a74c-1213653c17a8": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "Logic flows",
+      "dataSources": [
+        "fl_dev_cu_activity"
+      ],
+      "workflowDetails": {
+        "workflowEntityId": "3c0b931f-bc2c-f111-88b5-002248df1759",
+        "workflowDisplayName": "fl-dev-cu-activity",
+        "workflowName": "80d31781-ca02-90b1-a6aa-d5b4218b78a2"
+      }
+    },
+    "e8a5aa3d-9549-4270-8322-ecd78126fcbd": {
       "id": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
       "displayName": "Logic flows",
       "dataSources": [
@@ -93,9 +94,9 @@
       "workflowDetails": {
         "workflowEntityId": "356fa1c2-8341-f111-bec7-002248df1759",
         "workflowDisplayName": "fl-dev-cu-virtualization-process",
-        "workflowName": "371eca7e-8267-0001-bf5a-f91790047913",
+        "workflowName": "9dc31007-0e98-decf-f8c9-da7d9e6a46c6",
         "dependencies": {
-          "shared_sharepointonline-1": "3fe53543-8134-45f2-ba95-4842a2dc2ccb"
+          "shared_sharepointonline-1": "62d2e942-642b-4203-bc6a-ff2d7a8d911d"
         }
       }
     }
@@ -103,6 +104,26 @@
   "databaseReferences": {
     "default.cds": {
       "dataSources": {
+        "table_course_instances": {
+          "entitySetName": "dev_tablecourseinstances",
+          "logicalName": "dev_tablecourseinstance",
+          "isHidden": false
+        },
+        "table_assign_roles": {
+          "entitySetName": "dev_tableassignroles",
+          "logicalName": "dev_tableassignrole",
+          "isHidden": false
+        },
+        "table_leader_users": {
+          "entitySetName": "dev_tableleaderuserses",
+          "logicalName": "dev_tableleaderusers",
+          "isHidden": false
+        },
+        "table_virtualization_processes": {
+          "entitySetName": "dev_tablevirtualizationprocesses",
+          "logicalName": "dev_tablevirtualizationprocess",
+          "isHidden": false
+        },
         "table_activities": {
           "entitySetName": "dev_tableactivities",
           "logicalName": "dev_tableactivity",
@@ -113,39 +134,9 @@
           "logicalName": "dev_tableactivitytemplate",
           "isHidden": false
         },
-        "table_assign_roles": {
-          "entitySetName": "dev_tableassignroles",
-          "logicalName": "dev_tableassignrole",
-          "isHidden": false
-        },
-        "table_category_phase_templates": {
-          "entitySetName": "dev_tablecategoryphasetemplates",
-          "logicalName": "dev_tablecategoryphasetemplate",
-          "isHidden": false
-        },
-        "table_category_templates": {
-          "entitySetName": "dev_tablecategorytemplates",
-          "logicalName": "dev_tablecategorytemplate",
-          "isHidden": false
-        },
-        "table_course_instances": {
-          "entitySetName": "dev_tablecourseinstances",
-          "logicalName": "dev_tablecourseinstance",
-          "isHidden": false
-        },
-        "table_deliverables": {
-          "entitySetName": "dev_tabledeliverables",
-          "logicalName": "dev_tabledeliverable",
-          "isHidden": false
-        },
         "table_faculties": {
           "entitySetName": "dev_table_faculties",
           "logicalName": "dev_table_faculty",
-          "isHidden": false
-        },
-        "table_leader_users": {
-          "entitySetName": "dev_tableleaderuserses",
-          "logicalName": "dev_tableleaderusers",
           "isHidden": false
         },
         "table_phases": {
@@ -168,9 +159,19 @@
           "logicalName": "dev_tablerole",
           "isHidden": false
         },
-        "table_virtualization_processes": {
-          "entitySetName": "dev_tablevirtualizationprocesses",
-          "logicalName": "dev_tablevirtualizationprocess",
+        "table_category_phase_templates": {
+          "entitySetName": "dev_tablecategoryphasetemplates",
+          "logicalName": "dev_tablecategoryphasetemplate",
+          "isHidden": false
+        },
+        "table_category_templates": {
+          "entitySetName": "dev_tablecategorytemplates",
+          "logicalName": "dev_tablecategorytemplate",
+          "isHidden": false
+        },
+        "table_deliverables": {
+          "entitySetName": "dev_tabledeliverables",
+          "logicalName": "dev_tabledeliverable",
           "isHidden": false
         }
       },

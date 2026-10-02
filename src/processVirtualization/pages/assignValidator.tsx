@@ -3,12 +3,14 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import PageHeader from "../../global/components/pageHeader";
 import FormField from "../../global/components/formField";
-import EmailAutocomplete from "../../global/components/emailAutocomplete";
+import EmailAutocomplete, {
+  useDirectoryEmailReady,
+} from "../../global/components/emailAutocomplete";
 import Button from "../../global/components/button";
 import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import LoadingState from "../../global/components/loadingState";
-import FeedbackModal from "../../global/components/feedbackModal";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { PENDING_ACTION_COPY } from "../../global/constants/operationCopy";
 import { useAuth } from "../../global/hooks/useAuth";
 import { validateOrganizationEmail } from "../../global/utils/inputValidation";
 import { USER_ROLES } from "../../global/constants/domainConstants";
@@ -22,10 +24,11 @@ function AssignValidator() {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();
   const { user, refreshRoles } = useAuth();
-  const { feedback, closeFeedback, runAction } = useActionFeedback();
+  const { runAction, isOperationPending } = useActionFeedback();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const formBusy = submitting || isOperationPending;
   const [notFound, setNotFound] = useState(false);
   const [isFinalized, setIsFinalized] = useState(false);
   const [processName, setProcessName] = useState("");
@@ -33,7 +36,9 @@ function AssignValidator() {
   const [validatorEmail, setValidatorEmail] = useState("");
 
   const validatorCheck = validateOrganizationEmail(validatorEmail);
-  const formIsValid = validatorCheck.ok;
+  const directoryEmails = useDirectoryEmailReady();
+  const formIsValid =
+    validatorCheck.ok && directoryEmails.allReady("validator");
   const backTo = processId
     ? `/virtualization-processes/${processId}`
     : "/virtualization-processes";
@@ -96,6 +101,13 @@ function AssignValidator() {
           errorTitle: "No se pudo asignar el validador",
           errorMessage:
             "Verifique el correo e intente nuevamente. Si el problema persiste, contacte al administrador.",
+          ...PENDING_ACTION_COPY.assignValidator,
+          onSoftTimeout: () => {
+            navigate(backTo, { replace: true });
+          },
+          onPendingDismiss: () => {
+            navigate(backTo, { replace: true });
+          },
           onSuccess: async () => {
             const me = user?.email?.trim().toLowerCase() ?? "";
             if (me && me === validatorCheck.value.trim().toLowerCase()) {
@@ -104,11 +116,11 @@ function AssignValidator() {
                 void refreshRoles();
               }, 4_000);
             }
-          },
-          onSuccessClose: () =>
             navigate(backTo, {
               replace: true,
-            }),
+              state: { refreshAt: Date.now() },
+            });
+          },
         },
       );
     } finally {
@@ -145,8 +157,12 @@ function AssignValidator() {
       />
 
       <FormBusyOverlay
-        busy={submitting}
-        message="Asignando validador..."
+        busy={formBusy}
+        message={
+          isOperationPending && !submitting
+            ? "La solicitud permanece en procesamiento..."
+            : "Asignando validador..."
+        }
         className="mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]"
       >
         <div className="border-b border-border bg-gradient-to-r from-primary/5 to-transparent px-6 py-4 sm:px-8">
@@ -180,7 +196,8 @@ function AssignValidator() {
               onChange={setValidatorEmail}
               placeholder="Buscar correo"
               invalid={Boolean(validatorEmail.trim() && !validatorCheck.ok)}
-              disabled={submitting}
+              disabled={formBusy}
+              onDirectoryReady={directoryEmails.bind("validator")}
             />
           </FormField>
 
@@ -188,7 +205,7 @@ function AssignValidator() {
             <Button
               variant="secondary"
               onClick={() => navigate(backTo)}
-              disabled={submitting}
+              disabled={formBusy}
             >
               Cancelar
             </Button>
@@ -203,15 +220,6 @@ function AssignValidator() {
           </div>
         </div>
       </FormBusyOverlay>
-
-      <FeedbackModal
-        isOpen={feedback.isOpen}
-        type={feedback.type}
-        title={feedback.title}
-        message={feedback.message}
-        onClose={closeFeedback}
-        confirmLabel={feedback.type === "success" ? "Continuar" : "Entendido"}
-      />
     </div>
   );
 }

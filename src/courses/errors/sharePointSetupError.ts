@@ -14,6 +14,20 @@ export class SharePointSetupError extends Error {
   }
 }
 
+export const isSharePointAccessError = (error: unknown): boolean => {
+  const message = getRawErrorMessage(error).toLowerCase();
+  return (
+    message.includes("401") ||
+    message.includes("403") ||
+    message.includes("unauthorized") ||
+    message.includes("forbidden") ||
+    message.includes("access denied") ||
+    message.includes("acceso denegado") ||
+    message.includes("no tiene permiso") ||
+    message.includes("permission")
+  );
+};
+
 export const isSharePointNotFoundError = (error: unknown): boolean => {
   const message = getRawErrorMessage(error).toLowerCase();
 
@@ -32,6 +46,10 @@ export const getUserFriendlySharePointMessage = (error: unknown): string => {
   }
 
   const raw = getRawErrorMessage(error);
+
+  if (isSharePointAccessError(error)) {
+    return "No se pudieron leer los archivos. Su cuenta no tiene permiso sobre la carpeta de SharePoint de este proceso.";
+  }
 
   if (isSharePointNotFoundError(error)) {
     return "No se encontró ningún archivo en la carpeta del proceso.";

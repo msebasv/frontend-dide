@@ -28,6 +28,7 @@ import {
   isAdvisorGuideUploadStatus,
   isAdvisorRole,
   isLeaderSyllabusStatus,
+  isActivityProcessingStatus,
   resolveActivityStatusRaw,
 } from "../../courses/mappers/courseMappers";
 import { isSyllabusDeliverable } from "../../courses/services/deliverableService";
@@ -118,90 +119,169 @@ const isReturnedLabel = (label: string): boolean => {
   );
 };
 
-const deriveActorStatuses = (
-  phase: string,
-  hasAuthorMaterial: boolean,
-  hasReturnedMaterial: boolean,
-): {
+type ActorStatusSet = {
+  leaderPre: ActorProgressCode;
   author: ActorProgressCode;
   validator: ActorProgressCode;
   advisor: ActorProgressCode;
-} => {
+  designer: ActorProgressCode;
+  advisorAv: ActorProgressCode;
+  leaderClassroom: ActorProgressCode;
+};
+
+const waitingPipeline = (): ActorStatusSet => ({
+  leaderPre: "waiting",
+  author: "waiting",
+  validator: "waiting",
+  advisor: "waiting",
+  designer: "waiting",
+  advisorAv: "waiting",
+  leaderClassroom: "waiting",
+});
+
+const donePipeline = (): ActorStatusSet => ({
+  leaderPre: "done",
+  author: "done",
+  validator: "done",
+  advisor: "done",
+  designer: "done",
+  advisorAv: "done",
+  leaderClassroom: "done",
+});
+
+const isClassroomConfirmPhase = (phase: string): boolean => {
+  if (matchPhase(phase, PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM)) return true;
+  const n = phase
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+  return (
+    (n.includes("validacion cargue") && n.includes("aula")) ||
+    n.includes("cargue en el aula")
+  );
+};
+
+/**
+ * Avance por actor agrupado en macrofases del tablero de seguimiento:
+ * Pre validación → Fase documental → Creación DIDE → Cargue en aula.
+ */
+const deriveActorStatuses = (
+  phase: string,
+  hasReturnedMaterial: boolean,
+): ActorStatusSet => {
   if (isLeaderSyllabusStatus(phase)) {
-    return { author: "waiting", validator: "waiting", advisor: "waiting" };
+    return { ...waitingPipeline(), leaderPre: "pending" };
   }
 
   if (matchPhase(phase, PROCESS_PHASES.COMPLETED)) {
-    return { author: "done", validator: "done", advisor: "done" };
+    return donePipeline();
   }
 
-  if (
-    matchPhase(phase, PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM) ||
-    (() => {
-      const n = phase
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "");
-      return (
-        (n.includes("validacion cargue") && n.includes("aula")) ||
-        n.includes("cargue en el aula")
-      );
-    })()
-  ) {
-    return { author: "done", validator: "done", advisor: "done" };
+  if (isClassroomConfirmPhase(phase)) {
+    return { ...donePipeline(), leaderClassroom: "pending" };
   }
 
   if (
     matchPhase(phase, PROCESS_PHASES.ADVISOR_AV_APPROVAL) ||
     isAdvisorAudiovisualApprovalStatus(phase)
   ) {
-    return { author: "done", validator: "done", advisor: "pending" };
+    return {
+      leaderPre: "done",
+      author: "done",
+      validator: "done",
+      advisor: "done",
+      designer: "done",
+      advisorAv: "pending",
+      leaderClassroom: "waiting",
+    };
   }
 
   if (matchPhase(phase, PROCESS_PHASES.DIDE_REVIEW)) {
-    return { author: "done", validator: "done", advisor: "done" };
+    return {
+      leaderPre: "done",
+      author: "done",
+      validator: "done",
+      advisor: "done",
+      designer: "pending",
+      advisorAv: "waiting",
+      leaderClassroom: "waiting",
+    };
   }
 
   if (
     matchPhase(phase, PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD) ||
-    isAdvisorGuideUploadStatus(phase)
+    isAdvisorGuideUploadStatus(phase) ||
+    matchPhase(phase, PROCESS_PHASES.ADVISOR_REVIEW)
   ) {
-    return { author: "done", validator: "done", advisor: "pending" };
-  }
-
-  if (matchPhase(phase, PROCESS_PHASES.ADVISOR_REVIEW)) {
-    return { author: "done", validator: "done", advisor: "pending" };
+    return {
+      leaderPre: "done",
+      author: "done",
+      validator: "done",
+      advisor: "pending",
+      designer: "waiting",
+      advisorAv: "waiting",
+      leaderClassroom: "waiting",
+    };
   }
 
   if (matchPhase(phase, PROCESS_PHASES.VALIDATOR_REVIEW)) {
-    return { author: "done", validator: "pending", advisor: "waiting" };
+    return {
+      leaderPre: "done",
+      author: "done",
+      validator: "pending",
+      advisor: "waiting",
+      designer: "waiting",
+      advisorAv: "waiting",
+      leaderClassroom: "waiting",
+    };
   }
 
   if (matchPhase(phase, PROCESS_PHASES.AUTHOR_UPLOAD)) {
-    if (hasReturnedMaterial) {
-      return { author: "returned", validator: "waiting", advisor: "waiting" };
-    }
-    if (hasAuthorMaterial) {
-      return { author: "pending", validator: "waiting", advisor: "waiting" };
-    }
-    return { author: "pending", validator: "waiting", advisor: "waiting" };
+    const author: ActorProgressCode = hasReturnedMaterial
+      ? "returned"
+      : "pending";
+    return {
+      leaderPre: "done",
+      author,
+      validator: "waiting",
+      advisor: "waiting",
+      designer: "waiting",
+      advisorAv: "waiting",
+      leaderClassroom: "waiting",
+    };
   }
 
-  return { author: "na", validator: "na", advisor: "na" };
+  return {
+    leaderPre: "na",
+    author: "na",
+    validator: "na",
+    advisor: "na",
+    designer: "na",
+    advisorAv: "na",
+    leaderClassroom: "na",
+  };
 };
 
 const formatActorLabels = (
   phase: string,
-  statuses: ReturnType<typeof deriveActorStatuses>,
+  statuses: ActorStatusSet,
   hasAuthorMaterial: boolean,
   hasReturnedMaterial: boolean,
 ): {
+  leaderPreStatus: ActorProgressCode;
+  leaderPreStatusLabel: string;
   authorStatus: ActorProgressCode;
   authorStatusLabel: string;
   validatorStatus: ActorProgressCode;
   validatorStatusLabel: string;
   advisorStatus: ActorProgressCode;
   advisorStatusLabel: string;
+  designerStatus: ActorProgressCode;
+  designerStatusLabel: string;
+  advisorAvStatus: ActorProgressCode;
+  advisorAvStatusLabel: string;
+  leaderClassroomStatus: ActorProgressCode;
+  leaderClassroomStatusLabel: string;
 } => {
   let authorStatus = statuses.author;
   let authorStatusLabel = ACTOR_STATUS_LABELS[authorStatus];
@@ -223,12 +303,20 @@ const formatActorLabels = (
   }
 
   return {
+    leaderPreStatus: statuses.leaderPre,
+    leaderPreStatusLabel: ACTOR_STATUS_LABELS[statuses.leaderPre],
     authorStatus,
     authorStatusLabel,
     validatorStatus: statuses.validator,
     validatorStatusLabel: ACTOR_STATUS_LABELS[statuses.validator],
     advisorStatus: statuses.advisor,
     advisorStatusLabel: ACTOR_STATUS_LABELS[statuses.advisor],
+    designerStatus: statuses.designer,
+    designerStatusLabel: ACTOR_STATUS_LABELS[statuses.designer],
+    advisorAvStatus: statuses.advisorAv,
+    advisorAvStatusLabel: ACTOR_STATUS_LABELS[statuses.advisorAv],
+    leaderClassroomStatus: statuses.leaderClassroom,
+    leaderClassroomStatusLabel: ACTOR_STATUS_LABELS[statuses.leaderClassroom],
   };
 };
 
@@ -257,7 +345,7 @@ const buildDeliverableTracking = (params: {
 
   if (processFinalized) {
     const completedPhase = PROCESS_PHASES.COMPLETED;
-    const statuses = deriveActorStatuses(completedPhase, true, false);
+    const statuses = deriveActorStatuses(completedPhase, false);
     const labels = formatActorLabels(
       completedPhase,
       statuses,
@@ -303,11 +391,23 @@ const buildDeliverableTracking = (params: {
     isReturnedLabel(formatActivityStatus(resolveActivityStatusRaw(activity))),
   );
 
+  const settledActivities = deliverableActivities.filter(
+    (activity) =>
+      !isActivityProcessingStatus(resolveActivityStatusRaw(activity)),
+  );
   const statuses = deriveActorStatuses(
     phase,
-    hasAuthorMaterial,
     hasReturnedMaterial,
   );
+  // La fase sigue llamándose "Cargue Syllabus" después del cargue.
+  // Solo si la actividad ya salió de "En proceso" el líder completó la pre validación.
+  if (
+    isSyllabus &&
+    settledActivities.length > 0 &&
+    isLeaderSyllabusStatus(phase)
+  ) {
+    statuses.leaderPre = "done";
+  }
   const labels = formatActorLabels(
     phase,
     statuses,
@@ -482,7 +582,6 @@ export const buildProcessTrackingRows = (params: {
 
       const statuses = deriveActorStatuses(
         phase,
-        hasAuthorMaterial,
         hasReturnedMaterial,
       );
       const labels = formatActorLabels(
@@ -562,7 +661,10 @@ export const buildTrackingSummary = (
   authorReturned: rows.filter((row) => row.authorStatus === "returned").length,
   validatorPending: rows.filter((row) => row.validatorStatus === "pending")
     .length,
-  advisorPending: rows.filter((row) => row.advisorStatus === "pending").length,
+  advisorPending: rows.filter(
+    (row) =>
+      row.advisorStatus === "pending" || row.advisorAvStatus === "pending",
+  ).length,
   completed: rows.filter((row) =>
     matchPhase(row.phase, PROCESS_PHASES.COMPLETED),
   ).length,

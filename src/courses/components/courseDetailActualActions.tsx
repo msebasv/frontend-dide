@@ -8,6 +8,8 @@ import { Link } from "react-router-dom";
 import clsx from "clsx";
 
 import Button from "../../global/components/button";
+import { useActionFeedback } from "../../global/hooks/useActionFeedback";
+import { OPERATION_COPY } from "../../global/constants/operationCopy";
 import {
   canAssignDideDesigner,
   isLeaderRole,
@@ -70,8 +72,14 @@ export function CourseDetailActualActions({
   onReturnRequest,
   validationContext,
 }: CourseDetailActualActionsProps) {
+  const { pendingResourceLock } = useActionFeedback();
   const advisorNeedsDesigner =
     needsDesignerForGuide && isAdvisorRole(currentRole);
+
+  const uploadLockedForDeliverable =
+    pendingResourceLock?.processId === processId &&
+    pendingResourceLock?.deliverableId === selectedDeliverable.id;
+  const uploadDisabled = actionsDisabled || uploadLockedForDeliverable;
 
   const hasPrimaryAction =
     canUploadCurrentDeliverable ||
@@ -129,7 +137,12 @@ export function CourseDetailActualActions({
                 <Button
                   variant="primary"
                   size="sm"
-                  disabled={actionsDisabled}
+                  disabled={uploadDisabled}
+                  title={
+                    uploadLockedForDeliverable
+                      ? OPERATION_COPY.uploadLockedTitle
+                      : undefined
+                  }
                   onClick={() =>
                     onGuideUploadRequest({
                       deliverableId: selectedDeliverable.id,
@@ -138,14 +151,30 @@ export function CourseDetailActualActions({
                   }
                 >
                   <IoCloudUploadOutline size={16} />
-                  {uploadButtonLabel}
+                  {uploadLockedForDeliverable
+                    ? OPERATION_COPY.uploadLockedLabel
+                    : uploadButtonLabel}
+                </Button>
+              ) : uploadLockedForDeliverable ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled
+                  title={OPERATION_COPY.uploadLockedTitle}
+                >
+                  <IoCloudUploadOutline size={16} />
+                  {OPERATION_COPY.uploadLockedLabel}
                 </Button>
               ) : (
                 <Link
                   to={`/courses/${processId}/upload`}
                   state={{ deliverableId: selectedDeliverable.id }}
                 >
-                  <Button variant="primary" size="sm">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={actionsDisabled}
+                  >
                     <IoCloudUploadOutline size={16} />
                     {uploadButtonLabel}
                   </Button>

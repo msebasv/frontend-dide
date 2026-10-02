@@ -6,8 +6,8 @@
     "sortRestrictions": {
       "sortable": true,
       "unsortableProperties": [
-        "OData__ExtendedDescription",
         "OData__DisplayName",
+        "OData__ExtendedDescription",
         "{Identifier}",
         "{IsFolder}",
         "{Thumbnail}",
@@ -32,8 +32,8 @@
     "filterRestrictions": {
       "filterable": true,
       "nonFilterableProperties": [
-        "OData__ExtendedDescription",
         "OData__DisplayName",
+        "OData__ExtendedDescription",
         "{Identifier}",
         "{IsFolder}",
         "{Thumbnail}",
@@ -208,8 +208,8 @@
               "description": "Vincular a una imagen del usuario que modificó por última vez este elemento.",
               "format": "uri",
               "x-ms-media-kind": "image",
-              "x-ms-media-default-folder-path": "/sites/development-sharepoint-academicplus-dide",
-              "x-ms-media-base-url": "https://unbosqueeduco.sharepoint.com/sites/development-sharepoint-academicplus-dide",
+              "x-ms-media-default-folder-path": "/sites/pre-academicplus-dide",
+              "x-ms-media-base-url": "https://unbosqueeduco.sharepoint.com/sites/pre-academicplus-dide",
               "x-ms-permission": "read-only"
             },
             "Department": {
@@ -230,38 +230,6 @@
             "subtitleProperty": "Email",
             "thumbnailProperty": "Picture"
           }
-        },
-        "OData__ColorTag": {
-          "title": "Etiqueta de color",
-          "type": "string",
-          "x-ms-permission": "read-only",
-          "x-ms-sort": "asc,desc",
-          "x-ms-capabilities": {
-            "filterFunctions": [
-              "eq",
-              "startswith"
-            ]
-          },
-          "maxLength": 255
-        },
-        "ComplianceAssetId": {
-          "title": "Id. de activo de cumplimiento normativo",
-          "type": "string",
-          "x-ms-permission": "read-only",
-          "x-ms-sort": "asc,desc",
-          "x-ms-capabilities": {
-            "filterFunctions": [
-              "eq",
-              "startswith"
-            ]
-          },
-          "maxLength": 255
-        },
-        "OData__ExtendedDescription": {
-          "title": "Descripción",
-          "type": "string",
-          "x-ms-permission": "read-write",
-          "x-ms-sort": "none"
         },
         "Created": {
           "title": "Creado",
@@ -364,8 +332,8 @@
               "description": "Vincula a una imagen del usuario que creó este elemento.",
               "format": "uri",
               "x-ms-media-kind": "image",
-              "x-ms-media-default-folder-path": "/sites/development-sharepoint-academicplus-dide",
-              "x-ms-media-base-url": "https://unbosqueeduco.sharepoint.com/sites/development-sharepoint-academicplus-dide",
+              "x-ms-media-default-folder-path": "/sites/pre-academicplus-dide",
+              "x-ms-media-base-url": "https://unbosqueeduco.sharepoint.com/sites/pre-academicplus-dide",
               "x-ms-permission": "read-only"
             },
             "Department": {
@@ -464,8 +432,8 @@
               "type": "string",
               "format": "uri",
               "x-ms-media-kind": "image",
-              "x-ms-media-default-folder-path": "/sites/development-sharepoint-academicplus-dide",
-              "x-ms-media-base-url": "https://unbosqueeduco.sharepoint.com/sites/development-sharepoint-academicplus-dide",
+              "x-ms-media-default-folder-path": "/sites/pre-academicplus-dide",
+              "x-ms-media-base-url": "https://unbosqueeduco.sharepoint.com/sites/pre-academicplus-dide",
               "x-ms-permission": "read-only"
             },
             "Department": {
@@ -489,6 +457,38 @@
           "title": "Confidencialidad",
           "type": "string",
           "x-ms-permission": "read-only",
+          "x-ms-sort": "none"
+        },
+        "OData__ColorTag": {
+          "title": "Etiqueta de color",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "startswith"
+            ]
+          },
+          "maxLength": 255
+        },
+        "ComplianceAssetId": {
+          "title": "Id. de activo de cumplimiento normativo",
+          "type": "string",
+          "x-ms-permission": "read-only",
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "startswith"
+            ]
+          },
+          "maxLength": 255
+        },
+        "OData__ExtendedDescription": {
+          "title": "Descripción",
+          "type": "string",
+          "x-ms-permission": "read-write",
           "x-ms-sort": "none"
         },
         "{Identifier}": {
@@ -781,6 +781,6 @@
       }
     }
   },
-  "webUrl": "https://unbosqueeduco.sharepoint.com/sites/development-sharepoint-academicplus-dide/Documentos compartidos/Forms/AllItems.aspx",
+  "webUrl": "https://unbosqueeduco.sharepoint.com/sites/pre-academicplus-dide/Documentos compartidos/Forms/AllItems.aspx",
   "x-ms-connection-version": ""
 }

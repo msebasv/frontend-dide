@@ -19,12 +19,24 @@ export interface DeliverableTrackingItem {
   creditLabel: string;
   phase: string;
   phaseShort: string;
+  /** Pre validación documental — Líder (syllabus). */
+  leaderPreStatus: ActorProgressCode;
+  leaderPreStatusLabel: string;
+  /** Fase documental. */
   authorStatus: ActorProgressCode;
   authorStatusLabel: string;
   validatorStatus: ActorProgressCode;
   validatorStatusLabel: string;
   advisorStatus: ActorProgressCode;
   advisorStatusLabel: string;
+  /** Creación documental DIDE. */
+  designerStatus: ActorProgressCode;
+  designerStatusLabel: string;
+  advisorAvStatus: ActorProgressCode;
+  advisorAvStatusLabel: string;
+  /** Validación cargue en el aula — Líder. */
+  leaderClassroomStatus: ActorProgressCode;
+  leaderClassroomStatusLabel: string;
   activityCount: number;
 }
 
@@ -47,8 +59,17 @@ export interface ProcessTrackingRow {
   advisorLabel: string;
   advisorStatus: ActorProgressCode;
   advisorStatusLabel: string;
+  /** Pendiente de aprobación AV DIDE (asesor). */
+  advisorAvStatus: ActorProgressCode;
+  advisorAvStatusLabel: string;
   designerEmail: string;
   designerLabel: string;
+  designerStatus: ActorProgressCode;
+  designerStatusLabel: string;
+  leaderPreStatus: ActorProgressCode;
+  leaderPreStatusLabel: string;
+  leaderClassroomStatus: ActorProgressCode;
+  leaderClassroomStatusLabel: string;
   /**
    * true si aún no hay Diseñador DIDE (asignable en cualquier momento).
    */

@@ -1,10 +1,15 @@
-import { extractHttpLinksFromText } from "../../global/utils/inputValidation";
+import {
+  parseAudiovisualLinkEntries,
+  type AudiovisualLinkEntry,
+} from "../../global/utils/inputValidation";
 import { formatActivityStatus } from "../mappers/courseMappers";
 import {
   isAdvisorGuideMaterialLabel,
   normalizeFolderSegment,
 } from "../services/deliverableService";
 import type { CourseMaterial } from "../types/course.types";
+
+export type { AudiovisualLinkEntry };
 
 export interface MaterialValidationContext {
   material: CourseMaterial;
@@ -40,11 +45,17 @@ export const isAdvisorGuideMaterial = (material: CourseMaterial): boolean => {
   );
 };
 
-export const collectMaterialLinks = (material: CourseMaterial): string[] => {
-  const fromDescription = extractHttpLinksFromText(material.description);
+/** Enlaces DIDE con etiqueta descriptiva cuando el diseñador la escribió. */
+export const collectMaterialLinkEntries = (
+  material: CourseMaterial,
+): AudiovisualLinkEntry[] => {
+  const fromDescription = parseAudiovisualLinkEntries(material.description);
   if (fromDescription.length > 0) return fromDescription;
-  return extractHttpLinksFromText(material.documents);
+  return parseAudiovisualLinkEntries(material.documents);
 };
+
+export const collectMaterialLinks = (material: CourseMaterial): string[] =>
+  collectMaterialLinkEntries(material).map((entry) => entry.url);
 
 export const materialStatusStyle = (statusLabel: string): string => {
   const normalized = statusLabel.toLowerCase();

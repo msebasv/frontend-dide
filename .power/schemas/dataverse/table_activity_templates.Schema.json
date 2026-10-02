@@ -113,7 +113,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "ac6e7ca1-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "8ebfafce-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "require-document",
           "x-ms-optionSetType": "Boolean"
@@ -213,7 +213,7 @@
             "#A66FB5",
             "#a66fb5"
           ],
-          "x-ms-optionsetmetadataid": "e2015800-656e-400a-abc0-4a48a737c62f",
+          "x-ms-optionsetmetadataid": "a87b1330-6f18-422b-99e1-4c6e5bd8013d",
           "x-ms-isGlobal": true,
           "x-ms-optionsetdisplayname": "type_activity",
           "x-ms-optionSetType": "Picklist"
@@ -391,7 +391,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "706e7ca1-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "52bfafce-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status",
           "x-ms-optionSetType": "State"
@@ -422,7 +422,7 @@
             null,
             null
           ],
-          "x-ms-optionsetmetadataid": "7a6e7ca1-7cb5-f111-aaad-6045bd3c44fb",
+          "x-ms-optionsetmetadataid": "5cbfafce-d2b7-f111-aaad-7ced8da8c1eb",
           "x-ms-isGlobal": false,
           "x-ms-optionsetdisplayname": "Status Reason",
           "x-ms-optionSetType": "Status"

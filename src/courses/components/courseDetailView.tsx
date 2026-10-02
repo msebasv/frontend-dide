@@ -40,7 +40,7 @@ import { CourseDetailDeliverablesPanel } from "./courseDetailDeliverablesPanel";
 import { CourseDetailFinalDocuments } from "./courseDetailFinalDocuments";
 import {
   actorLabel,
-  collectMaterialLinks,
+  collectMaterialLinkEntries,
   commentsLabel,
   isAdvisorGuideMaterial,
   isDideLinksMaterial,
@@ -211,14 +211,14 @@ function CourseDetailView({
           <div className="mt-3">
             {(() => {
               const dideLinksActivity = isDideLinksMaterial(material);
-              const links = dideLinksActivity
-                ? collectMaterialLinks(material)
+              const linkEntries = dideLinksActivity
+                ? collectMaterialLinkEntries(material)
                 : [];
               const notes = dideLinksActivity
                 ? stripHttpLinksFromText(material.description)
                 : "";
 
-              if (dideLinksActivity && links.length > 0) {
+              if (dideLinksActivity && linkEntries.length > 0) {
                 return (
                   <div className="rounded-xl border border-primary/25 bg-gradient-to-br from-primary/10 via-primary/5 to-acacia-5/80 px-3.5 py-3 shadow-sm">
                     <div className="flex items-center gap-2">
@@ -236,10 +236,10 @@ function CourseDetailView({
                     </div>
 
                     <ul className="mt-3 space-y-2">
-                      {links.map((link, index) => (
-                        <li key={`${link}-${index}`}>
+                      {linkEntries.map((entry, index) => (
+                        <li key={`${entry.url}-${index}`}>
                           <a
-                            href={link}
+                            href={entry.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="group flex items-start gap-2 rounded-lg border border-primary/20 bg-white/90 px-3 py-2 text-sm text-primary transition hover:border-primary/40 hover:bg-white hover:shadow-sm"
@@ -248,8 +248,15 @@ function CourseDetailView({
                               size={15}
                               className="mt-0.5 shrink-0 text-primary/70 group-hover:text-primary"
                             />
-                            <span className="min-w-0 break-all font-medium underline-offset-2 group-hover:underline">
-                              {link}
+                            <span className="min-w-0 space-y-0.5">
+                              {entry.label ? (
+                                <span className="block font-semibold text-primary">
+                                  {entry.label}
+                                </span>
+                              ) : null}
+                              <span className="block break-all font-medium underline-offset-2 group-hover:underline">
+                                {entry.url}
+                              </span>
                             </span>
                           </a>
                         </li>
@@ -837,7 +844,7 @@ function CourseDetailView({
             hideNavigator
             audiovisualLinks={
               selectedMaterial && isDideLinksMaterial(selectedMaterial)
-                ? collectMaterialLinks(selectedMaterial)
+                ? collectMaterialLinkEntries(selectedMaterial)
                 : []
             }
             audiovisualNotes={

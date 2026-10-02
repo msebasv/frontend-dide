@@ -64,6 +64,16 @@ export const getTrackingColumns = (): Column<ProcessTrackingRow>[] => [
     render: (row) => <ProcessStatus status={row.phase} compact />,
   },
   {
+    key: "leaderPreStatusLabel",
+    header: "Pre validación",
+    render: (row) => (
+      <ProgressChip
+        code={row.leaderPreStatus}
+        label={row.leaderPreStatusLabel}
+      />
+    ),
+  },
+  {
     key: "authorStatusLabel",
     header: "Autor",
     render: (row) => (
@@ -97,6 +107,39 @@ export const getTrackingColumns = (): Column<ProcessTrackingRow>[] => [
           label={row.advisorStatusLabel}
         />
       </div>
+    ),
+  },
+  {
+    key: "designerStatusLabel",
+    header: "Diseñador DIDE",
+    render: (row) => (
+      <div className="min-w-0 space-y-1">
+        <p className="truncate text-xs text-muted">{row.designerLabel}</p>
+        <ProgressChip
+          code={row.designerStatus}
+          label={row.designerStatusLabel}
+        />
+      </div>
+    ),
+  },
+  {
+    key: "advisorAvStatusLabel",
+    header: "Asesor AV",
+    render: (row) => (
+      <ProgressChip
+        code={row.advisorAvStatus}
+        label={row.advisorAvStatusLabel}
+      />
+    ),
+  },
+  {
+    key: "leaderClassroomStatusLabel",
+    header: "Cargue aula",
+    render: (row) => (
+      <ProgressChip
+        code={row.leaderClassroomStatus}
+        label={row.leaderClassroomStatusLabel}
+      />
     ),
   },
   {

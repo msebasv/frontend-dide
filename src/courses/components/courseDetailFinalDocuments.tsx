@@ -1,17 +1,14 @@
 import {
   IoDocumentTextOutline,
   IoLinkOutline,
-  IoOpenOutline,
   IoPersonOutline,
   IoTimeOutline,
 } from "react-icons/io5";
 import clsx from "clsx";
 
 import { formatDateTime } from "../../global/utils/dateUtils";
-import { stripHttpLinksFromText } from "../../global/utils/inputValidation";
 import type { ProcessDeliverableItem } from "../services/deliverableService";
 import type { CourseMaterial } from "../types/course.types";
-import { collectMaterialLinks } from "./courseDetailViewHelpers";
 
 export interface CourseDetailFinalDocumentsProps {
   embedded?: boolean;
@@ -104,12 +101,6 @@ export function CourseDetailFinalDocuments({
           }
 
           const isSelected = selectedMaterialId === material.activityId;
-          const links =
-            card.kind === "links" ? collectMaterialLinks(material) : [];
-          const linkNotes =
-            card.kind === "links"
-              ? stripHttpLinksFromText(material.description)
-              : "";
 
           return (
             <button
@@ -144,55 +135,17 @@ export function CourseDetailFinalDocuments({
                   </span>
                 )}
               </div>
-              <p className="mt-1 truncate text-xs text-muted">
-                {card.kind === "links" && links.length > 0
-                  ? `${links.length} enlace${links.length === 1 ? "" : "s"}`
-                  : material.name}
-              </p>
-              {card.kind === "links" && links.length > 0 ? (
-                <ul className="mt-2 space-y-1.5">
-                  {links.map((link, index) => (
-                    <li key={`${link}-${index}`}>
-                      <a
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(event) => event.stopPropagation()}
-                        className="flex items-start gap-1.5 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
-                      >
-                        <IoOpenOutline
-                          size={12}
-                          className="mt-0.5 shrink-0"
-                        />
-                        <span className="min-w-0 break-all">{link}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted">
-                  <span className="inline-flex items-center gap-1">
-                    <IoPersonOutline size={11} />
-                    {material.performedBy || material.performedByEmail || "—"}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <IoTimeOutline size={11} />
-                    {formatDateTime(
-                      material.modifiedOn || material.createdOn,
-                    )}
-                  </span>
-                </div>
-              )}
-              {card.kind === "links" && linkNotes ? (
-                <div className="mt-2 rounded-lg border border-border/70 bg-white/80 px-2.5 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                    Comentarios
-                  </p>
-                  <p className="mt-1 line-clamp-3 whitespace-pre-line text-[11px] text-primary">
-                    {linkNotes}
-                  </p>
-                </div>
-              ) : null}
+              <p className="mt-1 truncate text-xs text-muted">{material.name}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-muted">
+                <span className="inline-flex items-center gap-1">
+                  <IoPersonOutline size={11} />
+                  {material.performedBy || material.performedByEmail || "—"}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <IoTimeOutline size={11} />
+                  {formatDateTime(material.modifiedOn || material.createdOn)}
+                </span>
+              </div>
               <p className="mt-2 text-[11px] text-muted/80">
                 {card.caption}
               </p>

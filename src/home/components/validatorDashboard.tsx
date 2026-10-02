@@ -14,6 +14,7 @@ import StatCard from "../../global/components/statCard";
 import RecentList from "../../global/components/recentList";
 import Button from "../../global/components/button";
 import FormatsFolderButton from "../../global/components/formatsFolderButton";
+import VideoTutorialsButton from "../../global/components/videoTutorialsButton";
 
 import type { Course, DashboardMetrics } from "../../courses/types/course.types";
 import { PROCESS_PHASES } from "../../global/constants/domainConstants";
@@ -120,6 +121,7 @@ function ValidatorDashboard({
           </Link>
         ) : null}
         <FormatsFolderButton />
+        <VideoTutorialsButton />
       </DashboardHero>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

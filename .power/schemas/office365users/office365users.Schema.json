@@ -73,8 +73,8 @@
           "email": "idcknowledgeeco@microsoft.com"
         }
       },
-      "host": "0c519c7e6118e58b88595f8447eb0a.ec.environment.api.powerplatform.com",
-      "basePath": "/connectors/runtime/invoke/scalegroups/brazil/shards/07/apis/office365users/connections/",
+      "host": "bdbaee81c705e4319cc7e8bd7151e7.e0.environment.api.powerplatform.com",
+      "basePath": "/connectors/runtime/invoke/scalegroups/brazil/shards/02/apis/office365users/connections/",
       "schemes": [
         "https"
       ],
@@ -2056,10 +2056,10 @@
       }
     },
     "runtimeUrls": [
-      "https://0c519c7e6118e58b88595f8447eb0a.ec.environment.api.powerplatform.com/connectors/runtime/invoke/scalegroups/brazil/shards/07/apis/office365users/connections/"
+      "https://bdbaee81c705e4319cc7e8bd7151e7.e0.environment.api.powerplatform.com/connectors/runtime/invoke/scalegroups/brazil/shards/02/apis/office365users/connections/"
     ],
-    "primaryRuntimeUrl": "https://0c519c7e6118e58b88595f8447eb0a.ec.environment.api.powerplatform.com/connectors/runtime/invoke/scalegroups/brazil/shards/07/apis/office365users/connections/",
-    "doNotUseApiHubNetRuntimeUrl": "https://0c519c7e-6118-e58b-8859-5f8447eb0aec.07.common.brazil.azure-apihub.net/apim/office365users",
+    "primaryRuntimeUrl": "https://bdbaee81c705e4319cc7e8bd7151e7.e0.environment.api.powerplatform.com/connectors/runtime/invoke/scalegroups/brazil/shards/02/apis/office365users/connections/",
+    "doNotUseApiHubNetRuntimeUrl": "https://bdbaee81-c705-e431-9cc7-e8bd7151e7e0.02.common.brazil.azure-apihub.net/apim/office365users",
     "metadata": {
       "source": "marketplace",
       "brandColor": "#FFFFFF",

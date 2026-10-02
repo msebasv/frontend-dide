@@ -6,11 +6,11 @@
  *   (re-exportadas abajo).
  */
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
+import { Dev_tablevirtualizationprocessesService } from "../../generated/services/Dev_tablevirtualizationprocessesService";
 import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
 import { Dev_tablephasetemplatesService } from "../../generated/services/Dev_tablephasetemplatesService";
 import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
 import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
-import { Dev_tablevirtualizationprocessesService } from "../../generated/services/Dev_tablevirtualizationprocessesService";
 import { Fl_dev_c_temp_folderService } from "../../generated/services/Fl_dev_c_temp_folderService";
 import { Fl_dev_cu_activityService } from "../../generated/services/Fl_dev_cu_activityService";
 import type { ManualTriggerInput } from "../../generated/models/Fl_dev_cu_activityModel";
@@ -19,8 +19,22 @@ import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesMode
 import { fileToBase64 } from "../../global/utils/fileUtils";
 import {
   assertFlowResult,
+  FlowConfirmationTimeoutError,
   runFlowAndConfirm,
+  SOFT_CONFIRM_TIMEOUT_MS,
 } from "../../global/utils/flowResult";
+import {
+  acquireOperationLock,
+  buildOperationLockKey,
+  refreshOperationLock,
+  releaseOperationLock,
+} from "../../global/utils/operationLock";
+import {
+  clearPendingOperation,
+  PENDING_OPERATION_TTL_MS,
+  savePendingOperation,
+  type PendingActivityWatch,
+} from "../../global/utils/pendingOperation";
 import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
   assertSafeDescription,
@@ -32,7 +46,9 @@ import {
 } from "../../global/utils/inputValidation";
 import {
   getValidationTargetPhaseName,
+  isAdvisorGuideUploadStatus,
   isAdvisorRole,
+  isAuthorRole,
   isDideDesignerRole,
   type PhaseWithFormatted,
 } from "../mappers/courseMappers";
@@ -41,7 +57,12 @@ import {
   isProcessCloseReady,
   PROCESS_PHASES,
 } from "../../global/constants/domainConstants";
+import {
+  isActivityProcessingStatus,
+  resolveActivityStatusRaw,
+} from "../domain/processRules";
 import { getProcessForEdit } from "./courseQueryService";
+import { resolveDeliverableStateLabel } from "./deliverableService";
 
 /* ── Re-exports de compatibilidad ── */
 export {
@@ -241,6 +262,8 @@ const runCuActivityFlow = async (params: {
   observations?: string;
   /** null = cargue de syllabus del líder (el flujo no asocia entregable). */
   deliverableId?: string | null;
+  actionLabel?: string;
+  timeoutMessage?: string;
 }): Promise<void> => {
   const input: ManualTriggerInput = {
     text_1: params.processId,
@@ -264,40 +287,124 @@ const runCuActivityFlow = async (params: {
 
   /**
    * Flujo asíncrono: confirmamos por Dataverse.
-   * La actividad suele crearse antes que la nueva fase; el estado visible
-   * depende de la fase, así que esperamos ambos para no mostrar datos viejos.
+   * La actividad nace en "En proceso". El detalle (estado del entregable)
+   * solo cambia cuando la fase o el estado ya se movieron. Confirmar antes
+   * recargaba la pantalla con datos viejos.
    */
+  const deliverableId = params.deliverableId?.trim() || "";
   const before = await getProcessProgressSnapshot(params.processId);
-
-  await runFlowAndConfirm(() => Fl_dev_cu_activityService.Run(input), {
-    actionLabel: "registro de actividad",
-    confirm: async () => {
-      const after = await getProcessProgressSnapshot(params.processId);
-      const hasNewActivity = [...after.activityIds].some(
-        (id) => !before.activityIds.has(id),
-      );
-      const hasNewPhase = [...after.phaseIds].some(
-        (id) => !before.phaseIds.has(id),
-      );
-      const phaseAdvanced =
-        after.latestPhaseId !== before.latestPhaseId ||
-        after.latestPhaseStatus !== before.latestPhaseStatus;
-
-      return hasNewActivity && (hasNewPhase || phaseAdvanced);
-    },
-    timeoutMs: 120_000,
-    intervalMs: 2_000,
-    timeoutMessage:
-      "La solicitud se envió correctamente; el cambio aún no se refleja en el sistema. Consulte el curso en unos minutos.",
+  const beforeDeliverableState = deliverableId
+    ? await getDeliverableVisibleToken(deliverableId)
+    : null;
+  const actionLabel = params.actionLabel ?? "registro de actividad";
+  const watch = toPendingActivityWatch({
+    processId: params.processId,
+    deliverableId,
+    actionLabel,
+    before,
+    beforeDeliverableState,
   });
+  const confirmProgress = createActivityWatcher(watch);
+
+  // Si el efecto ya está en Dataverse, no se vuelve a llamar al flujo.
+  if (await confirmProgress()) {
+    clearPendingOperation();
+    return;
+  }
+
+  savePendingOperation(watch);
+
+  try {
+    await runFlowAndConfirm(() => Fl_dev_cu_activityService.Run(input), {
+      actionLabel,
+      confirm: confirmProgress,
+      timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
+      intervalMs: 1_000,
+      softTimeout: true,
+    });
+    clearPendingOperation();
+  } catch (error) {
+    if (!(error instanceof FlowConfirmationTimeoutError)) {
+      clearPendingOperation();
+    }
+    throw error;
+  }
 };
+
+interface PhaseProgress {
+  id: string;
+  deliverableId: string;
+  expectedActivity: string;
+  modifiedAt: number;
+}
 
 interface ProcessProgressSnapshot {
   activityIds: Set<string>;
+  activityStatusById: Map<string, string>;
   phaseIds: Set<string>;
+  phases: PhaseProgress[];
   latestPhaseId: string;
   latestPhaseStatus: string;
 }
+
+/** Tras cerrar la actividad, la fase a veces se guarda unos segundos después. */
+const DELIVERABLE_CONFIRM_GRACE_MS = 12_000;
+
+const phaseExpectedActivity = (
+  phase: Dev_tablephases & {
+    "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
+  },
+): string =>
+  phase[
+    "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"
+  ]?.trim() ||
+  phase.dev_expectedactivitytemplatename?.trim() ||
+  phase.dev_namephase?.trim() ||
+  "";
+
+const deliverablePhaseKey = (
+  snapshot: ProcessProgressSnapshot,
+  deliverableId: string,
+): string => {
+  const linked = snapshot.phases
+    .filter((phase) => phase.deliverableId === deliverableId)
+    .sort((a, b) => b.modifiedAt - a.modifiedAt);
+  const latest = linked[0];
+  if (!latest) return "";
+  return `${latest.id}|${latest.expectedActivity}`;
+};
+
+const newActivitiesSettled = (
+  before: ProcessProgressSnapshot,
+  after: ProcessProgressSnapshot,
+): boolean => {
+  const fresh = [...after.activityIds].filter(
+    (id) => !before.activityIds.has(id),
+  );
+  if (fresh.length === 0) return false;
+  return fresh.every((id) => {
+    const status = after.activityStatusById.get(id) ?? "";
+    return Boolean(status) && !isActivityProcessingStatus(status);
+  });
+};
+
+/** Estado visible del entregable, sin modifiedon (ese cambia antes de que cierre el flujo). */
+const getDeliverableVisibleToken = async (
+  deliverableId: string,
+): Promise<string | null> => {
+  try {
+    const result = await Dev_tabledeliverablesService.get(deliverableId);
+    const row = result.data;
+    if (!row) return null;
+    return [
+      resolveDeliverableStateLabel(row),
+      String(row.dev_deliverablestate ?? ""),
+      String(row.statuscode ?? ""),
+    ].join("|");
+  } catch {
+    return null;
+  }
+};
 
 const getProcessProgressSnapshot = async (
   processId: string,
@@ -325,18 +432,39 @@ const getProcessProgressSnapshot = async (
       })
     | undefined;
 
+  const phases: PhaseProgress[] = processPhases.map((phase) => {
+    const formatted = phase as Dev_tablephases & {
+      "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
+    };
+    return {
+      id: phase.dev_tablephaseid,
+      deliverableId: phase._dev_tabledeliverable_value ?? "",
+      expectedActivity: phaseExpectedActivity(formatted),
+      modifiedAt: getRecordTimestamp(phase),
+    };
+  });
+
+  const processActivities = (activitiesResult.data ?? []).filter((activity) =>
+    phaseIds.has(activity._dev_tablephase_value ?? ""),
+  );
+
   const activityIds = new Set(
-    (activitiesResult.data ?? [])
-      .filter((activity) =>
-        phaseIds.has(activity._dev_tablephase_value ?? ""),
-      )
+    processActivities
       .map((activity) => activity.dev_tableactivityid)
       .filter(Boolean),
+  );
+  const activityStatusById = new Map(
+    processActivities.map((activity) => [
+      activity.dev_tableactivityid,
+      resolveActivityStatusRaw(activity),
+    ]),
   );
 
   return {
     activityIds,
+    activityStatusById,
     phaseIds,
+    phases,
     latestPhaseId: latestPhase?.dev_tablephaseid ?? "",
     latestPhaseStatus:
       latestPhase?.[
@@ -345,6 +473,102 @@ const getProcessProgressSnapshot = async (
       latestPhase?.dev_expectedactivitytemplatename?.trim() ||
       latestPhase?.dev_namephase?.trim() ||
       "",
+  };
+};
+
+const toPendingActivityWatch = (params: {
+  processId: string;
+  deliverableId: string;
+  actionLabel: string;
+  before: ProcessProgressSnapshot;
+  beforeDeliverableState: string | null;
+}): PendingActivityWatch => ({
+  kind: "activity",
+  processId: params.processId,
+  deliverableId: params.deliverableId,
+  actionLabel: params.actionLabel,
+  activityIds: [...params.before.activityIds],
+  activityStatusById: Object.fromEntries(params.before.activityStatusById),
+  phaseIds: [...params.before.phaseIds],
+  phases: params.before.phases,
+  latestPhaseId: params.before.latestPhaseId,
+  latestPhaseStatus: params.before.latestPhaseStatus,
+  beforeDeliverableState: params.beforeDeliverableState,
+});
+
+const snapshotFromWatch = (
+  watch: PendingActivityWatch,
+): ProcessProgressSnapshot => ({
+  activityIds: new Set(watch.activityIds),
+  activityStatusById: new Map(Object.entries(watch.activityStatusById)),
+  phaseIds: new Set(watch.phaseIds),
+  phases: watch.phases,
+  latestPhaseId: watch.latestPhaseId,
+  latestPhaseStatus: watch.latestPhaseStatus,
+});
+
+/** Misma confirmación que la espera en vivo, reconstruida tras recargar. */
+export const createActivityWatcher = (
+  watch: PendingActivityWatch,
+): (() => Promise<boolean>) => {
+  const before = snapshotFromWatch(watch);
+  const deliverableId = watch.deliverableId.trim();
+  const beforeDeliverableState = watch.beforeDeliverableState;
+  let settledSince = 0;
+
+  return async () => {
+    const after = await getProcessProgressSnapshot(watch.processId);
+    const hasNewActivity = [...after.activityIds].some(
+      (id) => !before.activityIds.has(id),
+    );
+    const hasNewPhase = [...after.phaseIds].some(
+      (id) => !before.phaseIds.has(id),
+    );
+    const phaseAdvanced =
+      after.latestPhaseId !== before.latestPhaseId ||
+      after.latestPhaseStatus !== before.latestPhaseStatus;
+    const deliverablePhaseMoved = deliverableId
+      ? deliverablePhaseKey(after, deliverableId) !==
+        deliverablePhaseKey(before, deliverableId)
+      : false;
+
+    if (deliverableId) {
+      const stillProcessing = [...after.activityIds].some((id) => {
+        if (before.activityIds.has(id)) return false;
+        const status = after.activityStatusById.get(id) ?? "";
+        return !status || isActivityProcessingStatus(status);
+      });
+      if (stillProcessing) {
+        settledSince = 0;
+        return false;
+      }
+
+      const afterDeliverableState =
+        await getDeliverableVisibleToken(deliverableId);
+      const deliverableStateMoved =
+        afterDeliverableState !== null &&
+        beforeDeliverableState !== null &&
+        afterDeliverableState !== beforeDeliverableState;
+
+      if (
+        deliverablePhaseMoved ||
+        deliverableStateMoved ||
+        hasNewPhase ||
+        phaseAdvanced
+      ) {
+        return true;
+      }
+
+      if (newActivitiesSettled(before, after)) {
+        if (!settledSince) settledSince = Date.now();
+        return Date.now() - settledSince >= DELIVERABLE_CONFIRM_GRACE_MS;
+      }
+
+      settledSince = 0;
+      return false;
+    }
+
+    return hasNewActivity && (hasNewPhase || phaseAdvanced);
   };
 };
 
@@ -457,6 +681,9 @@ export const approveCourseMaterial = async (params: {
       filesJson: "null",
       observations: text,
       deliverableId: params.deliverableId,
+      actionLabel: "confirmación de cargue",
+      timeoutMessage:
+        "El registro del cargue fue enviado y permanece en procesamiento. El sistema notificará el resultado al concluir.",
     });
     return;
   }
@@ -484,6 +711,9 @@ export const approveCourseMaterial = async (params: {
     filesJson: filePathsJson,
     observations: text || undefined,
     deliverableId: params.deliverableId,
+    actionLabel: "aprobación del material",
+    timeoutMessage:
+      "La aprobación fue registrada y permanece en procesamiento. El sistema notificará el resultado al concluir.",
   });
 };
 
@@ -540,10 +770,9 @@ export const confirmClassroomUpload = async (params: {
         process?.dev_closereadyname,
       );
     },
-    timeoutMs: 120_000,
-    intervalMs: 2_000,
-    timeoutMessage:
-      "La confirmación se envió correctamente; el proceso aún no figura como finalizado. Consulte el estado en unos minutos.",
+    timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
+    intervalMs: 1_000,
+    softTimeout: true,
   });
 };
 
@@ -596,6 +825,9 @@ export const returnCourseMaterial = async (params: {
     filesJson: filePathsJson,
     observations: comments || undefined,
     deliverableId: params.deliverableId,
+    actionLabel: "devolución del material",
+    timeoutMessage:
+      "La devolución fue registrada y permanece en procesamiento. El sistema notificará el resultado al concluir.",
   });
 };
 
@@ -638,6 +870,7 @@ export const uploadCourseMaterial = async (params: {
   }
 
   let isSyllabus = false;
+  let deliverableStateLabel = "";
   try {
     const delivRes = await Dev_tabledeliverablesService.get(deliverableId);
     const deliv = delivRes.data;
@@ -648,9 +881,19 @@ export const uploadCourseMaterial = async (params: {
         normName.includes("syllabus") ||
         normCat.includes("syllabus") ||
         (deliv.dev_creditnumber === 0 && normName.startsWith("syll"));
+      deliverableStateLabel = resolveDeliverableStateLabel(deliv);
     }
   } catch {
     isSyllabus = activityName.toLowerCase().includes("syllabus");
+  }
+
+  if (
+    isAuthorRole(params.userRole ?? "") &&
+    isAdvisorGuideUploadStatus(deliverableStateLabel)
+  ) {
+    throw new Error(
+      "En la fase de guión instruccional solo el asesor pedagógico puede cargar el material, una vez asignado el Diseñador DIDE.",
+    );
   }
 
   const targetPhaseName = isSyllabus
@@ -682,14 +925,38 @@ export const uploadCourseMaterial = async (params: {
       ? `${activityName}\n\n${description}`
       : activityName;
 
-  await runCuActivityFlow({
-    processId: params.processId,
-    templateActivityId,
-    // El guión del asesor es una entrega (no una aprobación de revisión).
-    approved: false,
-    filesJson: JSON.stringify(tempUploadResults),
-    observations,
+  const lockKey = buildOperationLockKey("upload-material", [
+    params.processId,
     deliverableId,
-  });
+  ]);
+  acquireOperationLock(lockKey, PENDING_OPERATION_TTL_MS);
+
+  try {
+    await runCuActivityFlow({
+      processId: params.processId,
+      templateActivityId,
+      // El guión del asesor es una entrega (no una aprobación de revisión).
+      approved: false,
+      filesJson: JSON.stringify(tempUploadResults),
+      observations,
+      deliverableId,
+      actionLabel: "carga de material",
+      timeoutMessage:
+        "La carga del material fue registrada y permanece en procesamiento. El sistema notificará el resultado al concluir.",
+    });
+  } catch (error) {
+    if (error instanceof FlowConfirmationTimeoutError) {
+      refreshOperationLock(lockKey, PENDING_OPERATION_TTL_MS);
+      throw new FlowConfirmationTimeoutError(
+        error.message,
+        error.continueConfirm,
+        () => releaseOperationLock(lockKey),
+      );
+    }
+    releaseOperationLock(lockKey);
+    throw error;
+  }
+
+  releaseOperationLock(lockKey);
 };
 
