@@ -173,6 +173,11 @@
           "entitySetName": "dev_tabledeliverables",
           "logicalName": "dev_tabledeliverable",
           "isHidden": false
+        },
+        "table_operations": {
+          "entitySetName": "dev_tableoperations",
+          "logicalName": "dev_tableoperation",
+          "isHidden": false
         }
       },
       "environmentVariableName": ""

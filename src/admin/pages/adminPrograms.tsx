@@ -102,8 +102,8 @@ function AdminProgramsPage() {
       ]);
       setPrograms(programRows);
       setFaculties(facultyRows);
-    } catch (error) {
-      console.error("Error cargando catálogo académico", error);
+    } catch {
+      // El catálogo queda como estaba.
     } finally {
       setLoading(false);
     }

@@ -18,6 +18,7 @@ interface FacultyBarChartProps {
   subtitle?: string;
   completedLabel?: string;
   inProgressLabel?: string;
+  onSelect?: (facultyName: string) => void;
 }
 
 const CustomTooltip = ({
@@ -55,7 +56,12 @@ function FacultyBarChart({
   subtitle = "Comparativa de avance por unidad académica",
   completedLabel = "Completados",
   inProgressLabel = "En progreso",
+  onSelect,
 }: FacultyBarChartProps) {
+  const openFaculty = (entry: { payload?: FacultyStat; name?: string }) => {
+    const name = entry.payload?.name ?? entry.name;
+    if (name && onSelect) onSelect(name);
+  };
   const chartData = data.slice(0, 6);
 
   return (
@@ -101,6 +107,8 @@ function FacultyBarChart({
               fill="#004040"
               radius={[0, 0, 0, 0]}
               maxBarSize={48}
+              cursor={onSelect ? "pointer" : "default"}
+              onClick={openFaculty}
             />
             <Bar
               dataKey="inProgress"
@@ -108,6 +116,8 @@ function FacultyBarChart({
               fill="#86c127"
               radius={[4, 4, 0, 0]}
               maxBarSize={48}
+              cursor={onSelect ? "pointer" : "default"}
+              onClick={openFaculty}
             />
           </BarChart>
         </ResponsiveContainer>

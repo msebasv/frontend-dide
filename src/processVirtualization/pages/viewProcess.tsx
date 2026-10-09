@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   IoCheckmarkCircleOutline,
   IoCloudUploadOutline,
   IoCreateOutline,
   IoPersonAddOutline,
+  IoTrashOutline,
 } from "react-icons/io5";
 
 import PageHeader from "../../global/components/pageHeader";
@@ -32,34 +33,52 @@ import {
 import {
   canAssignDideDesigner,
   canCreateOrEditProcesses,
+  canDeleteProcesses,
   isCoordinatorRole,
-  isLeaderRole,
   PROCESS_PHASES,
 } from "../../global/constants/domainConstants";
+import { OPERATION_SETTLED_EVENT } from "../../global/utils/operationSettled";
+import { deleteVirtualizationProcess } from "../services/processMutationService";
+import DeleteProcessModal from "../components/deleteProcessModal";
 
 const ViewProcess = () => {
   const { processId } = useParams<{ processId: string }>();
+  const navigate = useNavigate();
   const location = useLocation();
-  const { currentRole } = useAuth();
+  const { currentRole, refreshRoles } = useAuth();
   const { detail, loading, loadDetail } = useCourseDetail();
   const { runAction, isOperationPending, pendingResourceLock } =
     useActionFeedback();
   const [showClassroomConfirm, setShowClassroomConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const formBusy = submitting || isOperationPending;
   const syllabusUploadLocked =
     Boolean(processId) && pendingResourceLock?.processId === processId;
 
+  const includeInactive = canDeleteProcesses(currentRole);
+
   useEffect(() => {
-    if (processId) void loadDetail(processId);
+    if (processId) void loadDetail(processId, { includeInactive });
   }, [
     processId,
     loadDetail,
+    includeInactive,
     location.key,
     (location.state as { refreshAt?: number } | null)?.refreshAt,
   ]);
 
+  useEffect(() => {
+    if (!processId) return;
+    const reload = () => {
+      void loadDetail(processId, { refresh: true, includeInactive });
+    };
+    window.addEventListener(OPERATION_SETTLED_EVENT, reload);
+    return () => window.removeEventListener(OPERATION_SETTLED_EVENT, reload);
+  }, [processId, loadDetail, includeInactive]);
+
   const isFinalized = detail?.status === PROCESS_PHASES.COMPLETED;
+  const isDeleted = Boolean(detail?.isDeleted);
 
   const hasValidator = useMemo(
     () => (detail ? hasAssignedValidator(detail.assignedRoles) : false),
@@ -77,42 +96,58 @@ const ViewProcess = () => {
   );
 
   const needsValidatorAssignment =
-    !isFinalized && isSyllabusPhase && !hasValidator;
+    !isDeleted && !isFinalized && isSyllabusPhase && !hasValidator;
 
   /** Bloqueo del asesor: fase de guión sin diseñador. */
   const guideBlockedWithoutDesigner = useMemo(() => {
-    if (isFinalized || !detail || hasDesigner) return false;
+    if (isFinalized || isDeleted || !detail || hasDesigner) return false;
     if (isAdvisorGuideUploadStatus(detail.status)) return true;
     return detail.materials.some((material) =>
       isAdvisorGuideUploadStatus(material.status),
     );
-  }, [detail, hasDesigner, isFinalized]);
+  }, [detail, hasDesigner, isFinalized, isDeleted]);
 
   const canUpload = useMemo(() => {
-    if (isFinalized || !detail || needsValidatorAssignment) return false;
-    if (canUserUploadStatus(currentRole, detail.status)) return true;
-    return (
-      canCreateOrEditProcesses(currentRole) &&
-      isLeaderRole(currentRole) &&
-      isSyllabusPhase
-    );
+    if (isFinalized || isDeleted || !detail || needsValidatorAssignment) {
+      return false;
+    }
+    return canUserUploadStatus(currentRole, detail.status);
   }, [
     currentRole,
     detail,
     needsValidatorAssignment,
-    isSyllabusPhase,
     isFinalized,
+    isDeleted,
   ]);
 
   const canConfirmClassroom = useMemo(() => {
-    if (isFinalized || !detail) return false;
+    if (isFinalized || isDeleted || !detail) return false;
     return canUserConfirmClassroomStatus(currentRole, detail.status);
-  }, [currentRole, detail, isFinalized]);
+  }, [currentRole, detail, isFinalized, isDeleted]);
 
   const canEditProcess =
-    !isFinalized && canCreateOrEditProcesses(currentRole);
+    !isDeleted && !isFinalized && canCreateOrEditProcesses(currentRole);
+  const canDeleteProcess = !isDeleted && canDeleteProcesses(currentRole);
   const canAssignDesigner =
-    !isFinalized && canAssignDideDesigner(currentRole);
+    !isDeleted && !isFinalized && canAssignDideDesigner(currentRole);
+  const handleDeleteProcess = async () => {
+    if (!processId || !detail) return;
+    setShowDeleteConfirm(false);
+
+    await runAction(() => deleteVirtualizationProcess(processId), {
+      successTitle: "Proceso eliminado",
+      successMessage: "El proceso y sus registros asociados ya no están activos.",
+      errorTitle: "No se pudo eliminar",
+      errorMessage: "Intente nuevamente o verifique los permisos en Dataverse.",
+      onSuccess: async () => {
+        await refreshRoles();
+        navigate("/virtualization-processes", {
+          state: { refreshAt: Date.now() },
+        });
+      },
+    });
+  };
+
   const backTo = isCoordinatorRole(currentRole)
     ? "/tracking"
     : "/virtualization-processes";
@@ -129,10 +164,10 @@ const ViewProcess = () => {
         onSoftTimeout: () => setShowClassroomConfirm(false),
         onSuccess: async () => {
           setShowClassroomConfirm(false);
-          await loadDetail(processId, { refresh: true });
+          await loadDetail(processId, { refresh: true, includeInactive });
         },
         onSuccessClose: () => {
-          void loadDetail(processId, { refresh: true });
+          void loadDetail(processId, { refresh: true, includeInactive });
         },
       });
     } finally {
@@ -223,9 +258,29 @@ const ViewProcess = () => {
                 </Button>
               </Link>
             )}
+            {canDeleteProcess && (
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={formBusy}
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <IoTrashOutline size={16} />
+                Eliminar proceso
+              </Button>
+            )}
           </>
         }
       />
+
+      {isDeleted && (
+        <div className="mb-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+          <p className="font-semibold text-primary">Proceso eliminado</p>
+          <p className="mt-1 text-xs">
+            Este proceso ya no está activo. Puede consultarlo, sin modificarlo.
+          </p>
+        </div>
+      )}
 
       {needsValidatorAssignment && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
@@ -262,6 +317,15 @@ const ViewProcess = () => {
           void handleConfirmClassroom();
         }}
         loading={formBusy}
+      />
+
+      <DeleteProcessModal
+        isOpen={showDeleteConfirm}
+        processName={detail.processName}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          void handleDeleteProcess();
+        }}
       />
     </div>
   );

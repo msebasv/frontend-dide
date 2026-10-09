@@ -41,6 +41,8 @@ export type PendingCreateWatch = {
 
 export type PendingOperation = {
   startedAt: number;
+  /** request-id de table-operation, si esta acción ya lo envía. */
+  requestId?: string;
   successTitle: string;
   successMessage: string;
   toastTitle: string;
@@ -63,8 +65,7 @@ const feedbackForLabel = (actionLabel: string): FeedbackCopy => {
       successMessage:
         "El proceso quedó creado. Si no lo ve en la lista, actualice la pantalla.",
       toastTitle: PENDING_ACTION_COPY.createProcess.toastPendingTitle,
-      toastMessage:
-        "La creación sigue en procesamiento. Este aviso se recuperó después de recargar la página.",
+      toastMessage: "La creación sigue en procesamiento.",
     };
   }
   if (normalized.includes("aprobaci")) {
@@ -73,8 +74,7 @@ const feedbackForLabel = (actionLabel: string): FeedbackCopy => {
       successMessage:
         "La aprobación terminó. Actualice el detalle si no ve el cambio.",
       toastTitle: PENDING_ACTION_COPY.approveMaterial.toastPendingTitle,
-      toastMessage:
-        "La aprobación sigue en procesamiento. Este aviso se recuperó después de recargar la página.",
+      toastMessage: "La aprobación sigue en procesamiento.",
     };
   }
   if (normalized.includes("devoluci")) {
@@ -83,8 +83,7 @@ const feedbackForLabel = (actionLabel: string): FeedbackCopy => {
       successMessage:
         "La devolución terminó. Actualice el detalle si no ve el cambio.",
       toastTitle: PENDING_ACTION_COPY.returnMaterial.toastPendingTitle,
-      toastMessage:
-        "La devolución sigue en procesamiento. Este aviso se recuperó después de recargar la página.",
+      toastMessage: "La devolución sigue en procesamiento.",
     };
   }
   if (normalized.includes("cargue") && !normalized.includes("material")) {
@@ -93,8 +92,7 @@ const feedbackForLabel = (actionLabel: string): FeedbackCopy => {
       successMessage:
         "El registro terminó. Actualice el detalle si no ve el cambio.",
       toastTitle: PENDING_ACTION_COPY.designerUpload.toastPendingTitle,
-      toastMessage:
-        "El registro sigue en procesamiento. Este aviso se recuperó después de recargar la página.",
+      toastMessage: "El registro sigue en procesamiento.",
     };
   }
   return {
@@ -102,17 +100,18 @@ const feedbackForLabel = (actionLabel: string): FeedbackCopy => {
     successMessage:
       "El cargue terminó. Actualice el detalle si no ve el cambio.",
     toastTitle: PENDING_ACTION_COPY.uploadMaterial.toastPendingTitle,
-    toastMessage:
-      "La carga sigue en procesamiento. Este aviso se recuperó después de recargar la página.",
+      toastMessage: "La carga sigue en procesamiento.",
   };
 };
 
 export const savePendingOperation = (
   watch: PendingActivityWatch | PendingCreateWatch,
+  requestId?: string,
 ): void => {
   const copy = feedbackForLabel(watch.actionLabel);
   const record: PendingOperation = {
     startedAt: Date.now(),
+    requestId: requestId?.trim() || undefined,
     ...copy,
     watch,
   };

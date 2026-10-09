@@ -21,6 +21,7 @@ import { resolveProcessRoleIds } from "../utils/roleUtils";
 import type { Course, CourseDetail } from "../types/course.types";
 import type { ProcessEditData } from "../../processVirtualization/types/process.types";
 import { isProcessCloseReady } from "../../global/constants/domainConstants";
+import { isActiveDataverseRecord } from "../../global/utils/dataverseState";
 
 const fetchBaseData = async () => {
   const [
@@ -78,11 +79,16 @@ export const getCoursesForUser = async (
 /** Detalle completo de un proceso: metadatos + materiales cargados. */
 export const getCourseDetail = async (
   processId: string,
+  options?: { includeInactive?: boolean },
 ): Promise<CourseDetail | null> => {
+  const processKey = escapeODataString(processId.trim());
+  const deliverableFilter = options?.includeInactive
+    ? `_dev_tablevirtualizationprocess_value eq '${processKey}'`
+    : `_dev_tablevirtualizationprocess_value eq '${processKey}' and statecode eq 0`;
   const [data, deliverablesRes] = await Promise.all([
     fetchBaseData(),
     Dev_tabledeliverablesService.getAll({
-      filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId.trim())}' and statecode eq 0`,
+      filter: deliverableFilter,
     }).catch(() => ({ data: [] })),
   ]);
 
@@ -90,6 +96,12 @@ export const getCourseDetail = async (
     (p) => p.dev_tablevirtualizationprocessid === processId,
   );
   if (!process) return null;
+  if (
+    !options?.includeInactive &&
+    !isActiveDataverseRecord(process.statecode)
+  ) {
+    return null;
+  }
 
   const course = data.courses.find(
     (c) => c.dev_tablecourseinstanceid === process._dev_tablecourse_value,
@@ -135,6 +147,7 @@ export const getAvailableCourses = async () => {
 
   const coursesInUse = new Set(
     (processesResult.data ?? [])
+      .filter((process) => isActiveDataverseRecord(process.statecode))
       .map((process) => process._dev_tablecourse_value?.trim() ?? "")
       .filter(Boolean),
   );
@@ -149,6 +162,7 @@ export const getAvailableCourses = async () => {
 export const getProcessNames = async (): Promise<string[]> => {
   const result = await Dev_tablevirtualizationprocessesService.getAll();
   return (result.data ?? [])
+    .filter((process) => isActiveDataverseRecord(process.statecode))
     .map((process) => process.dev_nameprocess?.trim() ?? "")
     .filter(Boolean);
 };
@@ -179,7 +193,12 @@ export const getProcessForEdit = async (
     ]);
 
   const process = (processesResult.data ?? [])[0];
-  if (!process?.dev_tablevirtualizationprocessid) return null;
+  if (
+    !process?.dev_tablevirtualizationprocessid ||
+    !isActiveDataverseRecord(process.statecode)
+  ) {
+    return null;
+  }
 
   const courseId = process._dev_tablecourse_value ?? "";
   const course = (coursesResult.data ?? []).find(

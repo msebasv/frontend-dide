@@ -95,8 +95,7 @@ function AdminCategoryTemplatesPage() {
       ]);
       setRows(data);
       setPhaseCatalog(phases);
-    } catch (error) {
-      console.error("Error cargando entregables", error);
+    } catch {
       setRows([]);
       setPhaseCatalog([]);
     } finally {

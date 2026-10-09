@@ -99,6 +99,13 @@
               "type": "number",
               "x-ms-content-hint": "NUMBER",
               "x-ms-dynamically-added": true
+            },
+            "text_4": {
+              "description": "request-id generado por la app",
+              "title": "request-id",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
             }
           },
           "required": [

@@ -285,6 +285,8 @@ export const listLeaderUsers = async (): Promise<LeaderUserRow[]> => {
 export const createLeaderUser = async (params: {
   email: string;
   roleName: string;
+  /** El coordinador DIDE no puede registrar un Administrador. */
+  allowAdmin?: boolean;
 }): Promise<void> => {
   const emailCheck = validateOrganizationEmail(params.email);
   if (!emailCheck.ok) {
@@ -293,6 +295,9 @@ export const createLeaderUser = async (params: {
   await assertDirectoryEmails([emailCheck.value]);
 
   const roleName = canonicalizeUserRole(params.roleName);
+  if (roleName === USER_ROLES.ADMIN && params.allowAdmin === false) {
+    throw new Error("No puede asignar el rol Administrador.");
+  }
   if (roleName === USER_ROLES.LEADER) {
     throw new Error(
       "El Líder de virtualización se asigna por proceso, no como rol global.",

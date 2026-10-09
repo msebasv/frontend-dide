@@ -66,8 +66,7 @@ function AssignValidator() {
         setProcessName(editData.processName);
         setCourseName(editData.courseName);
         setValidatorEmail(editData.validatorEmail);
-      } catch (error) {
-        console.error("Error cargando proceso para asignar validador", error);
+      } catch {
         setNotFound(true);
       } finally {
         setLoading(false);

@@ -76,7 +76,6 @@ const CourseList = () => {
           <DataTable
             columns={columns}
             data={filteredCourses}
-            pageSize={8}
             title={processStatusTabTitle(activeTab, "cursos")}
             subtitle={`${filteredCourses.length} curso${filteredCourses.length !== 1 ? "s" : ""}`}
             searchPlaceholder="Buscar por curso, proceso o estado..."
@@ -87,6 +86,12 @@ const CourseList = () => {
               "authorName",
               "modifiedOn",
             ]}
+            catalogFields={(course) => ({
+              facultyName: course.facultyName,
+              programName: course.programName,
+              semester: course.semester,
+              createdOn: course.createdOn,
+            })}
           />
         </div>
       )}

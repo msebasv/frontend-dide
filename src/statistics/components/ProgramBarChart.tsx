@@ -17,6 +17,7 @@ interface ProgramBarChartProps {
   title?: string;
   subtitle?: string;
   unitLabel?: string;
+  onSelect?: (programName: string) => void;
 }
 
 const BAR_COLORS = [
@@ -59,6 +60,7 @@ function ProgramBarChart({
   title = "Top programas",
   subtitle = "Programas con mayor cantidad de procesos activos",
   unitLabel = "proceso",
+  onSelect,
 }: ProgramBarChartProps) {
   return (
     <ChartCard title={title} subtitle={subtitle}>
@@ -89,7 +91,16 @@ function ProgramBarChart({
               content={<CustomTooltip unitLabel={unitLabel} />}
               cursor={{ fill: "#f1f5f9" }}
             />
-            <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={22}>
+            <Bar
+              dataKey="value"
+              radius={[0, 6, 6, 0]}
+              maxBarSize={22}
+              cursor={onSelect ? "pointer" : "default"}
+              onClick={(entry: { payload?: ProgramStat; name?: string }) => {
+                const name = entry.payload?.name ?? entry.name;
+                if (name && onSelect) onSelect(name);
+              }}
+            >
               {data.map((entry, index) => (
                 <Cell
                   key={entry.name}

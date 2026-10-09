@@ -137,6 +137,17 @@ export const canCreateProcesses = (role: string): boolean => {
   );
 };
 
+/** Quién puede eliminar un proceso. El líder de virtualización no. */
+export const canDeleteProcesses = (role: string): boolean =>
+  canCreateProcesses(role);
+
+/**
+ * Quién puede cargar el syllabus.
+ * Lo hace el líder de virtualización (y el administrador). El coordinador no.
+ */
+export const canUploadProcessSyllabus = (role: string): boolean =>
+  isVirtualizationLeaderRole(role) || isAdminRole(role);
+
 /**
  * Quién puede editar procesos existentes (nombre, roles base, etc.).
  * Incluye Líder de virtualización en sus procesos asignados.
@@ -176,9 +187,16 @@ export const PHASE_SHORT_LABELS: Record<string, string> = {
   [PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD]: "Guión instruccional",
   [PROCESS_PHASES.DIDE_REVIEW]: "Enlaces audiovisuales",
   [PROCESS_PHASES.ADVISOR_AV_APPROVAL]: "Aprobar AV DIDE",
-  [PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM]: "Cargue en aula",
+  [PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM]: "Validar cargue en el aula",
   [PROCESS_PHASES.COMPLETED]: "Proceso finalizado",
 };
+
+/**
+ * Seguimiento: el audiovisual de este entregable ya está aprobado,
+ * pero la fase real sigue en AV hasta que terminen los demás obligatorios.
+ * No es "Validar cargue en el aula".
+ */
+export const VISUAL_CLASSROOM_UPLOAD_LABEL = "Cargue en el aula";
 
 /** Fases que se consideran "pendientes de aprobación" en métricas. */
 export const PENDING_APPROVAL_PHASES = [

@@ -6,6 +6,7 @@ import type { Course } from "../types/course.types";
 import type { Column } from "../../global/components/dataTable";
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
 import CourseProcessStatusSummary from "../components/courseProcessStatusSummary";
+import { processElapsedLabel } from "../../global/utils/colombiaBusinessDays";
 import { formatDateTime } from "../../global/utils/dateUtils";
 import { isCompletedProcessStatus } from "../../global/components/processStatusFilterTabs";
 import { USER_ROLES } from "../../global/constants/domainConstants";
@@ -27,6 +28,22 @@ export const getCourseColumns = (role: CourseColumnRole): Column<Course>[] => {
       key: "processName",
       header: "Proceso",
       className: "font-medium text-primary",
+      render: (row) => {
+        const elapsed = processElapsedLabel(
+          row.createdOn,
+          isCompletedProcessStatus(row.status) ? row.modifiedOn : undefined,
+        );
+        return (
+          <div>
+            <p>{row.processName}</p>
+            {elapsed ? (
+              <p className="mt-0.5 text-[11px] font-normal text-muted">
+                {elapsed}
+              </p>
+            ) : null}
+          </div>
+        );
+      },
     },
     { key: "courseName", header: "Curso" },
   ];
@@ -92,7 +109,7 @@ export const getCourseColumns = (role: CourseColumnRole): Column<Course>[] => {
           );
         }
 
-        if (row.canFinalize && !isFinalized) {
+        if (row.canFinalize && role === "designer" && !isFinalized) {
           actions.push(
             <ActionButton
               key="finalize"
@@ -104,9 +121,9 @@ export const getCourseColumns = (role: CourseColumnRole): Column<Course>[] => {
           );
         }
 
-        // Cargue de material (autor) desde la tabla. El asesor carga el guión
-        // solo desde el detalle del entregable, no con un botón aquí.
-        if (row.canUpload && role !== "advisor" && !isFinalized) {
+        // Cargue de material solo del autor. El validador no carga;
+        // el asesor carga el guión desde el detalle del entregable.
+        if (row.canUpload && role === "author" && !isFinalized) {
           actions.push(
             <ActionButton
               key="upload"

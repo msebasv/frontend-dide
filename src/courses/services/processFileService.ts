@@ -575,6 +575,41 @@ const extractFileContentPayload = (content: unknown): FileContentPayload | null 
 export const getProcessFileKey = (file: ProcessFile): string =>
   file.fileId?.trim() || `${file.path}::${file.name}`;
 
+/** Enlace para abrir el archivo. Si SharePoint no manda Link, se arma con la ruta. */
+export const resolveProcessFileSharePointUrl = (file: ProcessFile): string => {
+  const direct = file.previewUrl?.trim();
+  if (direct) return direct;
+
+  const siteUrl = (file.siteUrl || sharepointConfig.siteUrl).replace(/\/+$/, "");
+  const rawPath = (file.path || file.connectorPath || "").trim();
+  if (!siteUrl || !rawPath) return "";
+
+  try {
+    const origin = new URL(siteUrl).origin;
+    const absolute = rawPath.startsWith("http://") || rawPath.startsWith("https://")
+      ? rawPath
+      : rawPath.startsWith("/")
+        ? `${origin}${rawPath}`
+        : `${siteUrl}/${rawPath.replace(/^\/+/, "")}`;
+
+    const url = new URL(absolute);
+    url.pathname = url.pathname
+      .split("/")
+      .map((segment) => {
+        if (!segment) return segment;
+        try {
+          return encodeURIComponent(decodeURIComponent(segment));
+        } catch {
+          return encodeURIComponent(segment);
+        }
+      })
+      .join("/");
+    return url.toString();
+  } catch {
+    return "";
+  }
+};
+
 const mapDocumentLibraryItem = (
   item: DocumentosRead,
   siteUrl: string,

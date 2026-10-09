@@ -35,6 +35,7 @@ import {
 import type { CourseMaterial } from "../types/course.types";
 import ClassroomConfirmModal from "../components/classroomConfirmModal";
 import { PROCESS_PHASES } from "../../global/constants/domainConstants";
+import { OPERATION_SETTLED_EVENT } from "../../global/utils/operationSettled";
 
 const ViewCourse = () => {
   const { processId } = useParams<{ processId: string }>();
@@ -76,6 +77,15 @@ const ViewCourse = () => {
     location.key,
     (location.state as { refreshAt?: number } | null)?.refreshAt,
   ]);
+
+  useEffect(() => {
+    if (!processId) return;
+    const reload = () => {
+      void loadDetail(processId, { refresh: true });
+    };
+    window.addEventListener(OPERATION_SETTLED_EVENT, reload);
+    return () => window.removeEventListener(OPERATION_SETTLED_EVENT, reload);
+  }, [processId, loadDetail]);
 
   useEffect(() => {
     if (!detail?.materials.length) {

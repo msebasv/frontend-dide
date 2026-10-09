@@ -10,6 +10,7 @@
  * - /statistics, /tracking        → analítica y seguimiento
  */
 import { Routes, Route, Navigate } from "react-router-dom";
+import NotFoundPage from "./global/pages/notFound";
 
 import Home from "./home/pages/home";
 import Layout from "./global/layout/layout";
@@ -89,8 +90,7 @@ function App() {
           element={<AdminCategoryTemplatesPage />}
         />
 
-        {/* Fallback: rutas no reconocidas vuelven al inicio */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

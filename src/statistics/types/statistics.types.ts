@@ -35,6 +35,28 @@ export interface PhaseStat {
   color: string;
 }
 
+/** Cuántos procesos o entregables llevan exactamente esos días hábiles. */
+export interface ElapsedCountStat {
+  days: number;
+  count: number;
+}
+
+/** Días hábiles totales de un proceso, desde su creación. */
+export interface ProcessElapsedStat {
+  processId: string;
+  name: string;
+  days: number;
+}
+
+/** Promedio de días hábiles de los entregables que están en cada fase. */
+export interface PhaseElapsedStat {
+  name: string;
+  shortName: string;
+  averageDays: number;
+  processCount: number;
+  color: string;
+}
+
 export interface FacultyStat {
   name: string;
   total: number;
@@ -49,6 +71,8 @@ export interface ProgramStat {
 
 export interface MonthlyTrend {
   month: string;
+  /** YYYY-MM, para abrir el detalle de ese mes. */
+  monthKey: string;
   activities: number;
   processes: number;
 }
@@ -56,6 +80,7 @@ export interface MonthlyTrend {
 export interface ActivityRoleStat {
   role: string;
   count: number;
+  processIds: string[];
 }
 
 /** Entregable enriquecido con datos del proceso padre (para tablas y drill). */
@@ -65,6 +90,10 @@ export interface StatisticsDeliverableRow {
   creditNumber: number;
   creditLabel: string;
   stateLabel: string;
+  /** Fase del flujo (Cargue Autor, Validador, etc.). */
+  phaseKey: string;
+  /** Días hábiles del entregable, misma regla que el filtro. */
+  elapsedDays: number;
   processId: string;
   processName: string;
   courseName: string;
@@ -77,6 +106,10 @@ export interface StatisticsDeliverableRow {
 export interface LeaderStatistics {
   metrics: StatisticsMetrics;
   phaseDistribution: PhaseStat[];
+  processElapsed: ProcessElapsedStat[];
+  processElapsedCounts: ElapsedCountStat[];
+  deliverableElapsedCounts: ElapsedCountStat[];
+  deliverablePhaseElapsed: PhaseElapsedStat[];
   facultyDistribution: FacultyStat[];
   programDistribution: ProgramStat[];
   monthlyTrend: MonthlyTrend[];
@@ -104,6 +137,21 @@ export interface StatisticsScope {
   email: string;
 }
 
+export type ElapsedDaysFilterMode = "all" | "more" | "less" | "between";
+
+/** Días hábiles: más de, menos de, o entre dos valores. */
+export interface ElapsedDaysFilter {
+  mode: ElapsedDaysFilterMode;
+  from: number;
+  to: number;
+}
+
+export const EMPTY_ELAPSED_DAYS_FILTER: ElapsedDaysFilter = {
+  mode: "all",
+  from: 5,
+  to: 10,
+};
+
 /** Filtros dimensionales (además del periodo académico). */
 export interface StatisticsDimensionFilters {
   facultyName: string;
@@ -112,6 +160,7 @@ export interface StatisticsDimensionFilters {
   leaderEmail: string;
   /** Vacío = todos los estados. */
   statuses: string[];
+  elapsedDays: ElapsedDaysFilter;
 }
 
 export const ALL_DIMENSION_VALUE = "all";
@@ -122,6 +171,7 @@ export const EMPTY_DIMENSION_FILTERS: StatisticsDimensionFilters = {
   advisorEmail: ALL_DIMENSION_VALUE,
   leaderEmail: ALL_DIMENSION_VALUE,
   statuses: [],
+  elapsedDays: EMPTY_ELAPSED_DAYS_FILTER,
 };
 
 export interface StatisticsFilterState {

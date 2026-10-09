@@ -68,6 +68,13 @@ export const dataSourcesInfo = {
     "dataSourceType": "Dataverse",
     "apis": {}
   },
+  "dev_tableoperations": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "dev_tableoperationid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
   "dev_tablephases": {
     "tableId": "",
     "version": "",

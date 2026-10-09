@@ -8,7 +8,6 @@ import {
   isAdminRole,
   isDesignerCoordinatorRole,
   isDideCoordinatorRole,
-  isLeaderRole,
   isVirtualizationLeaderRole,
   PROCESS_PHASES,
   USER_ROLES,
@@ -90,7 +89,7 @@ export const canRoleViewFinalDocuments = (role: string): boolean =>
  * 1) revisión/aprobación del material,
  * 2) cargue de guión instruccional,
  * 3) aprobación del material audiovisual DIDE.
- * Vacío para roles de gestión sin etapa propia (admin / coordinador DIDE).
+ * Vacío para coordinadores: el syllabus lo carga el líder, no el coordinador.
  */
 export const getRoleActionPhases = (role: string): string[] => {
   if (isVirtualizationLeaderRole(role)) {
@@ -99,7 +98,7 @@ export const getRoleActionPhases = (role: string): string[] => {
       PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM,
     ];
   }
-  if (isLeaderRole(role)) {
+  if (isAdminRole(role)) {
     return [PROCESS_PHASES.LEADER_SYLLABUS];
   }
   if (isAuthorRole(role)) return [PROCESS_PHASES.AUTHOR_UPLOAD];

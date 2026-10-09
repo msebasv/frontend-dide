@@ -404,8 +404,6 @@ export const runFlowAndConfirm = async <T>(
 
     try {
       const result = await run();
-      console.log(`[AcademicPlus flujo] ${options.actionLabel}`, result);
-
       const payloadFailure = flowPayloadFailureMessage(result);
       if (payloadFailure) {
         throw new FlowRunFailedError(payloadFailure);
@@ -424,7 +422,6 @@ export const runFlowAndConfirm = async <T>(
         data = assertFlowResult(result, options.actionLabel);
       }
     } catch (error) {
-      console.error(`[AcademicPlus flujo] ${options.actionLabel}`, error);
       if (isFlowRunFailedError(error)) {
         throw error;
       }

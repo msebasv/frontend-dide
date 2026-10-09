@@ -14,4 +14,6 @@ export interface ManualTriggerInput {
   text_3?: string;
   // Please enter a number
   number: number;
+  // request-id de table-operation. Lo genera la app.
+  text_4?: string;
 }

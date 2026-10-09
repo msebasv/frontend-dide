@@ -1,11 +1,13 @@
 /**
  * Tabla de seguimiento expandible: proceso → General / unidad → categorías con fase.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
 import {
+  IoChevronBack,
   IoChevronDownOutline,
+  IoChevronForward,
   IoEyeOutline,
   IoPersonAddOutline,
   IoSearchOutline,
@@ -14,6 +16,17 @@ import {
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
 import { formatDateTime } from "../../global/utils/dateUtils";
 import { canAssignDideDesigner } from "../../global/constants/domainConstants";
+import PageSizeSelect, {
+  DEFAULT_PAGE_SIZE,
+  type PageSizeOption,
+} from "../../global/components/pageSizeSelect";
+import CatalogFilterBar from "../../global/components/catalogFilterBar";
+import {
+  EMPTY_CATALOG_FILTER,
+  isCatalogFilterActive,
+  matchesCatalogFilter,
+  type CatalogFilter,
+} from "../../global/utils/catalogFilters";
 import { useAuth } from "../../global/hooks/useAuth";
 import type {
   ActorProgressCode,
@@ -43,6 +56,17 @@ const roleHeadStart = `${roleHead} border-l border-border`;
 const metaCell = "border-r border-border-light px-4 py-3 align-middle";
 const bodyCell = "px-3 py-3 align-middle";
 const bodyCellStart = `${bodyCell} border-l border-border-light`;
+
+const visiblePageNumbers = (current: number, total: number): number[] => {
+  const count = Math.min(total, 5);
+  let start = 1;
+  if (total > 5) {
+    if (current <= 3) start = 1;
+    else if (current >= total - 2) start = total - 4;
+    else start = current - 2;
+  }
+  return Array.from({ length: count }, (_, index) => start + index);
+};
 
 const ProgressChip = ({
   code,
@@ -93,20 +117,36 @@ function ProcessTrackingBoard({
   const { currentRole } = useAuth();
   const canAssignDesigner = canAssignDideDesigner(currentRole);
   const [search, setSearch] = useState("");
+  const [catalogFilter, setCatalogFilter] =
+    useState<CatalogFilter>(EMPTY_CATALOG_FILTER);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
   const [expandedProcessIds, setExpandedProcessIds] = useState<string[]>([]);
   const [expandedCredits, setExpandedCredits] = useState<
     Record<string, number[]>
   >({});
 
   const filteredRows = useMemo(() => {
+    const scoped = rows.filter((row) =>
+      matchesCatalogFilter(
+        {
+          facultyName: row.facultyName,
+          programName: row.programName,
+          semester: row.semester,
+          createdOn: row.createdOn,
+        },
+        catalogFilter,
+      ),
+    );
     const query = search.trim().toLowerCase();
-    if (!query) return rows;
+    if (!query) return scoped;
 
-    return rows.filter((row) => {
+    return scoped.filter((row) => {
       const haystack = [
         row.processName,
         row.courseName,
         row.facultyName,
+        row.programName,
         row.authorLabel,
         row.validatorLabel,
         row.advisorLabel,
@@ -118,7 +158,26 @@ function ProcessTrackingBoard({
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [rows, search]);
+  }, [rows, search, catalogFilter]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRows.length / pageSize),
+  );
+  const page = Math.min(currentPage, totalPages);
+  const pageRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize]);
+
+  const handlePageSize = (size: PageSizeOption) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, rows, catalogFilter]);
 
   const toggleProcess = (processId: string) => {
     setExpandedProcessIds((current) =>
@@ -151,28 +210,48 @@ function ProcessTrackingBoard({
             / unidades
           </p>
         </div>
-        <div className="relative w-full sm:max-w-xs">
-          <IoSearchOutline
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-            size={16}
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <CatalogFilterBar
+            records={rows.map((row) => ({
+              facultyName: row.facultyName,
+              programName: row.programName,
+              semester: row.semester,
+              createdOn: row.createdOn,
+            }))}
+            value={catalogFilter}
+            onChange={(next) => {
+              setCatalogFilter(next);
+              setCurrentPage(1);
+            }}
           />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar proceso, curso o entregable..."
-            className="w-full rounded-full border border-border bg-white py-2 pl-9 pr-3 text-sm text-primary outline-none focus:ring-2 focus:ring-secondary/30"
-          />
+          <div className="relative w-full sm:w-72">
+            <IoSearchOutline
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              size={16}
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Buscar proceso, curso o entregable..."
+              className="w-full rounded-full border border-border bg-white py-2 pl-9 pr-3 text-sm text-primary outline-none focus:ring-2 focus:ring-secondary/30"
+            />
+          </div>
         </div>
       </div>
 
       {filteredRows.length === 0 ? (
         <p className="px-5 py-12 text-center text-sm text-muted">
-          {emptyMessage}
+          {search.trim() || isCatalogFilterActive(catalogFilter)
+            ? "No hay procesos que coincidan con los filtros."
+            : emptyMessage}
         </p>
       ) : (
         <ul className="divide-y divide-border-light">
-          {filteredRows.map((row) => {
+          {pageRows.map((row) => {
             const isExpanded = expandedProcessIds.includes(row.processId);
             const creditGroups = groupDeliverables(row.deliverables);
             const openCredits = expandedCredits[row.processId] ?? [];
@@ -205,12 +284,12 @@ function ProcessTrackingBoard({
                         {row.deliverables.length === 1 ? "" : "s"}
                         {" · "}
                         Actualizado {formatDateTime(row.modifiedOn)}
+                        {row.elapsedLabel ? ` · ${row.elapsedLabel}` : ""}
                       </p>
                     </div>
                   </button>
 
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <ProcessStatus status={row.phase} compact />
                     {canAssignDesigner && !row.isFinalized && (
                       <Link
                         to={`/virtualization-processes/${row.processId}/assign-designer`}
@@ -373,6 +452,11 @@ function ProcessTrackingBoard({
                                               status={item.phase}
                                               compact
                                             />
+                                            {item.elapsedLabel ? (
+                                              <p className="mt-1 text-[11px] font-normal text-muted">
+                                                {item.elapsedLabel}
+                                              </p>
+                                            ) : null}
                                           </td>
                                           {group.creditNumber === 0 && (
                                             <td className={bodyCellStart}>
@@ -466,6 +550,79 @@ function ProcessTrackingBoard({
             );
           })}
         </ul>
+      )}
+
+      {filteredRows.length > 0 && (
+        <div className="flex flex-col gap-3 border-t border-border bg-acacia-5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <PageSizeSelect
+              value={pageSize}
+              onChange={handlePageSize}
+              itemLabel="procesos"
+            />
+            <span className="text-xs text-muted">
+              <span className="sm:hidden">
+                Página {page} de {totalPages} · {filteredRows.length} reg.
+              </span>
+              <span className="hidden sm:inline">
+                Mostrando{" "}
+                <span className="font-medium text-primary">
+                  {(page - 1) * pageSize + 1}–
+                  {Math.min(page * pageSize, filteredRows.length)}
+                </span>{" "}
+                de{" "}
+                <span className="font-medium text-primary">
+                  {filteredRows.length}
+                </span>{" "}
+                procesos
+              </span>
+            </span>
+          </div>
+
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+            <button
+              type="button"
+              disabled={page === 1}
+              onClick={() => setCurrentPage(page - 1)}
+              className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-medium text-primary transition hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:flex-none sm:py-1.5"
+            >
+              <IoChevronBack size={14} />
+              <span className="sm:inline">Anterior</span>
+            </button>
+
+            <div className="hidden items-center gap-1 px-2 sm:flex">
+              {visiblePageNumbers(page, totalPages).map((pageNumber) => (
+                <button
+                  type="button"
+                  key={pageNumber}
+                  onClick={() => setCurrentPage(pageNumber)}
+                  className={clsx(
+                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition",
+                    page === pageNumber
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-muted hover:bg-white hover:text-primary",
+                  )}
+                >
+                  {pageNumber}
+                </button>
+              ))}
+            </div>
+
+            <span className="px-2 text-xs font-medium text-primary sm:hidden">
+              {page}/{totalPages}
+            </span>
+
+            <button
+              type="button"
+              disabled={page === totalPages}
+              onClick={() => setCurrentPage(page + 1)}
+              className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-medium text-primary transition hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:flex-none sm:py-1.5"
+            >
+              <span className="sm:inline">Siguiente</span>
+              <IoChevronForward size={14} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

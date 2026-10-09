@@ -11,6 +11,18 @@ import { type ReactNode, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { IoSearchOutline, IoChevronBack, IoChevronForward } from "react-icons/io5";
 import clsx from "clsx";
+import PageSizeSelect, {
+  DEFAULT_PAGE_SIZE,
+  type PageSizeOption,
+} from "./pageSizeSelect";
+import CatalogFilterBar from "./catalogFilterBar";
+import {
+  EMPTY_CATALOG_FILTER,
+  isCatalogFilterActive,
+  matchesCatalogFilter,
+  type CatalogFilter,
+  type CatalogRecord,
+} from "../utils/catalogFilters";
 
 export interface Column<T> {
   key: keyof T;
@@ -22,7 +34,6 @@ export interface Column<T> {
 interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
-  pageSize?: number;
   title?: string;
   subtitle?: string;
   searchable?: boolean;
@@ -31,12 +42,13 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   getRowLink?: (row: T) => string | undefined;
   onRowClick?: (row: T) => void;
+  /** Facultad, programa, año, semestre y fecha de creación. */
+  catalogFields?: (row: T) => CatalogRecord;
 }
 
 function DataTable<T>({
   columns,
   data,
-  pageSize = 10,
   title,
   subtitle,
   searchable = true,
@@ -45,35 +57,55 @@ function DataTable<T>({
   emptyMessage = "No se encontraron registros",
   getRowLink,
   onRowClick,
+  catalogFields,
 }: DataTableProps<T>) {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
+  const [catalogFilter, setCatalogFilter] =
+    useState<CatalogFilter>(EMPTY_CATALOG_FILTER);
 
   const filteredData = useMemo(() => {
-    if (!search.trim()) return data;
+    const scoped = catalogFields
+      ? data.filter((row) =>
+          matchesCatalogFilter(catalogFields(row), catalogFilter),
+        )
+      : data;
+    if (!search.trim()) return scoped;
 
     const query = search.toLowerCase();
     const keys = searchKeys ?? columns.map((c) => c.key);
 
-    return data.filter((row) =>
+    return scoped.filter((row) =>
       keys.some((key) =>
         String(row[key] ?? "")
           .toLowerCase()
           .includes(query),
       ),
     );
-  }, [data, search, searchKeys, columns]);
+  }, [data, search, searchKeys, columns, catalogFields, catalogFilter]);
 
   const totalPages = Math.ceil(filteredData.length / pageSize);
+  const page = Math.min(currentPage, Math.max(totalPages, 1));
 
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
+    const start = (page - 1) * pageSize;
     return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
+  }, [filteredData, page, pageSize]);
+
+  const handlePageSize = (size: PageSizeOption) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   const handleSearch = (value: string) => {
     setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleCatalogFilter = (next: CatalogFilter) => {
+    setCatalogFilter(next);
     setCurrentPage(1);
   };
 
@@ -112,9 +144,9 @@ function DataTable<T>({
         <IoSearchOutline className="text-muted" size={20} />
       </div>
       <p className="text-sm font-medium text-gray-600">{emptyMessage}</p>
-      {search && (
+      {(search || isCatalogFilterActive(catalogFilter)) && (
         <p className="text-xs text-muted">
-          Intente con otro término de búsqueda
+          Intente con otros filtros o con otro término de búsqueda
         </p>
       )}
     </div>
@@ -132,19 +164,30 @@ function DataTable<T>({
               <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
             )}
           </div>
-          {searchable && (
-            <div className="relative w-full sm:w-72">
-              <IoSearchOutline
-                className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted"
-                size={16}
-              />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder={searchPlaceholder}
-                className="w-full rounded-full border border-border bg-white py-2.5 pl-4 pr-10 text-base text-primary placeholder:text-muted shadow-sm focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/15 sm:py-2 sm:text-sm"
-              />
+          {(searchable || catalogFields) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              {catalogFields ? (
+                <CatalogFilterBar
+                  records={data.map(catalogFields)}
+                  value={catalogFilter}
+                  onChange={handleCatalogFilter}
+                />
+              ) : null}
+              {searchable ? (
+                <div className="relative w-full sm:w-72">
+                  <IoSearchOutline
+                    className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted"
+                    size={16}
+                  />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="w-full rounded-full border border-border bg-white py-2.5 pl-4 pr-10 text-base text-primary placeholder:text-muted shadow-sm focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/15 sm:py-2 sm:text-sm"
+                  />
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -286,30 +329,33 @@ function DataTable<T>({
 
       {filteredData.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-border bg-acacia-5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5">
-          <span className="text-xs text-muted">
-            <span className="sm:hidden">
-              Página {currentPage} de {Math.max(totalPages, 1)} ·{" "}
-              {filteredData.length} reg.
+          <div className="flex flex-wrap items-center gap-3">
+            <PageSizeSelect value={pageSize} onChange={handlePageSize} />
+            <span className="text-xs text-muted">
+              <span className="sm:hidden">
+                Página {page} de {Math.max(totalPages, 1)} ·{" "}
+                {filteredData.length} reg.
+              </span>
+              <span className="hidden sm:inline">
+                Mostrando{" "}
+                <span className="font-medium text-primary">
+                  {(page - 1) * pageSize + 1}–
+                  {Math.min(page * pageSize, filteredData.length)}
+                </span>{" "}
+                de{" "}
+                <span className="font-medium text-primary">
+                  {filteredData.length}
+                </span>{" "}
+                registros
+              </span>
             </span>
-            <span className="hidden sm:inline">
-              Mostrando{" "}
-              <span className="font-medium text-primary">
-                {(currentPage - 1) * pageSize + 1}–
-                {Math.min(currentPage * pageSize, filteredData.length)}
-              </span>{" "}
-              de{" "}
-              <span className="font-medium text-primary">
-                {filteredData.length}
-              </span>{" "}
-              registros
-            </span>
-          </span>
+          </div>
 
           <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
             <button
               type="button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
+              disabled={page === 1}
+              onClick={() => setCurrentPage(page - 1)}
               className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-medium text-primary transition hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:flex-none sm:py-1.5"
             >
               <IoChevronBack size={14} />
@@ -318,43 +364,43 @@ function DataTable<T>({
 
             <div className="hidden items-center gap-1 px-2 sm:flex">
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                let page: number;
+                let pageNumber: number;
                 if (totalPages <= 5) {
-                  page = i + 1;
-                } else if (currentPage <= 3) {
-                  page = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  page = totalPages - 4 + i;
+                  pageNumber = i + 1;
+                } else if (page <= 3) {
+                  pageNumber = i + 1;
+                } else if (page >= totalPages - 2) {
+                  pageNumber = totalPages - 4 + i;
                 } else {
-                  page = currentPage - 2 + i;
+                  pageNumber = page - 2 + i;
                 }
 
                 return (
                   <button
                     type="button"
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
+                    key={pageNumber}
+                    onClick={() => setCurrentPage(pageNumber)}
                     className={clsx(
                       "flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition",
-                      currentPage === page
+                      page === pageNumber
                         ? "bg-primary text-white shadow-sm"
                         : "text-muted hover:bg-white hover:text-primary",
                     )}
                   >
-                    {page}
+                    {pageNumber}
                   </button>
                 );
               })}
             </div>
 
             <span className="px-2 text-xs font-medium text-primary sm:hidden">
-              {currentPage}/{Math.max(totalPages, 1)}
+              {page}/{Math.max(totalPages, 1)}
             </span>
 
             <button
               type="button"
-              disabled={currentPage === totalPages || totalPages === 0}
-              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={page === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(page + 1)}
               className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-full border border-border bg-white px-3 py-2 text-xs font-medium text-primary transition hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-0 sm:flex-none sm:py-1.5"
             >
               <span className="sm:inline">Siguiente</span>

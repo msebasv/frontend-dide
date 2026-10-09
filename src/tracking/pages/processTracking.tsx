@@ -17,6 +17,7 @@ import ProcessStatusFilterTabs, {
 import { useAuth } from "../../global/hooks/useAuth";
 import {
   canCreateProcesses,
+  canDeleteProcesses,
   isLeaderRole,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
@@ -27,9 +28,11 @@ import {
   IoCheckmarkDoneOutline,
   IoCloudUploadOutline,
   IoPersonOutline,
+  IoTrashOutline,
   IoWarningOutline,
 } from "react-icons/io5";
 
+import { OPERATION_SETTLED_EVENT } from "../../global/utils/operationSettled";
 import { useProcessTracking } from "../hooks/useProcessTracking";
 import ProcessTrackingBoard from "../components/processTrackingBoard";
 
@@ -51,6 +54,15 @@ function ProcessTrackingPage() {
   useEffect(() => {
     if (canAccess) void loadTracking();
   }, [canAccess, loadTracking, refreshAt]);
+
+  useEffect(() => {
+    if (!canAccess) return;
+    const reload = () => {
+      void loadTracking();
+    };
+    window.addEventListener(OPERATION_SETTLED_EVENT, reload);
+    return () => window.removeEventListener(OPERATION_SETTLED_EVENT, reload);
+  }, [canAccess, loadTracking]);
 
   const tabCounts = useMemo(
     () => countByProcessStatusTab(rows, (row) => row.phase),
@@ -77,6 +89,7 @@ function ProcessTrackingPage() {
 
   // Alta de proceso/curso: Coordinador DIDE y Administrador (no el Líder).
   const showCreateActions = canCreateProcesses(currentRole);
+  const showDeletedProcesses = canDeleteProcesses(currentRole);
 
   return (
     <div className="space-y-6">
@@ -85,20 +98,35 @@ function ProcessTrackingPage() {
         description={description}
         badge={isAdvisor ? "Asesoría" : "Gestión"}
         actions={
-          showCreateActions ? (
+          showCreateActions || showDeletedProcesses ? (
             <>
-              <Link to="/virtualization-processes/create">
-                <Button size="sm">
-                  <IoAddCircleOutline size={16} />
-                  Nuevo Proceso
-                </Button>
-              </Link>
-              <Link to="/virtualization-processes/create-course">
-                <Button variant="secondary" size="sm">
-                  <IoAddCircleOutline size={16} />
-                  Nuevo Curso
-                </Button>
-              </Link>
+              {showDeletedProcesses && (
+                <Link
+                  to="/virtualization-processes"
+                  state={{ showDeleted: true }}
+                >
+                  <Button variant="secondary" size="sm">
+                    <IoTrashOutline size={16} />
+                    Procesos eliminados
+                  </Button>
+                </Link>
+              )}
+              {showCreateActions && (
+                <>
+                  <Link to="/virtualization-processes/create">
+                    <Button size="sm">
+                      <IoAddCircleOutline size={16} />
+                      Nuevo Proceso
+                    </Button>
+                  </Link>
+                  <Link to="/virtualization-processes/create-course">
+                    <Button variant="secondary" size="sm">
+                      <IoAddCircleOutline size={16} />
+                      Nuevo Curso
+                    </Button>
+                  </Link>
+                </>
+              )}
             </>
           ) : undefined
         }

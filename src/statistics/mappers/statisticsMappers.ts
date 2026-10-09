@@ -7,15 +7,13 @@ import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesMode
 import type { Dev_tablevirtualizationprocesses } from "../../generated/models/Dev_tablevirtualizationprocessesModel";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
 import { PROCESS_PHASES } from "../../global/constants/domainConstants";
+import { processElapsedDayCount } from "../../global/utils/colombiaBusinessDays";
 import {
   COMPLETED_STATUS,
   PHASE_STATS_CONFIG,
 } from "../constants/phaseConfig";
 import type { LeaderStatistics, StatisticsDeliverableRow } from "../types/statistics.types";
-import {
-  DELIVERABLE_STATS_CONFIG,
-  resolveDeliverableStatBucket,
-} from "../constants/deliverableStatsConfig";
+import { resolveDeliverableStatBucket } from "../constants/deliverableStatsConfig";
 
 const isSameMonth = (dateStr: string, reference: Date): boolean => {
   const date = new Date(dateStr);
@@ -29,6 +27,8 @@ const isSameMonth = (dateStr: string, reference: Date): boolean => {
 
 const formatMonthLabel = (date: Date): string =>
   date.toLocaleDateString("es-CO", { month: "short", year: "2-digit" });
+
+const padMonth = (month: number): string => String(month).padStart(2, "0");
 
 const buildMonthlyTrend = (
   processes: Dev_tablevirtualizationprocesses[],
@@ -51,6 +51,7 @@ const buildMonthlyTrend = (
 
     months.push({
       month: monthLabel,
+      monthKey: `${monthDate.getFullYear()}-${padMonth(monthDate.getMonth() + 1)}`,
       activities: activityCount,
       processes: processCount,
     });
@@ -126,6 +127,20 @@ export const buildLeaderStatistics = (
     color: phase.color,
   }));
 
+  const processElapsed = processes
+    .map((process) => ({
+      processId: process.processId,
+      name: process.processName || "Sin nombre",
+      days: processElapsedDayCount(
+        process.createdOn,
+        process.status === COMPLETED_STATUS ? process.modifiedOn : undefined,
+      ),
+    }))
+    .sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, "es"));
+  const processElapsedCounts = countByElapsedDays(
+    processElapsed.map((item) => item.days),
+  );
+
   const facultyMap = new Map<string, FacultyAccumulator>();
 
   for (const process of processes) {
@@ -161,16 +176,30 @@ export const buildLeaderStatistics = (
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
 
-  const roleMap = new Map<string, number>();
+  const processIdByPhase = new Map(
+    phases.map((phase) => [
+      phase.dev_tablephaseid,
+      phase._dev_tablevirtualizationprocess_value ?? "",
+    ]),
+  );
+  const roleMap = new Map<string, { count: number; processIds: Set<string> }>();
   for (const activity of processActivities) {
     const role = shortenRoleName(
       activity.dev_tableactivitytemplatename ?? activity.dev_activityname ?? "—",
     );
-    roleMap.set(role, (roleMap.get(role) ?? 0) + 1);
+    const current = roleMap.get(role) ?? { count: 0, processIds: new Set() };
+    current.count += 1;
+    const processId = processIdByPhase.get(activity._dev_tablephase_value ?? "");
+    if (processId) current.processIds.add(processId);
+    roleMap.set(role, current);
   }
 
   const activitiesByRole = Array.from(roleMap.entries())
-    .map(([role, count]) => ({ role, count }))
+    .map(([role, stats]) => ({
+      role,
+      count: stats.count,
+      processIds: [...stats.processIds],
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
@@ -179,6 +208,10 @@ export const buildLeaderStatistics = (
   return {
     metrics,
     phaseDistribution,
+    processElapsed,
+    processElapsedCounts,
+    deliverableElapsedCounts: deliverableAgg.elapsedCounts,
+    deliverablePhaseElapsed: deliverableAgg.phaseElapsed,
     facultyDistribution,
     programDistribution,
     monthlyTrend: buildMonthlyTrend(rawProcesses, processActivities),
@@ -195,12 +228,42 @@ interface FacultyAccumulator {
   inProgress: number;
 }
 
+const countByElapsedDays = (days: number[]): LeaderStatistics["processElapsedCounts"] => {
+  const counts = new Map<number, number>();
+  for (const day of days) counts.set(day, (counts.get(day) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([elapsed, count]) => ({ days: elapsed, count }));
+};
+
+const buildPhaseElapsed = (
+  groups: {
+    name: string;
+    shortName: string;
+    color: string;
+    days: number[];
+  }[],
+): LeaderStatistics["deliverablePhaseElapsed"] =>
+  groups
+    .filter((group) => group.days.length > 0)
+    .map((group) => ({
+      name: group.name,
+      shortName: group.shortName,
+      color: group.color,
+      processCount: group.days.length,
+      averageDays: Math.round(
+        group.days.reduce((sum, value) => sum + value, 0) / group.days.length,
+      ),
+    }));
+
 const buildDeliverableAggregates = (
   deliverables: StatisticsDeliverableRow[],
 ): {
   metrics: LeaderStatistics["deliverableMetrics"];
   distribution: LeaderStatistics["deliverableDistribution"];
   facultyDistribution: LeaderStatistics["deliverableFacultyDistribution"];
+  phaseElapsed: LeaderStatistics["deliverablePhaseElapsed"];
+  elapsedCounts: LeaderStatistics["deliverableElapsedCounts"];
 } => {
   let pending = 0;
   let inReview = 0;
@@ -225,31 +288,43 @@ const buildDeliverableAggregates = (
         : 0,
   };
 
-  const countByState = new Map<string, number>();
+  const countByPhase = new Map<string, number>();
   for (const item of deliverables) {
-    const key = item.stateLabel || PROCESS_PHASES.UNKNOWN;
-    countByState.set(key, (countByState.get(key) ?? 0) + 1);
+    const key = item.phaseKey || PROCESS_PHASES.UNKNOWN;
+    countByPhase.set(key, (countByPhase.get(key) ?? 0) + 1);
   }
 
-  const knownKeys = new Set(
-    DELIVERABLE_STATS_CONFIG.map((item) => item.key.toLowerCase()),
+  const knownPhaseKeys = new Set<string>(
+    PHASE_STATS_CONFIG.map((item) => item.key),
   );
   const distribution = [
-    ...DELIVERABLE_STATS_CONFIG.map((config) => ({
-      name: config.key,
-      shortName: config.label,
-      value: countByState.get(config.key) ?? 0,
-      color: config.color,
+    ...PHASE_STATS_CONFIG.map((phase) => ({
+      name: phase.key,
+      shortName:
+        phase.key === PROCESS_PHASES.COMPLETED ? "Completado" : phase.label,
+      value: countByPhase.get(phase.key) ?? 0,
+      color: phase.color,
     })),
-    ...[...countByState.entries()]
-      .filter(([name]) => !knownKeys.has(name.toLowerCase()))
+    ...[...countByPhase.entries()]
+      .filter(([name]) => !knownPhaseKeys.has(name))
       .map(([name, value]) => ({
         name,
         shortName: name,
         value,
         color: "#6b7280",
       })),
-  ].filter((item) => item.value > 0 || knownKeys.has(item.name.toLowerCase()));
+  ].filter((item) => item.value > 0 || knownPhaseKeys.has(item.name));
+
+  const phaseElapsed = buildPhaseElapsed(
+    distribution.map((phase) => ({
+      name: phase.name,
+      shortName: phase.shortName,
+      color: phase.color,
+      days: deliverables
+        .filter((item) => (item.phaseKey || PROCESS_PHASES.UNKNOWN) === phase.name)
+        .map((item) => item.elapsedDays),
+    })),
+  );
 
   const facultyMap = new Map<string, FacultyAccumulator>();
   for (const item of deliverables) {
@@ -270,5 +345,11 @@ const buildDeliverableAggregates = (
     .map(([name, stats]) => ({ name, ...stats }))
     .sort((a, b) => b.total - a.total);
 
-  return { metrics, distribution, facultyDistribution };
+  return {
+    metrics,
+    distribution,
+    facultyDistribution,
+    phaseElapsed,
+    elapsedCounts: countByElapsedDays(deliverables.map((item) => item.elapsedDays)),
+  };
 };

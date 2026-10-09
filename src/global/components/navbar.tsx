@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useActionFeedback } from "../hooks/useActionFeedback";
 import { useLocation } from "react-router-dom";
 import { getPageTitle } from "../config/routeConfig";
 import ChangeRoleModal from "./changeRoleModal";
 import NotificationsMenu from "./notificationsMenu";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { FaExchangeAlt } from "react-icons/fa";
-import { IoChevronDown, IoMenuOutline } from "react-icons/io5";
+import { IoChevronDown, IoMenuOutline, IoSync } from "react-icons/io5";
 import { formatDomainLabel } from "../utils/textUtils";
 
 interface NavbarProps {
@@ -15,6 +16,7 @@ interface NavbarProps {
 
 const Navbar = ({ onMenuClick }: NavbarProps) => {
   const { user, currentRole } = useAuth();
+  const { showRunningIndicator, restoreRunningToast } = useActionFeedback();
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -57,6 +59,18 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
         <span className="hidden rounded-full bg-acacia-10 px-3 py-1 text-xs font-semibold text-primary lg:inline-block">
           {formatDomainLabel(currentRole)}
         </span>
+
+        {showRunningIndicator ? (
+          <button
+            type="button"
+            onClick={restoreRunningToast}
+            className="inline-flex rounded-full p-2 text-amber-600 transition hover:bg-acacia-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary/30"
+            aria-label="La solicitud sigue en ejecución"
+            title="La solicitud sigue en ejecución"
+          >
+            <IoSync size={20} className="animate-spin" />
+          </button>
+        ) : null}
 
         <NotificationsMenu />
 

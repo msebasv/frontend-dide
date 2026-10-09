@@ -2,12 +2,17 @@
  * Reconstruye la confirmación de una operación guardada antes de recargar.
  */
 import { createActivityWatcher } from "../../courses/services/courseService";
+import { confirmTableOperation } from "../services/tableOperationService";
 import { createProcessWatcher } from "../../processVirtualization/services/processMutationService";
 import type { PendingOperation } from "./pendingOperation";
 
 export const confirmPendingOperation = (
   pending: PendingOperation,
 ): (() => Promise<boolean>) => {
+  if (pending.requestId) {
+    const requestId = pending.requestId;
+    return () => confirmTableOperation(requestId);
+  }
   if (pending.watch.kind === "activity") {
     return createActivityWatcher(pending.watch);
   }

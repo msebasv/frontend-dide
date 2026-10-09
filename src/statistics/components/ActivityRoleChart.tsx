@@ -13,6 +13,7 @@ import type { ActivityRoleStat } from "../types/statistics.types";
 
 interface ActivityRoleChartProps {
   data: ActivityRoleStat[];
+  onSelect?: (role: string) => void;
 }
 
 const CustomTooltip = ({
@@ -36,11 +37,11 @@ const CustomTooltip = ({
   );
 };
 
-function ActivityRoleChart({ data }: ActivityRoleChartProps) {
+function ActivityRoleChart({ data, onSelect }: ActivityRoleChartProps) {
   return (
     <ChartCard
       title="Actividades por rol"
-      subtitle="Volumen de acciones registradas según el rol responsable"
+      subtitle="Clic en un rol para ver los procesos con esas actividades"
     >
       {data.length > 0 ? (
         <ResponsiveContainer width="100%" height={280}>
@@ -63,7 +64,17 @@ function ActivityRoleChart({ data }: ActivityRoleChartProps) {
               tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f1f5f9" }} />
-            <Bar dataKey="count" fill="#004040" radius={[6, 6, 0, 0]} maxBarSize={40} />
+            <Bar
+              dataKey="count"
+              fill="#004040"
+              radius={[6, 6, 0, 0]}
+              maxBarSize={40}
+              cursor={onSelect ? "pointer" : "default"}
+              onClick={(entry: { payload?: ActivityRoleStat; role?: string }) => {
+                const role = entry.payload?.role ?? entry.role;
+                if (role && onSelect) onSelect(role);
+              }}
+            />
           </BarChart>
         </ResponsiveContainer>
       ) : (

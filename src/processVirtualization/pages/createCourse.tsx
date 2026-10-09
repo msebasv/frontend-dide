@@ -108,8 +108,8 @@ function CreateCourse() {
 
         setFaculties(facultiesData);
         setPrograms(programsData);
-      } catch (error) {
-        console.error("Error cargando facultades y programas", error);
+      } catch {
+        // Los listados siguen vacíos si el catálogo no carga.
       } finally {
         setLoading(false);
       }

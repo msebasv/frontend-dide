@@ -61,8 +61,7 @@ export const useNotifications = (userEmail: string, role: string) => {
         }
 
         setNotifications([]);
-      } catch (error) {
-        console.error("Error cargando notificaciones", error);
+      } catch {
         if (!silent) setNotifications([]);
       } finally {
         hasLoadedRef.current = true;

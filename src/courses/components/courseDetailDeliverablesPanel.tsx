@@ -1,6 +1,10 @@
 import { IoCheckmarkCircle, IoChevronDownOutline } from "react-icons/io5";
 import clsx from "clsx";
 
+import { ElapsedDaysBadge } from "../../global/components/elapsedDaysBadge";
+import { deliverableElapsedDayCount } from "../../global/utils/colombiaBusinessDays";
+import { formatActivityStatus } from "../mappers/courseMappers";
+import { isSyllabusDeliverable } from "../domain/deliverableDomain";
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
 import {
   isCreditGroupApproved,
@@ -13,6 +17,7 @@ export interface CourseDetailDeliverablesPanelProps {
   groups: ProcessDeliverableGroup[];
   materials: CourseMaterial[];
   deliverableCount: number;
+  processCreatedOn: string;
   expandedCredits: number[];
   selectedDeliverableId: string;
   onToggleCreditGroup: (creditNumber: number) => void;
@@ -23,11 +28,26 @@ export function CourseDetailDeliverablesPanel({
   groups,
   materials,
   deliverableCount,
+  processCreatedOn,
   expandedCredits,
   selectedDeliverableId,
   onToggleCreditGroup,
   onSelectDeliverable,
 }: CourseDetailDeliverablesPanelProps) {
+  const syllabusItem = groups
+    .flatMap((entry) => entry.items)
+    .find((entry) => isSyllabusDeliverable(entry));
+  const syllabusCompletedOn = syllabusItem
+    ? (materials
+        .filter((material) =>
+          materialBelongsToDeliverable(material, syllabusItem),
+        )
+        .map((material) => material.createdOn || material.modifiedOn)
+        .filter(Boolean)
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] ??
+      "")
+    : "";
+
   return (
     <div className="flex h-[min(32rem,58dvh)] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)] lg:col-span-4 lg:h-[min(36rem,65dvh)]">
       <div className="shrink-0 border-b border-border bg-gradient-to-r from-primary/5 to-transparent px-4 py-3 sm:px-5 sm:py-3.5">
@@ -100,9 +120,38 @@ export function CourseDetailDeliverablesPanel({
                 <ul className="space-y-1 border-t border-border p-2">
                   {group.items.map((item) => {
                     const isSelected = item.id === selectedDeliverableId;
-                    const activityCount = materials.filter((material) =>
+                    const related = materials.filter((material) =>
                       materialBelongsToDeliverable(material, item),
-                    ).length;
+                    );
+                    const activityCount = related.length;
+                    const latest = [...related].sort(
+                      (a, b) =>
+                        new Date(b.createdOn || b.modifiedOn || 0).getTime() -
+                        new Date(a.createdOn || a.modifiedOn || 0).getTime(),
+                    )[0];
+                    const latestStatus = latest
+                      ? formatActivityStatus(latest.status)
+                      : "";
+                    const returned = /devuelto|corregir|no aprobado/i.test(
+                      latestStatus,
+                    );
+                    const eventDates = [...related]
+                      .map(
+                        (material) => material.createdOn || material.modifiedOn,
+                      )
+                      .filter(Boolean)
+                      .sort(
+                        (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+                      );
+                    const elapsedDays = deliverableElapsedDayCount({
+                      isSyllabus: isSyllabusDeliverable(item),
+                      returned,
+                      eventDates,
+                      processCreatedOn,
+                      syllabusCompletedOn: isSyllabusDeliverable(item)
+                        ? undefined
+                        : syllabusCompletedOn,
+                    });
 
                     return (
                       <li key={item.id}>
@@ -131,13 +180,16 @@ export function CourseDetailDeliverablesPanel({
                               {item.isRequired ? "Obligatorio" : "Opcional"}
                             </span>
                           </div>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            <ProcessStatus status={item.stateLabel} />
-                            <span className="text-[10px] text-muted">
-                              {activityCount === 0
-                                ? "Sin historial"
-                                : `${activityCount} en historial`}
-                            </span>
+                          <div className="mt-1.5 space-y-1.5">
+                            <ProcessStatus status={item.stateLabel} compact />
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <ElapsedDaysBadge days={elapsedDays} />
+                              <span className="text-[10px] text-muted">
+                                {activityCount === 0
+                                  ? "Sin historial"
+                                  : `${activityCount} en historial`}
+                              </span>
+                            </div>
                           </div>
                         </button>
                       </li>

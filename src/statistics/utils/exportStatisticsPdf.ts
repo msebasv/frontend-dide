@@ -151,6 +151,12 @@ export const exportStatisticsPdf = ({
   );
 
   addSection(
+    "Días transcurridos por proceso",
+    ["Días", "Procesos"],
+    statistics.processElapsedCounts.map((item) => [item.days, item.count]),
+  );
+
+  addSection(
     "Distribución por facultad",
     ["Facultad", "Total", "En progreso", "Completados"],
     statistics.facultyDistribution.map((item) => [
@@ -184,9 +190,15 @@ export const exportStatisticsPdf = ({
   );
 
   addSection(
-    "Distribución de entregables por estado",
-    ["Estado", "Cantidad"],
+    "Entregables por fase",
+    ["Fase", "Cantidad"],
     statistics.deliverableDistribution.map((item) => [item.shortName, item.value]),
+  );
+
+  addSection(
+    "Días transcurridos de entregables",
+    ["Días", "Entregables"],
+    statistics.deliverableElapsedCounts.map((item) => [item.days, item.count]),
   );
 
   addSection(

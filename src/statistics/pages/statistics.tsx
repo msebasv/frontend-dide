@@ -33,6 +33,7 @@ import {
 } from "../../global/constants/domainConstants";
 import { isAdvisorRole } from "../../courses/mappers/courseMappers";
 import { COMPLETED_STATUS } from "../constants/phaseConfig";
+import { processElapsedDayCount } from "../../global/utils/colombiaBusinessDays";
 import { resolveDeliverableStatBucket } from "../constants/deliverableStatsConfig";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
 import type {
@@ -41,6 +42,7 @@ import type {
 } from "../types/statistics.types";
 
 import { useStatistics } from "../hooks/useStatistics";
+import ElapsedDaysChart from "../components/ElapsedDaysChart";
 import PhaseDonutChart from "../components/PhaseDonutChart";
 import FacultyBarChart from "../components/FacultyBarChart";
 import MonthlyTrendChart from "../components/MonthlyTrendChart";
@@ -57,14 +59,32 @@ type ProcessDrill =
   | { kind: "inProgress"; title: string }
   | { kind: "pendingApproval"; title: string }
   | { kind: "completed"; title: string }
-  | { kind: "status"; status: string; title: string };
+  | { kind: "status"; status: string; title: string }
+  | { kind: "faculty"; facultyName: string; title: string }
+  | { kind: "program"; programName: string; title: string }
+  | { kind: "process"; processId: string; title: string }
+  | { kind: "month"; monthKey: string; title: string }
+  | { kind: "ids"; processIds: string[]; title: string }
+  | { kind: "elapsed"; days: number; title: string };
 
 type DeliverableDrill =
   | { kind: "all"; title: string }
   | { kind: "pending"; title: string }
   | { kind: "inReview"; title: string }
   | { kind: "approved"; title: string }
-  | { kind: "status"; status: string; title: string };
+  | { kind: "status"; status: string; title: string }
+  | { kind: "faculty"; facultyName: string; title: string }
+  | { kind: "program"; programName: string; title: string }
+  | { kind: "elapsed"; days: number; title: string };
+
+const elapsedDayLabel = (days: number): string =>
+  days === 1 ? "1 día" : `${days} días`;
+
+const createdMonthKey = (iso: string): string => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
 
 const filterProcessesByDrill = (
   processes: VirtualizationProcess[],
@@ -90,6 +110,32 @@ const filterProcessesByDrill = (
       );
     case "status":
       return processes.filter((process) => process.status === drill.status);
+    case "faculty":
+      return processes.filter(
+        (process) => (process.facultyName || "Sin facultad") === drill.facultyName,
+      );
+    case "program":
+      return processes.filter(
+        (process) => (process.programName || "Sin programa") === drill.programName,
+      );
+    case "process":
+      return processes.filter((process) => process.processId === drill.processId);
+    case "month":
+      return processes.filter(
+        (process) => createdMonthKey(process.createdOn) === drill.monthKey,
+      );
+    case "ids":
+      return processes.filter((process) =>
+        drill.processIds.includes(process.processId),
+      );
+    case "elapsed":
+      return processes.filter(
+        (process) =>
+          processElapsedDayCount(
+            process.createdOn,
+            process.status === COMPLETED_STATUS ? process.modifiedOn : undefined,
+          ) === drill.days,
+      );
     default:
       return processes;
   }
@@ -115,10 +161,17 @@ const filterDeliverablesByDrill = (
         (item) => resolveDeliverableStatBucket(item.stateLabel) === "approved",
       );
     case "status":
+      return deliverables.filter((item) => item.phaseKey === drill.status);
+    case "faculty":
       return deliverables.filter(
-        (item) =>
-          item.stateLabel.toLowerCase() === drill.status.toLowerCase(),
+        (item) => (item.facultyName || "Sin facultad") === drill.facultyName,
       );
+    case "program":
+      return deliverables.filter(
+        (item) => (item.programName || "Sin programa") === drill.programName,
+      );
+    case "elapsed":
+      return deliverables.filter((item) => item.elapsedDays === drill.days);
     default:
       return deliverables;
   }
@@ -128,6 +181,7 @@ const Statistics = () => {
   const { user, currentRole } = useAuth();
   const canAccess =
     isLeaderRole(currentRole) || isAdvisorRole(currentRole);
+  const [viewMode, setViewMode] = useState<StatisticsViewMode>("process");
 
   const {
     statistics,
@@ -147,9 +201,8 @@ const Statistics = () => {
     filtersLabel,
     scope,
     scopeLabel,
-  } = useStatistics(user?.email ?? "", currentRole);
+  } = useStatistics(user?.email ?? "", currentRole, viewMode);
 
-  const [viewMode, setViewMode] = useState<StatisticsViewMode>("process");
   const [exporting, setExporting] = useState(false);
   const [processDrill, setProcessDrill] = useState<ProcessDrill | null>(null);
   const [deliverableDrill, setDeliverableDrill] =
@@ -426,17 +479,82 @@ const Statistics = () => {
               rate={metrics.completionRate}
               completed={metrics.completed}
               total={metrics.totalProcesses}
+              onSelect={() =>
+                setProcessDrill({
+                  kind: "completed",
+                  title: "Procesos completados",
+                })
+              }
+            />
+          </div>
+
+          <ElapsedDaysChart
+            data={statistics.processElapsedCounts.map((item) => ({
+              key: String(item.days),
+              label: elapsedDayLabel(item.days),
+              count: item.count,
+            }))}
+            title="Días transcurridos por proceso"
+            subtitle="Cantidad de procesos según sus días hábiles totales. Clic para verlos"
+            onSelect={(key) => {
+              const days = Number(key);
+              setProcessDrill({
+                kind: "elapsed",
+                days,
+                title: `Procesos con ${elapsedDayLabel(days)}`,
+              });
+            }}
+          />
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <FacultyBarChart
+              data={statistics.facultyDistribution}
+              subtitle="Clic en una facultad para ver sus procesos"
+              onSelect={(facultyName) =>
+                setProcessDrill({
+                  kind: "faculty",
+                  facultyName,
+                  title: facultyName,
+                })
+              }
+            />
+            <ProgramBarChart
+              data={statistics.programDistribution}
+              subtitle="Clic en un programa para ver sus procesos"
+              onSelect={(programName) =>
+                setProcessDrill({
+                  kind: "program",
+                  programName,
+                  title: programName,
+                })
+              }
             />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <FacultyBarChart data={statistics.facultyDistribution} />
-            <ProgramBarChart data={statistics.programDistribution} />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <MonthlyTrendChart data={statistics.monthlyTrend} />
-            <ActivityRoleChart data={statistics.activitiesByRole} />
+            <MonthlyTrendChart
+              data={statistics.monthlyTrend}
+              onSelect={(monthKey, label) =>
+                setProcessDrill({
+                  kind: "month",
+                  monthKey,
+                  title: `Procesos creados en ${label}`,
+                })
+              }
+            />
+            <ActivityRoleChart
+              data={statistics.activitiesByRole}
+              onSelect={(role) => {
+                const match = statistics.activitiesByRole.find(
+                  (item) => item.role === role,
+                );
+                setProcessDrill({
+                  kind: "ids",
+                  processIds: match?.processIds ?? [],
+                  title: role,
+                });
+              }}
+            />
           </div>
         </>
       ) : (
@@ -498,14 +616,12 @@ const Statistics = () => {
 
           <div>
             <div className="mb-3">
-              <p className="text-sm font-semibold text-primary">
-                Por estado del entregable
-              </p>
+              <p className="text-sm font-semibold text-primary">Por estado</p>
               <p className="text-xs text-muted">
-                Cada entregable avanza de forma independiente dentro del proceso
+                Clic en una fase para ver los entregables que están ahí
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {statistics.deliverableDistribution.map((phase) => (
                 <button
                   key={phase.name}
@@ -543,8 +659,8 @@ const Statistics = () => {
             <div className="lg:col-span-2">
               <PhaseDonutChart
                 data={statistics.deliverableDistribution}
-                title="Distribución por estado del entregable"
-                subtitle="Clic en un estado para ver esos entregables"
+                title="Distribución por fase"
+                subtitle="Clic en una fase para ver esos entregables"
                 unitLabel="entregable"
                 onPhaseClick={(phaseName) => {
                   const phase = statistics.deliverableDistribution.find(
@@ -563,15 +679,47 @@ const Statistics = () => {
               completed={deliverableMetrics.approved}
               total={deliverableMetrics.totalDeliverables}
               title="Avance de entregables"
-              subtitle="Entregables aprobados sobre el total"
+              subtitle="Entregables aprobados sobre el total. Clic para verlos"
+              onSelect={() =>
+                setDeliverableDrill({
+                  kind: "approved",
+                  title: "Entregables aprobados",
+                })
+              }
             />
           </div>
+
+          <ElapsedDaysChart
+            data={statistics.deliverableElapsedCounts.map((item) => ({
+              key: String(item.days),
+              label: elapsedDayLabel(item.days),
+              count: item.count,
+            }))}
+            title="Días transcurridos por entregable"
+            unitLabel="entregable"
+            subtitle="Cantidad de entregables según sus días hábiles. Clic para verlos"
+            onSelect={(key) => {
+              const days = Number(key);
+              setDeliverableDrill({
+                kind: "elapsed",
+                days,
+                title: `Entregables con ${elapsedDayLabel(days)}`,
+              });
+            }}
+          />
 
           <div className="grid gap-6 lg:grid-cols-2">
             <FacultyBarChart
               data={statistics.deliverableFacultyDistribution}
               title="Entregables por facultad"
-              subtitle="Comparativa de avance de materiales por unidad académica"
+              subtitle="Clic en una facultad para ver sus entregables"
+              onSelect={(facultyName) =>
+                setDeliverableDrill({
+                  kind: "faculty",
+                  facultyName,
+                  title: facultyName,
+                })
+              }
               completedLabel="Aprobados"
               inProgressLabel="En curso"
             />
@@ -587,7 +735,14 @@ const Statistics = () => {
                 .sort((a, b) => b.value - a.value)
                 .slice(0, 8)}
               title="Top programas"
-              subtitle="Programas con mayor cantidad de entregables"
+              subtitle="Clic en un programa para ver sus entregables"
+              onSelect={(programName) =>
+                setDeliverableDrill({
+                  kind: "program",
+                  programName,
+                  title: programName,
+                })
+              }
               unitLabel="entregable"
             />
           </div>

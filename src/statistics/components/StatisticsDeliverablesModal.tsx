@@ -8,6 +8,7 @@ import DataTable, { type Column } from "../../global/components/dataTable";
 import Modal from "../../global/components/modal";
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
 import { formatDateTime } from "../../global/utils/dateUtils";
+import { formatElapsedDays } from "../../global/utils/colombiaBusinessDays";
 import type { StatisticsDeliverableRow } from "../types/statistics.types";
 
 interface StatisticsDeliverablesModalProps {
@@ -63,6 +64,15 @@ function StatisticsDeliverablesModal({
       render: (row) => <ProcessStatus status={row.stateLabel} compact />,
     },
     {
+      key: "elapsedDays",
+      header: "Días transcurridos",
+      render: (row) => (
+        <span className="text-xs font-semibold text-primary">
+          {formatElapsedDays(row.elapsedDays)}
+        </span>
+      ),
+    },
+    {
       key: "modifiedOn",
       header: "Actualizado",
       render: (row) => (
@@ -96,7 +106,6 @@ function StatisticsDeliverablesModal({
       <DataTable
         columns={columns}
         data={deliverables}
-        pageSize={8}
         searchable
         searchPlaceholder="Buscar por entregable, proceso o estado..."
         searchKeys={["name", "processName", "courseName", "stateLabel", "facultyName"]}

@@ -7,14 +7,19 @@ import InputText from "../../global/components/inputText";
 import EmailAutocomplete, {
   useDirectoryEmailReady,
 } from "../../global/components/emailAutocomplete";
-import Select from "../../global/components/select";
+import Select, { type SelectOption } from "../../global/components/select";
 import Button from "../../global/components/button";
 import FormBusyOverlay from "../../global/components/formBusyOverlay";
 import LoadingState from "../../global/components/loadingState";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { PENDING_ACTION_COPY } from "../../global/constants/operationCopy";
 import { useAuth } from "../../global/hooks/useAuth";
-import { canCreateOrEditProcesses, USER_ROLES } from "../../global/constants/domainConstants";
+import {
+  canCreateOrEditProcesses,
+  isDideCoordinatorRole,
+  isVirtualizationLeaderRole,
+  USER_ROLES,
+} from "../../global/constants/domainConstants";
 import {
   PROCESS_CREDITS_MIN,
   validateOrganizationEmail,
@@ -27,6 +32,7 @@ import {
 } from "../../global/utils/processNameUtils";
 
 import {
+  getAvailableCourses,
   getProcessForEdit,
   getRoles,
   updateVirtualizationProcess,
@@ -39,6 +45,9 @@ function EditProcess() {
   const { user, currentRole, refreshRoles } = useAuth();
   const { runAction, isOperationPending } = useActionFeedback();
   const canManage = canCreateOrEditProcesses(currentRole);
+  const validatorOnly = isVirtualizationLeaderRole(currentRole);
+  const canChangeCourse = isDideCoordinatorRole(currentRole);
+  const creditsLocked = validatorOnly || canChangeCourse;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -50,14 +59,16 @@ function EditProcess() {
   const [processName, setProcessName] = useState("");
   const [semester, setSemester] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<{
-    label: string;
-    value: string;
-  } | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<SelectOption | null>(
+    null,
+  );
+  const [courseOptions, setCourseOptions] = useState<SelectOption[]>([]);
   const [leaderEmail, setLeaderEmail] = useState("");
   const [authorEmail, setAuthorEmail] = useState("");
   const [validatorEmail, setValidatorEmail] = useState("");
   const [advisorEmail, setAdvisorEmail] = useState("");
+  const [designerEmail, setDesignerEmail] = useState("");
+  const [designerRoleId, setDesignerRoleId] = useState("");
   const [credits, setCredits] = useState("");
   const [roleIds, setRoleIds] = useState({
     leader: "",
@@ -88,19 +99,30 @@ function EditProcess() {
         ? processNameCheck.value
         : null;
 
+  const validatorProvided = validatorEmail.trim().length > 0;
+  const validatorOk = validatorOnly
+    ? validatorCheck.ok
+    : !validatorProvided || validatorCheck.ok;
+  const directoryKeys = [
+    "leader",
+    "author",
+    "advisor",
+    ...(validatorProvided || validatorOnly ? ["validator"] : []),
+  ];
+
   const formIsValid =
     processNameCheck.ok &&
     Boolean(selectedCourse) &&
     creditsValid &&
     leaderCheck.ok &&
     authorCheck.ok &&
-    validatorCheck.ok &&
+    validatorOk &&
     advisorCheck.ok &&
-    directoryEmails.allReady("leader", "author", "validator", "advisor") &&
+    directoryEmails.allReady(...directoryKeys) &&
     Boolean(roleIds.leader) &&
     Boolean(roleIds.author) &&
-    Boolean(roleIds.validator) &&
-    Boolean(roleIds.advisor);
+    Boolean(roleIds.advisor) &&
+    (!validatorProvided || Boolean(roleIds.validator));
 
   useEffect(() => {
     if (!processId) {
@@ -111,9 +133,10 @@ function EditProcess() {
 
     const loadData = async () => {
       try {
-        const [editData, roles] = await Promise.all([
+        const [editData, roles, availableCourses] = await Promise.all([
           getProcessForEdit(processId),
           getRoles(),
+          canChangeCourse ? getAvailableCourses() : Promise.resolve([]),
         ]);
 
         if (!editData) {
@@ -130,10 +153,25 @@ function EditProcess() {
         setProcessName(parsed.baseName);
         setSemester(parsed.semester);
         setCode(parsed.code);
-        setSelectedCourse({
-          label: editData.courseName,
+        const currentCourse = {
+          label: editData.courseName || "Sin nombre",
           value: editData.courseId,
-        });
+        };
+        setSelectedCourse(currentCourse);
+        const alternatives = availableCourses
+          .map((course) => ({
+            label: course.dev_namecourse?.trim() || "Sin nombre",
+            value: course.dev_tablecourseinstanceid?.trim() ?? "",
+          }))
+          .filter(
+            (course) =>
+              course.value && course.value !== currentCourse.value,
+          );
+        setCourseOptions(
+          [currentCourse, ...alternatives].sort((a, b) =>
+            a.label.localeCompare(b.label, "es"),
+          ),
+        );
         setCredits(
           editData.credits > 0 ? String(editData.credits) : "",
         );
@@ -147,8 +185,11 @@ function EditProcess() {
           author: authorRoleId,
           validator: validatorRoleId,
           advisor: advisorRoleId,
+          designer: designerRoleId,
         } = resolveProcessRoleIds(roles);
 
+        setDesignerEmail(editData.designerEmail);
+        setDesignerRoleId(designerRoleId);
         setRoleIds({
           leader: leaderRoleId,
           author: authorRoleId,
@@ -166,8 +207,7 @@ function EditProcess() {
             "No se encontraron todos los roles en el sistema. Verifica que existan Líder de virtualización, Autor de asignatura, Validador disciplinar y Asesor pedagógico.",
           );
         }
-      } catch (error) {
-        console.error("Error cargando proceso para edición", error);
+      } catch {
         setNotFound(true);
       } finally {
         setLoading(false);
@@ -175,7 +215,7 @@ function EditProcess() {
     };
 
     void loadData();
-  }, [processId]);
+  }, [processId, canChangeCourse]);
 
   const handleSubmit = async () => {
     if (!formIsValid || !selectedCourse || !processId || !namePreview) return;
@@ -191,17 +231,20 @@ function EditProcess() {
             credits: creditsNumber,
             leaderEmail: leaderCheck.value,
             authorEmail: authorCheck.value,
-            validatorEmail: validatorCheck.value,
+            validatorEmail: validatorProvided ? validatorCheck.value : "",
             advisorEmail: advisorCheck.value,
             leaderRoleId: roleIds.leader,
             authorRoleId: roleIds.author,
             validatorRoleId: roleIds.validator,
             advisorRoleId: roleIds.advisor,
+            designerEmail,
+            designerRoleId,
           }),
         {
           successTitle: "Proceso actualizado",
-          successMessage:
-            "El nombre y los responsables del proceso se actualizaron correctamente.",
+          successMessage: validatorOnly
+            ? "El validador disciplinar del proceso se actualizó."
+            : "El nombre y los responsables del proceso se actualizaron correctamente.",
           errorTitle: "No se pudo actualizar el proceso",
           errorMessage:
             "Verifique los datos e intente nuevamente. Si el problema persiste, contacte al administrador.",
@@ -211,8 +254,8 @@ function EditProcess() {
             const assigned = [
               leaderCheck.value,
               authorCheck.value,
-              validatorCheck.value,
               advisorCheck.value,
+              ...(validatorProvided ? [validatorCheck.value] : []),
             ].map((email) => email.trim().toLowerCase());
 
             if (!me || !assigned.includes(me)) return;
@@ -266,7 +309,13 @@ function EditProcess() {
     <div>
       <PageHeader
         title="Editar proceso"
-        description="Actualiza el nombre y los usuarios asignados a cada rol"
+        description={
+          validatorOnly
+            ? "Solo puede cambiar el validador disciplinar. El resto del proceso se mantiene."
+            : canChangeCourse
+              ? "Puede actualizar el nombre, el curso asociado y los roles. Los créditos no se modifican."
+              : "Actualiza el nombre y los usuarios asignados a cada rol. El validador disciplinar es opcional."
+        }
         backTo={`/virtualization-processes/${processId}`}
       />
 
@@ -303,7 +352,7 @@ function EditProcess() {
               placeholder="Nombre del proceso"
               maxLength={processNameMaxLength}
               invalid={Boolean(processName.trim() && !processNameCheck.ok)}
-              disabled={formBusy}
+              disabled={formBusy || validatorOnly}
             />
           </FormField>
 
@@ -316,14 +365,27 @@ function EditProcess() {
 
           <FormField
             label="Curso asociado"
-            hint="El curso no se puede cambiar después de crear el proceso."
+            required
+            hint={
+              canChangeCourse
+                ? "Puede elegir el curso actual u otro que no esté en un proceso activo."
+                : "El curso no se puede cambiar después de crear el proceso."
+            }
           >
             <Select
-              options={selectedCourse ? [selectedCourse] : []}
+              options={
+                canChangeCourse
+                  ? courseOptions
+                  : selectedCourse
+                    ? [selectedCourse]
+                    : []
+              }
               value={selectedCourse}
-              onChange={() => undefined}
+              onChange={(course) => {
+                if (course) setSelectedCourse(course);
+              }}
               placeholder="Curso"
-              disabled
+              disabled={formBusy || !canChangeCourse}
             />
           </FormField>
 
@@ -335,7 +397,11 @@ function EditProcess() {
                 ? "Ingrese un número entero desde 1."
                 : undefined
             }
-            hint="Número entero desde 1."
+            hint={
+              creditsLocked
+                ? "El número de créditos no se puede modificar."
+                : "Número entero desde 1."
+            }
           >
             <InputText
               type="number"
@@ -345,7 +411,7 @@ function EditProcess() {
               min={PROCESS_CREDITS_MIN}
               step={1}
               invalid={Boolean(credits.trim() && !creditsValid)}
-              disabled={formBusy}
+              disabled={formBusy || creditsLocked}
             />
           </FormField>
 
@@ -365,7 +431,7 @@ function EditProcess() {
                   onChange={setLeaderEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(leaderEmail.trim() && !leaderCheck.ok)}
-                  disabled={formBusy}
+                  disabled={formBusy || validatorOnly}
                   onDirectoryReady={directoryEmails.bind("leader")}
                 />
               </FormField>
@@ -381,18 +447,22 @@ function EditProcess() {
                   onChange={setAuthorEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(authorEmail.trim() && !authorCheck.ok)}
-                  disabled={formBusy}
+                  disabled={formBusy || validatorOnly}
                   onDirectoryReady={directoryEmails.bind("author")}
                 />
               </FormField>
 
               <FormField
                 label={USER_ROLES.VALIDATOR}
-                required
+                required={validatorOnly}
                 error={
                   validatorEmail.trim() ? validatorCheck.message : undefined
                 }
-                hint="Obligatorio antes de cargar el syllabus. Solo el líder de virtualización debe asignarlo."
+                hint={
+                  validatorOnly
+                    ? "Único dato que puede cambiar. Correo institucional del validador."
+                    : "Opcional. Puede guardar el proceso sin validador y asignarlo después."
+                }
               >
                 <EmailAutocomplete
                   value={validatorEmail}
@@ -415,7 +485,7 @@ function EditProcess() {
                   onChange={setAdvisorEmail}
                   placeholder="Buscar correo"
                   invalid={Boolean(advisorEmail.trim() && !advisorCheck.ok)}
-                  disabled={formBusy}
+                  disabled={formBusy || validatorOnly}
                   onDirectoryReady={directoryEmails.bind("advisor")}
                 />
               </FormField>
