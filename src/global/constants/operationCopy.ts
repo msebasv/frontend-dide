@@ -26,6 +26,9 @@ export const OPERATION_COPY = {
   softTimeoutGeneric:
     "La solicitud permanece en procesamiento y aún no ha sido confirmada. El sistema notificará el resultado al concluir.",
 
+  leaveWhilePending:
+    "Hay una solicitud en procesamiento. Si cierra esta pestaña, no recibirá el aviso de si terminó bien o con error.",
+
   backgroundFailedDefault:
     "No fue posible confirmar el resultado en el tiempo esperado. Verifique el estado en el detalle. Si el cambio ya aparece, no envíe de nuevo. De lo contrario, intente más tarde o contacte al administrador.",
 

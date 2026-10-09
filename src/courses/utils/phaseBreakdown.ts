@@ -7,18 +7,54 @@ import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
   findDeliverablePhase,
   formatDeliverableState,
+  isOptionalDeliverableState,
+  isSyllabusDeliverable,
   resolveDeliverableStateLabel,
   resolveEffectiveDeliverableState,
   resolvePhaseExpectedActivity,
 } from "../services/deliverableService";
-import type { CoursePhaseBreakdown } from "../types/course.types";
+import type {
+  CoursePhaseBreakdown,
+  PhaseBreakdownDeliverable,
+} from "../types/course.types";
 import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 
 export interface DeliverableStateInput {
   stateLabel: string;
   name?: string;
+  id?: string;
+  creditNumber?: number;
+  isRequired?: boolean;
 }
+
+const creditLabelFor = (creditNumber: number): string =>
+  creditNumber === 0 ? "General" : `Unidad ${creditNumber}`;
+
+const toPhaseDeliverables = (
+  deliverables: DeliverableStateInput[],
+  phaseFor: (item: DeliverableStateInput) => string,
+): PhaseBreakdownDeliverable[] =>
+  deliverables.flatMap((item, index) => {
+    const id =
+      item.id?.trim() ||
+      `entregable-${index}-${item.name?.trim() || "sin-nombre"}`;
+    const creditNumber =
+      typeof item.creditNumber === "number" && item.creditNumber > 0
+        ? Math.trunc(item.creditNumber)
+        : 0;
+    return [
+      {
+        id,
+        name: item.name?.trim() || "Entregable",
+        creditNumber,
+        creditLabel: creditLabelFor(creditNumber),
+        phase: phaseFor(item),
+        stateLabel: item.stateLabel,
+        isRequired: item.isRequired !== false,
+      },
+    ];
+  });
 
 const normalize = normalizeComparableText;
 
@@ -233,6 +269,10 @@ export const buildPhaseBreakdownFromDeliverables = (
       counts: {
         [PROCESS_PHASES.COMPLETED]: Math.max(deliverables.length, 1),
       },
+      deliverables: toPhaseDeliverables(
+        deliverables,
+        () => PROCESS_PHASES.COMPLETED,
+      ),
       isMock: false,
     };
   }
@@ -242,6 +282,10 @@ export const buildPhaseBreakdownFromDeliverables = (
       counts: {
         [PROCESS_PHASES.LEADER_SYLLABUS]: Math.max(deliverables.length, 1),
       },
+      deliverables: toPhaseDeliverables(
+        deliverables,
+        () => PROCESS_PHASES.LEADER_SYLLABUS,
+      ),
       isMock: false,
     };
   }
@@ -254,6 +298,10 @@ export const buildPhaseBreakdownFromDeliverables = (
           1,
         ),
       },
+      deliverables: toPhaseDeliverables(
+        deliverables,
+        () => PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM,
+      ),
       isMock: false,
     };
   }
@@ -281,7 +329,13 @@ export const buildPhaseBreakdownFromDeliverables = (
     bump(counts, mapDeliverableStateToPhaseKey(item.stateLabel));
   }
 
-  return { counts, isMock: false };
+  return {
+    counts,
+    deliverables: toPhaseDeliverables(deliverables, (item) =>
+      mapDeliverableStateToPhaseKey(item.stateLabel),
+    ),
+    isMock: false,
+  };
 };
 
 /**
@@ -296,20 +350,39 @@ export const buildProcessPhaseBreakdown = <
   deliverables: Dev_tabledeliverables[];
   phases: Dev_tablephases[];
   templatesMap?: Map<string, T>;
+  requiredByCategoryId?: Map<string, boolean>;
 }): CoursePhaseBreakdown => {
   const states: DeliverableStateInput[] = input.deliverables.map((row) => {
     const linkedPhase = findDeliverablePhase(row, input.phases);
+    const name = row.dev_namedeliverable ?? "";
+    const rawStateLabel = resolveDeliverableStateLabel(row);
+    const categoryId = (row._dev_tablecategorytemplate_value ?? "")
+      .replace(/[{}]/g, "")
+      .trim()
+      .toLowerCase();
+    const requiredFromTemplate =
+      categoryId && input.requiredByCategoryId?.has(categoryId)
+        ? input.requiredByCategoryId.get(categoryId)
+        : undefined;
+    const isRequired =
+      requiredFromTemplate ??
+      (isSyllabusDeliverable({ name }) ||
+        !isOptionalDeliverableState(rawStateLabel));
 
+    const credit = Number(row.dev_creditnumber);
     return {
+      id: row.dev_tabledeliverableid,
+      name,
+      creditNumber: Number.isFinite(credit) && credit > 0 ? Math.trunc(credit) : 0,
+      isRequired,
       stateLabel: resolveEffectiveDeliverableState({
-        rawStateLabel: resolveDeliverableStateLabel(row),
-        deliverableName: row.dev_namedeliverable ?? "",
+        rawStateLabel,
+        deliverableName: name,
         phaseExpectedActivity: linkedPhase
           ? resolvePhaseExpectedActivity(linkedPhase, input.templatesMap)
           : "",
         processCurrentActivity: input.processStatus,
       }),
-      name: row.dev_namedeliverable ?? "",
     };
   });
 

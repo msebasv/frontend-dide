@@ -91,8 +91,7 @@ function EmailAutocomplete({
           setSuggestions(results);
           setActiveIndex(results.length > 0 ? 0 : -1);
         }
-      } catch (error) {
-        console.error("Error buscando usuarios", error);
+      } catch {
         if (!cancelled) setSuggestions([]);
       } finally {
         if (!cancelled) setLoading(false);

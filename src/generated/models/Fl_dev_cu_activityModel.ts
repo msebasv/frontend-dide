@@ -16,6 +16,8 @@ export interface ManualTriggerInput {
   boolean?: boolean;
   // Please enter your input
   text_4?: string;
+  // request-id de table-operation. Lo genera la app.
+  text_5?: string;
 }
 
 export interface ResponseActionOutput {

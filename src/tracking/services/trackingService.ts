@@ -20,42 +20,120 @@ import type {
   ProcessTrackingSummary,
 } from "../types/tracking.types";
 
+type PageResult<T> = {
+  data?: T[] | null;
+  skipToken?: string;
+};
+
+/** Tope de filas que Dataverse devuelve en una sola llamada. */
+const DATAVERSE_PAGE_SIZE = 500;
+/** Tope de páginas seguidas, para no quedar en un bucle si el token se repite. */
+const MAX_DATAVERSE_PAGES = 40;
+
+/** Recorre todas las páginas de una tabla. Una sola llamada se queda en 500 filas. */
+const loadAllPages = async <T>(
+  load: (skipToken?: string) => Promise<PageResult<T>>,
+): Promise<T[]> => {
+  const rows: T[] = [];
+  let skipToken: string | undefined;
+  const seen = new Set<string>();
+
+  for (let page = 0; page < MAX_DATAVERSE_PAGES; page += 1) {
+    if (skipToken) {
+      if (seen.has(skipToken)) break;
+      seen.add(skipToken);
+    }
+    const result = await load(skipToken);
+    rows.push(...(result.data ?? []));
+    if (!result.skipToken) break;
+    skipToken = result.skipToken;
+  }
+
+  return rows;
+};
+
 export const getProcessTrackingBoard = async (
   userEmail: string,
   userRole: string,
 ): Promise<{ rows: ProcessTrackingRow[]; summary: ProcessTrackingSummary }> => {
   const [
-    assignRolesResult,
-    processesResult,
-    coursesResult,
-    programsResult,
-    facultiesResult,
-    phasesResult,
-    activitiesResult,
-    deliverablesResult,
-    activityTemplatesResult,
+    assignRoles,
+    processes,
+    courses,
+    programs,
+    faculties,
+    phases,
+    activities,
+    deliverables,
+    activityTemplates,
   ] = await Promise.all([
-    Dev_tableassignrolesService.getAll(),
-    Dev_tablevirtualizationprocessesService.getAll(),
-    Dev_tablecourseinstancesService.getAll(),
-    Dev_table_programsService.getAll(),
-    Dev_table_facultiesService.getAll(),
-    Dev_tablephasesService.getAll(),
-    Dev_tableactivitiesService.getAll(),
-    Dev_tabledeliverablesService.getAll(),
-    Dev_tableactivitytemplatesService.getAll(),
+    loadAllPages((skipToken) =>
+      Dev_tableassignrolesService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_tablevirtualizationprocessesService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_tablecourseinstancesService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_table_programsService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_table_facultiesService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_tablephasesService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_tableactivitiesService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_tabledeliverablesService.getAll({
+        filter: "statecode eq 0",
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
+    loadAllPages((skipToken) =>
+      Dev_tableactivitytemplatesService.getAll({
+        maxPageSize: DATAVERSE_PAGE_SIZE,
+        skipToken,
+      }),
+    ),
   ]);
 
   const rows = buildProcessTrackingRows({
-    processes: processesResult.data ?? [],
-    courses: coursesResult.data ?? [],
-    programs: programsResult.data ?? [],
-    faculties: facultiesResult.data ?? [],
-    phases: phasesResult.data ?? [],
-    activities: activitiesResult.data ?? [],
-    deliverables: deliverablesResult.data ?? [],
-    activityTemplates: activityTemplatesResult.data ?? [],
-    assignRoles: assignRolesResult.data ?? [],
+    processes,
+    courses,
+    programs,
+    faculties,
+    phases,
+    activities,
+    deliverables,
+    activityTemplates,
+    assignRoles,
     userEmail,
     userRole,
   });

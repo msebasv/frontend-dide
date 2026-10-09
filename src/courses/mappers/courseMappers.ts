@@ -26,10 +26,13 @@ import type {
   CourseMaterial,
 } from "../types/course.types";
 import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
+import { isActiveDataverseRecord } from "../../global/utils/dataverseState";
+import { resolveProcessSemester } from "../../global/utils/semesterUtils";
 import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
-  canCreateOrEditProcesses,
+  canUploadProcessSyllabus,
   canonicalizeUserRole,
+  isAdminRole,
   isProcessCloseReady,
   isVirtualizationLeaderRole,
   PROCESS_PHASES,
@@ -152,16 +155,57 @@ export const getPhaseExpectedActivityName = (
   return phase.dev_namephase?.trim() || PROCESS_PHASES.UNKNOWN;
 };
 
-/** Obtiene el estado visible del proceso a partir de su fase más reciente (por modifiedon o createdon). */
+const DELIVERABLE_APPROVED = 775730004;
+const DELIVERABLE_NOT_STARTED = 775730005;
+
+/** Hay un entregable ya iniciado que todavía no está aprobado. */
+const hasOpenStartedDeliverable = (
+  deliverables?: Dev_tabledeliverables[],
+): boolean =>
+  (deliverables ?? []).some((row) => {
+    const recordState = Number(row.statecode);
+    if (Number.isFinite(recordState) && recordState !== 0) return false;
+    const code = Number(row.dev_deliverablestate);
+    if (!Number.isFinite(code)) return false;
+    return code !== DELIVERABLE_NOT_STARTED && code !== DELIVERABLE_APPROVED;
+  });
+
+const phaseIsClassroomConfirm = (
+  phase: PhaseWithFormatted,
+  templatesMap?: Map<string, Dev_tableactivitytemplates>,
+): boolean => {
+  const expected = getPhaseExpectedActivityName(phase, templatesMap);
+  const phaseName = phase.dev_namephase?.trim() ?? "";
+  const templateName = phase.dev_tablephasetemplatename?.trim() ?? "";
+  return (
+    isLeaderClassroomConfirmStatus(expected) ||
+    isLeaderClassroomConfirmStatus(phaseName) ||
+    isLeaderClassroomConfirmStatus(templateName)
+  );
+};
+
+/**
+ * Estado visible del proceso.
+ * La validación del aula solo queda al frente si ya está abierta y
+ * todos los entregables iniciados están aprobados. Uno opcional a medio
+ * cargar devuelve la fase real de ese trabajo.
+ */
 export const getCurrentStatus = (
   phases: PhaseWithFormatted[],
   templatesMap?: Map<string, Dev_tableactivitytemplates>,
+  deliverables?: Dev_tabledeliverables[],
 ): string => {
   const lastPhase = [...phases].sort(
     (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
   )[0];
-
-  return getPhaseExpectedActivityName(lastPhase, templatesMap);
+  const latest = getPhaseExpectedActivityName(lastPhase, templatesMap);
+  const classroomOpen = phases.some((phase) =>
+    phaseIsClassroomConfirm(phase, templatesMap),
+  );
+  if (classroomOpen && !hasOpenStartedDeliverable(deliverables)) {
+    return PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM;
+  }
+  return latest;
 };
 
 /** Traduce el estado del proceso al rol responsable en lenguaje de negocio. */
@@ -248,7 +292,9 @@ export const mapCoursesForUser = ({
     : undefined;
 
   const processesMap = new Map(
-    processes.map((p) => [p.dev_tablevirtualizationprocessid, p]),
+    processes
+      .filter((process) => isActiveDataverseRecord(process.statecode))
+      .map((p) => [p.dev_tablevirtualizationprocessid, p]),
   );
   const coursesMap = new Map(
     courses.map((c) => [c.dev_tablecourseinstanceid, c]),
@@ -299,14 +345,18 @@ export const mapCoursesForUser = ({
     const program = programsMap.get(course?._dev_tableprogram_value ?? "");
     const faculty = facultiesMap.get(program?._dev_table_faculty_value ?? "");
     const processPhases = phasesByProcess.get(processId) ?? [];
-    const phaseStatus = getCurrentStatus(processPhases, templatesMap);
+    const processDeliverables = deliverablesByProcess.get(processId) ?? [];
+    const phaseStatus = getCurrentStatus(
+      processPhases,
+      templatesMap,
+      processDeliverables,
+    );
     const processClosed = isProcessCloseReady(
       process.dev_closeready,
       process.dev_closereadyname,
     );
     const status = processClosed ? PROCESS_PHASES.COMPLETED : phaseStatus;
     const currentRole = getCurrentRole(status);
-    const processDeliverables = deliverablesByProcess.get(processId) ?? [];
 
     // Mismo estado que muestra el detalle del proceso.
     const phaseBreakdown = buildProcessPhaseBreakdown({
@@ -381,7 +431,7 @@ export const mapCoursesForUser = ({
     const canUpload =
       !processClosed &&
       (hasDeliverables
-        ? (canCreateOrEditProcesses(userRole) && hasSyllabusPending) ||
+        ? (canUploadProcessSyllabus(userRole) && hasSyllabusPending) ||
           (isAuthorRole(userRole) &&
             breakdownHasActionForRole(
               phaseBreakdown,
@@ -405,12 +455,13 @@ export const mapCoursesForUser = ({
         : canUserValidateStatus(userRole, status) || hasAnyPhaseForRole);
     const canFinalize =
       !processClosed &&
+      isDideDesignerRole(userRole) &&
       (hasDeliverables
-        ? hasDeliverableActionForRole && isDideDesignerRole(userRole)
+        ? hasDeliverableActionForRole
         : canUserFinalizeStatus(userRole, status) || hasAnyPhaseForRole);
     const canConfirmClassroom =
       !processClosed &&
-      isVirtualizationLeaderRole(userRole) &&
+      (isVirtualizationLeaderRole(userRole) || isAdminRole(userRole)) &&
       hasClassroomConfirmPending;
 
     return {
@@ -419,6 +470,11 @@ export const mapCoursesForUser = ({
       courseName: course?.dev_namecourse ?? "",
       programName: program?.dev_nameprogram ?? "",
       facultyName: faculty?.dev_namefaculty ?? "",
+      semester: resolveProcessSemester(
+        process.dev_nameprocess ?? "",
+        process.createdon,
+      ),
+      createdOn: process.createdon ?? "",
       authorName: authorByProcess.get(processId) ?? "—",
       status,
       currentRole: activeBuckets > 1 ? "Varios" : currentRole,
@@ -714,7 +770,7 @@ export const mapCourseDetail = ({
     ]),
   );
 
-  const phaseStatus = getCurrentStatus(phases, templatesMap);
+  const phaseStatus = getCurrentStatus(phases, templatesMap, deliverables);
   const processClosed = isProcessCloseReady(
     process.dev_closeready,
     process.dev_closereadyname,
@@ -912,7 +968,9 @@ export const mapCourseDetail = ({
     programName: program?.dev_nameprogram ?? "",
     facultyName: faculty?.dev_namefaculty ?? "",
     folderBase: process.dev_folderbase ?? "",
+    createdOn: process.createdon ?? "",
     status,
+    isDeleted: !isActiveDataverseRecord(process.statecode),
     currentRole,
     materials,
     assignedRoles,

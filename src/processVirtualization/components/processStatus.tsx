@@ -6,6 +6,7 @@ import {
 import {
   PHASE_SHORT_LABELS,
   PROCESS_PHASES,
+  VISUAL_CLASSROOM_UPLOAD_LABEL,
 } from "../../global/constants/domainConstants";
 import {
   isAdvisorAudiovisualApprovalStatus,
@@ -127,6 +128,13 @@ const toUiStatusLabel = (status: string): string => formatDomainLabel(status);
 
 const resolveStatusLabel = (status: string, compact: boolean): string => {
   if (!status.trim()) return PROCESS_PHASES.UNKNOWN;
+  // No usar la etiqueta corta de la validación real del aula.
+  if (
+    normalizeStatusKey(status) ===
+    normalizeStatusKey(VISUAL_CLASSROOM_UPLOAD_LABEL)
+  ) {
+    return VISUAL_CLASSROOM_UPLOAD_LABEL;
+  }
   if (compact) {
     const phaseKey = resolvePhaseKey(status);
     if (phaseKey && PHASE_SHORT_LABELS[phaseKey]) {

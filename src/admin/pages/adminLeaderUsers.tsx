@@ -1,5 +1,6 @@
 /**
- * Gestión de Leaders Users (roles globales). Solo Administrador.
+ * Gestión de Leaders Users (roles globales).
+ * Administrador y Coordinador DIDE. El coordinador no asigna Administrador.
  * Incluye Coordinador DIDE, Coordinador Diseñador y Administrador.
  * El Líder de virtualización y el Diseñador DIDE se asignan por proceso, no aquí.
  * Soft-delete: inactivar / reactivar (no borra el registro).
@@ -27,6 +28,7 @@ import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
   isAdminRole,
+  isDideCoordinatorRole,
   USER_ROLES,
 } from "../../global/constants/domainConstants";
 import { validateOrganizationEmail } from "../../global/utils/inputValidation";
@@ -44,6 +46,9 @@ type StatusFilter = "active" | "inactive" | "all";
 
 function AdminLeaderUsersPage() {
   const { currentRole } = useAuth();
+  const canAccess =
+    isAdminRole(currentRole) || isDideCoordinatorRole(currentRole);
+  const canAssignAdmin = isAdminRole(currentRole);
   const { runAction } = useActionFeedback();
 
   const [loading, setLoading] = useState(true);
@@ -65,19 +70,21 @@ function AdminLeaderUsersPage() {
 
   const roleOptions = useMemo(
     () =>
-      LEADER_USERS_MANAGEABLE_ROLES.map((item) => ({
+      LEADER_USERS_MANAGEABLE_ROLES.filter(
+        (item) => canAssignAdmin || item !== USER_ROLES.ADMIN,
+      ).map((item) => ({
         label: item,
         value: item,
       })),
-    [],
+    [canAssignAdmin],
   );
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setRows(await listLeaderUsers());
-    } catch (error) {
-      console.error("Error cargando usuarios líderes", error);
+    } catch {
+      // La lista queda como estaba.
     } finally {
       setLoading(false);
     }
@@ -96,7 +103,7 @@ function AdminLeaderUsersPage() {
   const activeCount = rows.filter((row) => row.isActive).length;
   const inactiveCount = rows.length - activeCount;
 
-  if (!isAdminRole(currentRole)) {
+  if (!canAccess) {
     return <Navigate to="/" replace />;
   }
 
@@ -114,6 +121,7 @@ function AdminLeaderUsersPage() {
 
   const handleCreate = async () => {
     if (!formIsValid || !role) return;
+    if (!canAssignAdmin && role.value === USER_ROLES.ADMIN) return;
 
     try {
       setSubmitting(true);
@@ -122,6 +130,7 @@ function AdminLeaderUsersPage() {
           createLeaderUser({
             email: emailCheck.value,
             roleName: role.value,
+            allowAdmin: canAssignAdmin,
           }),
         {
           successTitle: "Usuario registrado",
@@ -177,7 +186,11 @@ function AdminLeaderUsersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Usuarios líderes"
-        description="Roles globales: Coordinador DIDE, Coordinador Diseñador y Administrador. El Líder de virtualización se asigna por proceso."
+        description={
+          canAssignAdmin
+            ? "Roles globales: Coordinador DIDE, Coordinador Diseñador y Administrador. El Líder de virtualización se asigna por proceso."
+            : "Roles globales: Coordinador DIDE y Coordinador Diseñador. No puede asignar el rol Administrador."
+        }
         badge="Administración"
         actions={
           <Button size="sm" onClick={() => setModalOpen(true)}>
@@ -236,8 +249,15 @@ function AdminLeaderUsersPage() {
           {
             key: "id",
             header: "Acciones",
-            render: (row) =>
-              row.isActive ? (
+            render: (row) => {
+              const lockedAdmin =
+                !canAssignAdmin && row.roleName === USER_ROLES.ADMIN;
+              if (lockedAdmin) {
+                return (
+                  <span className="text-xs text-muted">Solo consulta</span>
+                );
+              }
+              return row.isActive ? (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -255,7 +275,8 @@ function AdminLeaderUsersPage() {
                   <IoRefreshOutline size={16} />
                   Reactivar
                 </Button>
-              ),
+              );
+            },
           },
         ]}
         data={filteredRows}

@@ -14,6 +14,7 @@ import type { MonthlyTrend } from "../types/statistics.types";
 
 interface MonthlyTrendChartProps {
   data: MonthlyTrend[];
+  onSelect?: (monthKey: string, label: string) => void;
 }
 
 const CustomTooltip = ({
@@ -41,11 +42,11 @@ const CustomTooltip = ({
   );
 };
 
-function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
+function MonthlyTrendChart({ data, onSelect }: MonthlyTrendChartProps) {
   return (
     <ChartCard
       title="Tendencia mensual"
-      subtitle="Actividad y creación de procesos en los últimos 6 meses"
+      subtitle="Clic en un mes para ver los procesos creados ahí"
     >
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -86,6 +87,11 @@ function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
             stroke="#004040"
             strokeWidth={2}
             fill="url(#activitiesGradient)"
+            cursor={onSelect ? "pointer" : "default"}
+            onClick={(entry) => {
+              const point = (entry as { payload?: MonthlyTrend }).payload;
+              if (point?.monthKey && onSelect) onSelect(point.monthKey, point.month);
+            }}
           />
           <Area
             type="monotone"
@@ -93,6 +99,11 @@ function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
             stroke="#86c127"
             strokeWidth={2}
             fill="url(#processesGradient)"
+            cursor={onSelect ? "pointer" : "default"}
+            onClick={(entry) => {
+              const point = (entry as { payload?: MonthlyTrend }).payload;
+              if (point?.monthKey && onSelect) onSelect(point.monthKey, point.month);
+            }}
           />
         </AreaChart>
       </ResponsiveContainer>

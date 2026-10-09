@@ -241,8 +241,8 @@ function CreateProcess() {
             "No se encontraron todos los roles en el sistema. Verifica que existan Líder de virtualización, Autor de asignatura y Asesor pedagógico.",
           );
         }
-      } catch (error) {
-        console.error("Error cargando datos del formulario", error);
+      } catch {
+        // El formulario sigue vacío si el catálogo no carga.
       } finally {
         setLoading(false);
       }

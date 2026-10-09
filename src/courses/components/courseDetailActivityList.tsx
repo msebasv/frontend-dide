@@ -5,6 +5,10 @@ import {
 } from "react-icons/io5";
 import clsx from "clsx";
 
+import {
+  formatHistoryStepElapsed,
+  movementElapsedDays,
+} from "../../global/utils/colombiaBusinessDays";
 import { formatDateTime } from "../../global/utils/dateUtils";
 import { formatActivityStatus } from "../mappers/courseMappers";
 import type { CourseMaterial } from "../types/course.types";
@@ -15,6 +19,8 @@ export interface CourseDetailActivityListProps {
   hasDeliverables: boolean;
   selectedMaterialId: string;
   onSelectMaterial: (activityId: string) => void;
+  /** Días hábiles entre movimientos. Solo en el historial de un entregable. */
+  showElapsed?: boolean;
 }
 
 export function CourseDetailActivityList({
@@ -22,6 +28,7 @@ export function CourseDetailActivityList({
   hasDeliverables,
   selectedMaterialId,
   onSelectMaterial,
+  showElapsed = false,
 }: CourseDetailActivityListProps) {
   if (materials.length === 0) {
     return (
@@ -36,6 +43,19 @@ export function CourseDetailActivityList({
   const latestAuthorVersion = materials.find(
     (item) => item.isAuthorUpload,
   )?.version;
+  const elapsedById = showElapsed
+    ? movementElapsedDays(
+        materials.map((material) => ({
+          id: material.activityId,
+          at: material.createdOn || material.modifiedOn,
+        })),
+      )
+    : new Map<string, number>();
+  const newestId = [...materials].sort(
+    (a, b) =>
+      new Date(b.createdOn || b.modifiedOn || 0).getTime() -
+      new Date(a.createdOn || a.modifiedOn || 0).getTime(),
+  )[0]?.activityId;
 
   return (
     <ul className="divide-y divide-border-light">
@@ -107,6 +127,23 @@ export function CourseDetailActivityList({
                     {statusDate}
                   </span>
                 </div>
+                {showElapsed && elapsedById.has(material.activityId) ? (
+                  <p className="mt-1.5">
+                    <span
+                      className={clsx(
+                        "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        material.activityId === newestId
+                          ? "bg-primary/10 text-primary"
+                          : "bg-gray-100 text-muted",
+                      )}
+                    >
+                      {formatHistoryStepElapsed(
+                        elapsedById.get(material.activityId) ?? 0,
+                        material.activityId === newestId,
+                      )}
+                    </span>
+                  </p>
+                ) : null}
               </div>
             </button>
           </li>

@@ -28,8 +28,8 @@ export const useCourses = (userEmail: string, userRole: string) => {
       const data = await getCoursesForUser(userEmail, userRole);
       setCourses(data);
       setMetrics(computeMetrics(data));
-    } catch (error) {
-      console.error("Error cargando cursos", error);
+    } catch {
+      // La lista queda como estaba.
     } finally {
       setLoading(false);
     }

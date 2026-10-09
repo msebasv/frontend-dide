@@ -8,8 +8,12 @@ import { Dev_tablecourseinstancesService } from "../../generated/services/Dev_ta
 import { Fl_dev_c_course_instanceService } from "../../generated/services/Fl_dev_c_course_instanceService";
 import { Fl_dev_cu_virtualization_processService } from "../../generated/services/Fl_dev_cu_virtualization_processService";
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
+import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
+import { Dev_tabledeliverablesService } from "../../generated/services/Dev_tabledeliverablesService";
+import { isActiveDataverseRecord } from "../../global/utils/dataverseState";
 import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
 import { runFlowAndConfirm, FlowConfirmationTimeoutError, SOFT_CONFIRM_TIMEOUT_MS } from "../../global/utils/flowResult";
+import { confirmTableOperation } from "../../global/services/tableOperationService";
 import { assertDirectoryEmails } from "../../courses/services/userService";
 import {
   assertProcessCredits,
@@ -220,7 +224,8 @@ export const createVirtualizationProcess = async (params: {
     processName,
   ]);
   acquireOperationLock(lockKey, PENDING_OPERATION_TTL_MS);
-  savePendingOperation(createWatch);
+  const requestId = crypto.randomUUID();
+  savePendingOperation(createWatch, requestId);
   let knownProcessId = "";
 
   try {
@@ -231,13 +236,15 @@ export const createVirtualizationProcess = async (params: {
           text_1: JSON.stringify(assignedRoles),
           text_2: params.courseId,
           number: credits,
+          text_4: requestId,
         }),
       {
         actionLabel: "creación de proceso",
-        confirm: createProcessWatcher(createWatch, (processId) => {
-          knownProcessId = processId;
-          params.onProcessIdKnown?.(processId);
-        }),
+        confirm: () =>
+          confirmTableOperation(requestId, (processId) => {
+            knownProcessId = processId;
+            params.onProcessIdKnown?.(processId);
+          }),
         timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
         intervalMs: 1_000,
         softTimeout: true,
@@ -337,23 +344,6 @@ export const createProcessWatcher = (
   };
 };
 
-const assignedRolesMatch = async (
-  processId: string,
-  expected: { roleId: string; email: string }[],
-): Promise<boolean> => {
-  const assignRolesResult = await Dev_tableassignrolesService.getAll({
-    filter: `_dev_tablevirtualizationprocess_value eq '${escapeODataString(processId)}'`,
-  });
-  const rows = assignRolesResult.data ?? [];
-  return expected.every((item) =>
-    rows.some(
-      (row) =>
-        row._dev_tablerole_value === item.roleId &&
-        row.dev_person?.trim().toLowerCase() === item.email,
-    ),
-  );
-};
-
 /** Carga nombre, curso y correos de roles para editar un proceso existente. */
 export const updateVirtualizationProcess = async (params: {
   processId: string;
@@ -364,12 +354,16 @@ export const updateVirtualizationProcess = async (params: {
   credits: number;
   leaderEmail: string;
   authorEmail: string;
+  /** Vacío si el proceso aún no tiene validador disciplinar. */
   validatorEmail: string;
   advisorEmail: string;
   leaderRoleId: string;
   authorRoleId: string;
   validatorRoleId: string;
   advisorRoleId: string;
+  /** Se reenvía para no perder la asignación al actualizar el proceso. */
+  designerEmail?: string;
+  designerRoleId?: string;
 }): Promise<void> => {
   // En actualización el flujo exige id-process (text_3) con el GUID real.
   // En creación no se envía id-process.
@@ -399,22 +393,29 @@ export const updateVirtualizationProcess = async (params: {
 
   const leaderEmail = validateOrganizationEmail(params.leaderEmail);
   const authorEmail = validateOrganizationEmail(params.authorEmail);
-  const validatorEmail = validateOrganizationEmail(params.validatorEmail);
   const advisorEmail = validateOrganizationEmail(params.advisorEmail);
+  const rawValidator = params.validatorEmail.trim();
+  const validatorEmail = rawValidator
+    ? validateOrganizationEmail(rawValidator)
+    : null;
 
-  if (
-    !leaderEmail.ok ||
-    !authorEmail.ok ||
-    !validatorEmail.ok ||
-    !advisorEmail.ok
-  ) {
+  if (!leaderEmail.ok || !authorEmail.ok || !advisorEmail.ok) {
     throw new Error(
       leaderEmail.message ||
         authorEmail.message ||
-        validatorEmail.message ||
         advisorEmail.message ||
         "Correo institucional inválido.",
     );
+  }
+
+  if (validatorEmail && !validatorEmail.ok) {
+    throw new Error(
+      validatorEmail.message || "Correo del validador inválido.",
+    );
+  }
+
+  if (rawValidator && !params.validatorRoleId.trim()) {
+    throw new Error("No se encontró el rol Validador disciplinar en el sistema.");
   }
 
   if (!params.courseId.trim()) {
@@ -424,16 +425,40 @@ export const updateVirtualizationProcess = async (params: {
   const assignedRoles = [
     { Email: leaderEmail.value, RoleID: params.leaderRoleId },
     { Email: authorEmail.value, RoleID: params.authorRoleId },
-    { Email: validatorEmail.value, RoleID: params.validatorRoleId },
-    { Email: advisorEmail.value, RoleID: params.advisorRoleId },
   ];
+
+  if (validatorEmail?.ok) {
+    assignedRoles.push({
+      Email: validatorEmail.value,
+      RoleID: params.validatorRoleId,
+    });
+  }
+
+  assignedRoles.push({
+    Email: advisorEmail.value,
+    RoleID: params.advisorRoleId,
+  });
+
+  const rawDesigner = params.designerEmail?.trim() ?? "";
+  if (rawDesigner) {
+    if (!params.designerRoleId?.trim()) {
+      throw new Error("No se encontró el rol Diseñador DIDE en el sistema.");
+    }
+    const designerEmail = validateOrganizationEmail(rawDesigner);
+    if (!designerEmail.ok) {
+      throw new Error(
+        designerEmail.message || "Correo del diseñador DIDE inválido.",
+      );
+    }
+    assignedRoles.push({
+      Email: designerEmail.value,
+      RoleID: params.designerRoleId,
+    });
+  }
 
   await assertDirectoryEmails(assignedRoles.map((item) => item.Email));
 
-  const expectedAssignments = assignedRoles.map((item) => ({
-    roleId: item.RoleID,
-    email: item.Email.trim().toLowerCase(),
-  }));
+  const requestId = crypto.randomUUID();
 
   await runFlowAndConfirm(
     () =>
@@ -443,18 +468,11 @@ export const updateVirtualizationProcess = async (params: {
         text_2: params.courseId,
         text_3: processId,
         number: credits,
+        text_4: requestId,
       }),
     {
       actionLabel: "actualización de proceso",
-      confirm: async () => {
-        const processResult =
-          await Dev_tablevirtualizationprocessesService.get(processId);
-        const nameMatches =
-          processResult.data?.dev_nameprocess?.trim().toLowerCase() ===
-          processName.toLowerCase();
-        if (!nameMatches) return false;
-        return assignedRolesMatch(processId, expectedAssignments);
-      },
+      confirm: () => confirmTableOperation(requestId),
       timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
       intervalMs: 1_000,
       softTimeout: true,
@@ -505,6 +523,7 @@ export const assignProcessValidator = async (params: {
     author: authorRoleId,
     validator: validatorRoleId,
     advisor: advisorRoleId,
+    designer: designerRoleId,
   } = resolveProcessRoleIds(roles);
 
   if (!leaderRoleId || !authorRoleId || !validatorRoleId || !advisorRoleId) {
@@ -526,6 +545,8 @@ export const assignProcessValidator = async (params: {
     authorRoleId,
     validatorRoleId,
     advisorRoleId,
+    designerEmail: editData.designerEmail,
+    designerRoleId,
   });
 };
 
@@ -633,10 +654,7 @@ export const assignProcessDideDesigner = async (params: {
 
   await assertDirectoryEmails(assignedRoles.map((item) => item.Email));
 
-  const expectedAssignments = assignedRoles.map((item) => ({
-    roleId: item.RoleID,
-    email: item.Email.trim().toLowerCase(),
-  }));
+  const requestId = crypto.randomUUID();
 
   await runFlowAndConfirm(
     () =>
@@ -646,14 +664,88 @@ export const assignProcessDideDesigner = async (params: {
         text_2: editData.courseId,
         text_3: processId,
         number: credits,
+        text_4: requestId,
       }),
     {
       actionLabel: "asignación de diseñador DIDE",
-      confirm: () => assignedRolesMatch(processId, expectedAssignments),
+      confirm: () => confirmTableOperation(requestId),
       timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
       intervalMs: 1_000,
       softTimeout: true,
     },
   );
+};
+
+const inactiveRecord = { statecode: 1 as const, statuscode: 2 as const };
+
+const deactivateById = async (
+  ids: string[],
+  update: (id: string) => Promise<unknown>,
+): Promise<void> => {
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  await Promise.all(unique.map((id) => update(id)));
+};
+
+/**
+ * Inactiva el proceso y lo que cuelga de él.
+ * Los listados solo muestran registros activos.
+ */
+export const deleteVirtualizationProcess = async (
+  processId: string,
+): Promise<void> => {
+  const id = processId.trim();
+  if (!id) throw new Error("Proceso no válido.");
+
+  const escapedId = escapeODataString(id);
+  const [phasesResult, deliverablesResult, assignRolesResult] =
+    await Promise.all([
+      Dev_tablephasesService.getAll({
+        filter: `_dev_tablevirtualizationprocess_value eq '${escapedId}'`,
+      }),
+      Dev_tabledeliverablesService.getAll({
+        filter: `_dev_tablevirtualizationprocess_value eq '${escapedId}'`,
+      }),
+      Dev_tableassignrolesService.getAll({
+        filter: `_dev_tablevirtualizationprocess_value eq '${escapedId}'`,
+      }),
+    ]);
+
+  const phases = (phasesResult.data ?? []).filter((row) =>
+    isActiveDataverseRecord(row.statecode),
+  );
+  const phaseIds = new Set(phases.map((phase) => phase.dev_tablephaseid));
+  const activitiesResult = phaseIds.size
+    ? await Dev_tableactivitiesService.getAll()
+    : { data: [] };
+  const activities = (activitiesResult.data ?? []).filter(
+    (row) =>
+      phaseIds.has(row._dev_tablephase_value ?? "") &&
+      isActiveDataverseRecord(row.statecode),
+  );
+
+  await deactivateById(
+    activities.map((row) => row.dev_tableactivityid),
+    (activityId) =>
+      Dev_tableactivitiesService.update(activityId, inactiveRecord),
+  );
+  await deactivateById(
+    (deliverablesResult.data ?? [])
+      .filter((row) => isActiveDataverseRecord(row.statecode))
+      .map((row) => row.dev_tabledeliverableid),
+    (deliverableId) =>
+      Dev_tabledeliverablesService.update(deliverableId, inactiveRecord),
+  );
+  await deactivateById(
+    (assignRolesResult.data ?? [])
+      .filter((row) => isActiveDataverseRecord(row.statecode))
+      .map((row) => row.dev_tableassignroleid),
+    (assignRoleId) =>
+      Dev_tableassignrolesService.update(assignRoleId, inactiveRecord),
+  );
+  await deactivateById(
+    phases.map((row) => row.dev_tablephaseid),
+    (phaseId) => Dev_tablephasesService.update(phaseId, inactiveRecord),
+  );
+  await Dev_tablevirtualizationprocessesService.update(id, inactiveRecord);
 };
 

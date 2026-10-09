@@ -115,6 +115,13 @@
               "type": "string",
               "x-ms-content-hint": "TEXT",
               "x-ms-dynamically-added": true
+            },
+            "text_5": {
+              "description": "request-id generado por la app",
+              "title": "request-id",
+              "type": "string",
+              "x-ms-content-hint": "TEXT",
+              "x-ms-dynamically-added": true
             }
           },
           "required": [

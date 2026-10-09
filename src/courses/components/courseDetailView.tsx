@@ -15,8 +15,14 @@ import clsx from "clsx";
 import Button from "../../global/components/button";
 import InfoCard from "../../global/components/infoCard";
 import LoadingState from "../../global/components/loadingState";
+import { ElapsedDaysBadge } from "../../global/components/elapsedDaysBadge";
 import ProcessDeliverablesFilesPanel from "../../global/components/processDeliverablesFilesPanel";
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
+import {
+  deliverableElapsedDayCount,
+  formatHistoryStepElapsed,
+  movementElapsedDays,
+} from "../../global/utils/colombiaBusinessDays";
 import { formatDateTime } from "../../global/utils/dateUtils";
 import { stripHttpLinksFromText } from "../../global/utils/inputValidation";
 import { formatDomainLabel } from "../../global/utils/textUtils";
@@ -31,6 +37,7 @@ import {
 import {
   formatDeliverableSharePointLocation,
   isSyllabusDeliverable,
+  materialBelongsToDeliverable,
 } from "../services/deliverableService";
 import type { CourseDetail, CourseMaterial } from "../types/course.types";
 import { exportDeliverableHistoryPdf } from "../utils/exportDeliverableHistoryPdf";
@@ -349,6 +356,45 @@ function CourseDetailView({
     );
   };
 
+  const selectedDeliverableElapsed = (() => {
+    if (!selectedDeliverable) return null;
+    const syllabusItem = groups
+      .flatMap((group) => group.items)
+      .find((item) => isSyllabusDeliverable(item));
+    const syllabusDates = syllabusItem
+      ? detail.materials
+          .filter((material) =>
+            materialBelongsToDeliverable(material, syllabusItem),
+          )
+          .map((material) => material.createdOn || material.modifiedOn)
+          .filter(Boolean)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+      : [];
+    const related = detail.materials.filter((material) =>
+      materialBelongsToDeliverable(material, selectedDeliverable),
+    );
+    const latest = [...related].sort(
+      (a, b) =>
+        new Date(b.createdOn || b.modifiedOn || 0).getTime() -
+        new Date(a.createdOn || a.modifiedOn || 0).getTime(),
+    )[0];
+    const latestStatus = latest ? formatActivityStatus(latest.status) : "";
+    const returned = /devuelto|corregir|no aprobado/i.test(latestStatus);
+    const eventDates = related
+      .map((material) => material.createdOn || material.modifiedOn)
+      .filter(Boolean)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    return deliverableElapsedDayCount({
+      isSyllabus: isSyllabusDeliverable(selectedDeliverable),
+      returned,
+      eventDates,
+      processCreatedOn: detail.createdOn,
+      syllabusCompletedOn: isSyllabusDeliverable(selectedDeliverable)
+        ? undefined
+        : syllabusDates[0],
+    });
+  })();
+
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
       {detail.status === PROCESS_PHASES.COMPLETED && (
@@ -415,6 +461,7 @@ function CourseDetailView({
               groups={groups}
               materials={detail.materials}
               deliverableCount={deliverableCount}
+              processCreatedOn={detail.createdOn}
               expandedCredits={expandedCredits}
               selectedDeliverableId={selectedDeliverableId}
               onToggleCreditGroup={toggleCreditGroup}
@@ -452,6 +499,13 @@ function CourseDetailView({
                           />
                         )}
                       </div>
+                      {selectedDeliverable && (
+                        <div className="mt-1.5">
+                          <ElapsedDaysBadge
+                            days={selectedDeliverableElapsed ?? 0}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {selectedDeliverable && (
@@ -671,6 +725,20 @@ function CourseDetailView({
                     ) : (
                       <ol className="space-y-4">
                         {correctionMaterials.map((material, index) => {
+                          const correctionElapsed = movementElapsedDays(
+                            correctionMaterials.map((item) => ({
+                              id: item.activityId,
+                              at: item.createdOn || item.modifiedOn,
+                            })),
+                          );
+                          const correctionDays = correctionElapsed.get(
+                            material.activityId,
+                          );
+                          const newestCorrectionId = [...correctionMaterials].sort(
+                            (a, b) =>
+                              new Date(b.createdOn || b.modifiedOn || 0).getTime() -
+                              new Date(a.createdOn || a.modifiedOn || 0).getTime(),
+                          )[0]?.activityId;
                           const statusLabel = formatActivityStatus(
                             material.status,
                           );
@@ -736,13 +804,32 @@ function CourseDetailView({
                                       <p className="text-sm font-semibold text-primary">
                                         {phaseLabel}
                                       </p>
-                                      <p className="inline-flex items-center gap-1.5 text-[11px] text-muted">
-                                        <IoTimeOutline size={12} />
-                                        {formatDateTime(
-                                          material.modifiedOn ||
-                                            material.createdOn,
-                                        )}
-                                      </p>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+                                          <IoTimeOutline size={12} />
+                                          {formatDateTime(
+                                            material.modifiedOn ||
+                                              material.createdOn,
+                                          )}
+                                        </p>
+                                        {correctionDays != null ? (
+                                          <span
+                                            className={clsx(
+                                              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                              material.activityId ===
+                                                newestCorrectionId
+                                                ? "bg-primary/10 text-primary"
+                                                : "bg-gray-100 text-muted",
+                                            )}
+                                          >
+                                            {formatHistoryStepElapsed(
+                                              correctionDays,
+                                              material.activityId ===
+                                                newestCorrectionId,
+                                            )}
+                                          </span>
+                                        ) : null}
+                                      </div>
                                       {!isExpanded ? (
                                         <p className="line-clamp-2 whitespace-pre-line text-xs text-muted">
                                           {commentPreview}
@@ -793,6 +880,7 @@ function CourseDetailView({
                         hasDeliverables={hasDeliverables}
                         selectedMaterialId={selectedMaterialId}
                         onSelectMaterial={setSelectedMaterial}
+                        showElapsed
                       />
                     </div>
                     <div className="min-w-0 p-3 sm:p-5 lg:col-span-3">

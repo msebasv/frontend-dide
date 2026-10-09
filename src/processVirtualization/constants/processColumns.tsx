@@ -3,6 +3,7 @@ import {
   IoCloudUploadOutline,
   IoCreateOutline,
   IoEyeOutline,
+  IoTrashOutline,
 } from "react-icons/io5";
 
 import ActionButton from "../../global/components/actionButton";
@@ -11,6 +12,7 @@ import type { Column } from "../../global/components/dataTable";
 import { ProcessStatus } from "../components/processStatus";
 import CourseProcessStatusSummary from "../../courses/components/courseProcessStatusSummary";
 import { formatDateTime } from "../../global/utils/dateUtils";
+import { processElapsedLabel } from "../../global/utils/colombiaBusinessDays";
 import {
   isLeaderClassroomConfirmStatus,
   isLeaderSyllabusStatus,
@@ -18,6 +20,8 @@ import {
 import {
   canAssignDideDesigner,
   canCreateOrEditProcesses,
+  canDeleteProcesses,
+  canUploadProcessSyllabus,
   PROCESS_PHASES,
 } from "../../global/constants/domainConstants";
 /**
@@ -26,11 +30,27 @@ import {
  */
 export const getVirtualizationProcessColumns = (
   viewerRole: string,
+  onDelete?: (row: VirtualizationProcess) => void,
 ): Column<VirtualizationProcess>[] => [
   {
     key: "processName",
     header: "Proceso",
     className: "font-medium text-primary",
+    render: (row) => {
+      const closed =
+        row.status === PROCESS_PHASES.COMPLETED ? row.modifiedOn : undefined;
+      const elapsed = processElapsedLabel(row.createdOn, closed);
+      return (
+        <div>
+          <p>{row.processName}</p>
+          {elapsed ? (
+            <p className="mt-0.5 text-[11px] font-normal text-muted">
+              {elapsed}
+            </p>
+          ) : null}
+        </div>
+      );
+    },
   },
   {
     key: "courseName",
@@ -71,24 +91,32 @@ export const getVirtualizationProcessColumns = (
     header: "Acciones",
     render: (row) => {
       const isFinalized = row.status === PROCESS_PHASES.COMPLETED;
+      const isDeleted = Boolean(row.isDeleted);
       const needsValidator =
+        !isDeleted &&
         !isFinalized &&
         (row.needsValidatorAssignment ||
           (isLeaderSyllabusStatus(row.status) && !row.validatorEmail?.trim()));
-      const needsDesigner = !isFinalized && row.needsDesignerAssignment;
+      const needsDesigner =
+        !isDeleted && !isFinalized && row.needsDesignerAssignment;
       const canUploadSyllabus =
+        !isDeleted &&
+        canUploadProcessSyllabus(viewerRole) &&
         !isFinalized &&
         !needsValidator &&
         (row.canUploadSyllabus ||
           (isLeaderSyllabusStatus(row.status) &&
             Boolean(row.validatorEmail?.trim())));
       const canConfirmClassroom =
+        !isDeleted &&
         !isFinalized &&
         (row.canConfirmClassroom || isLeaderClassroomConfirmStatus(row.status));
       const canEdit =
-        !isFinalized && canCreateOrEditProcesses(viewerRole);
+        !isDeleted && !isFinalized && canCreateOrEditProcesses(viewerRole);
+      const canDelete =
+        !isDeleted && Boolean(onDelete) && canDeleteProcesses(viewerRole);
       const canAssignDesigner =
-        !isFinalized && canAssignDideDesigner(viewerRole);
+        !isDeleted && !isFinalized && canAssignDideDesigner(viewerRole);
 
       return (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -145,6 +173,19 @@ export const getVirtualizationProcessColumns = (
               label="Editar"
               variant="edit"
             />
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete?.(row);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+            >
+              <IoTrashOutline size={13} />
+              Eliminar
+            </button>
           )}
         </div>
       );

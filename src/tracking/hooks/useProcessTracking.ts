@@ -32,8 +32,7 @@ export const useProcessTracking = (userEmail: string, userRole: string) => {
       const data = await getProcessTrackingBoard(userEmail, userRole);
       setRows(data.rows);
       setSummary(data.summary);
-    } catch (error) {
-      console.error("Error cargando seguimiento", error);
+    } catch {
       setRows([]);
       setSummary(EMPTY_SUMMARY);
     } finally {

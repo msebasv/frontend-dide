@@ -64,7 +64,7 @@ export const sidebarConfig: SidebarItemConfig[] = [
   {
     text: "Procesos de Virtualización",
     icon: <GoWorkflow size={20} />,
-    roles: [USER_ROLES.LEADER, USER_ROLES.ADMIN],
+    roles: [USER_ROLES.LEADER, USER_ROLES.DIDE_COORDINATOR, USER_ROLES.ADMIN],
     path: "/virtualization-processes",
   },
   {
@@ -104,7 +104,7 @@ export const sidebarConfig: SidebarItemConfig[] = [
   {
     text: "Usuarios líderes",
     icon: <IoPeopleOutline size={20} />,
-    roles: [USER_ROLES.ADMIN],
+    roles: [USER_ROLES.ADMIN, USER_ROLES.DIDE_COORDINATOR],
     path: "/admin/leader-users",
   },
   // Estadísticas va al final del menú para todos los roles que la ven.

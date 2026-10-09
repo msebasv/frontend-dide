@@ -69,6 +69,8 @@ export interface VirtualizationProcess {
    * (cierre del proceso tras el audiovisual DIDE).
    */
   canConfirmClassroom: boolean;
+  /** true si el proceso fue eliminado (inactivo en Dataverse). */
+  isDeleted?: boolean;
   /**
    * Conteo de entregables por fase (datos reales de Dataverse).
    * Si falta, la UI cae al estado único `status`.

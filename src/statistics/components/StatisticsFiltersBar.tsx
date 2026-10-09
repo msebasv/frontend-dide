@@ -67,6 +67,7 @@ function countActiveFilters(
   if (dimensions.advisorEmail !== ALL_DIMENSION_VALUE) count += 1;
   if (dimensions.leaderEmail !== ALL_DIMENSION_VALUE) count += 1;
   count += dimensions.statuses.length;
+  if (dimensions.elapsedDays.mode !== "all") count += 1;
   return count;
 }
 
@@ -164,6 +165,55 @@ function StatisticsFiltersBar({
           onDimensionsChange({
             ...dimensionFilters,
             leaderEmail: ALL_DIMENSION_VALUE,
+          }),
+      });
+    }
+
+    if (dimensionFilters.elapsedDays.mode === "more") {
+      items.push({
+        id: "elapsed",
+        label: `Más de ${dimensionFilters.elapsedDays.from} días`,
+        onRemove: () =>
+          onDimensionsChange({
+            ...dimensionFilters,
+            elapsedDays: {
+              ...dimensionFilters.elapsedDays,
+              mode: "all",
+            },
+          }),
+      });
+    } else if (dimensionFilters.elapsedDays.mode === "less") {
+      items.push({
+        id: "elapsed",
+        label: `Menos de ${dimensionFilters.elapsedDays.to} días`,
+        onRemove: () =>
+          onDimensionsChange({
+            ...dimensionFilters,
+            elapsedDays: {
+              ...dimensionFilters.elapsedDays,
+              mode: "all",
+            },
+          }),
+      });
+    } else if (dimensionFilters.elapsedDays.mode === "between") {
+      const low = Math.min(
+        dimensionFilters.elapsedDays.from,
+        dimensionFilters.elapsedDays.to,
+      );
+      const high = Math.max(
+        dimensionFilters.elapsedDays.from,
+        dimensionFilters.elapsedDays.to,
+      );
+      items.push({
+        id: "elapsed",
+        label: `Entre ${low} y ${high} días`,
+        onRemove: () =>
+          onDimensionsChange({
+            ...dimensionFilters,
+            elapsedDays: {
+              ...dimensionFilters.elapsedDays,
+              mode: "all",
+            },
           }),
       });
     }
@@ -493,6 +543,106 @@ function StatisticsFiltersBar({
                     </button>
                   );
                 })}
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-primary">
+                Días transcurridos
+              </h3>
+              <p className="mt-0.5 text-xs text-muted">
+                Días hábiles desde la creación. En procesos filtra procesos; en
+                entregables, cada material. Un entregable terminado se detiene
+                en su última actualización.
+              </p>
+            </div>
+            <div className="inline-flex w-full gap-1 rounded-xl border border-border bg-gray-50 p-1 sm:w-auto">
+              {(
+                [
+                  { mode: "all", label: "Todos" },
+                  { mode: "more", label: "Más de" },
+                  { mode: "less", label: "Menos de" },
+                  { mode: "between", label: "Entre" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.mode}
+                  type="button"
+                  onClick={() =>
+                    updateDraftDimensions({
+                      elapsedDays: {
+                        ...draftDimensions.elapsedDays,
+                        mode: option.mode,
+                      },
+                    })
+                  }
+                  className={clsx(
+                    "flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition sm:flex-none",
+                    draftDimensions.elapsedDays.mode === option.mode
+                      ? "bg-white text-primary shadow-sm"
+                      : "text-muted hover:text-primary",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {draftDimensions.elapsedDays.mode !== "all" && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {draftDimensions.elapsedDays.mode !== "less" && (
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-muted">
+                      {draftDimensions.elapsedDays.mode === "between"
+                        ? "Desde"
+                        : "Días"}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={draftDimensions.elapsedDays.from}
+                      onChange={(event) =>
+                        updateDraftDimensions({
+                          elapsedDays: {
+                            ...draftDimensions.elapsedDays,
+                            from: Math.max(
+                              0,
+                              Math.trunc(Number(event.target.value) || 0),
+                            ),
+                          },
+                        })
+                      }
+                      className={selectClassName}
+                    />
+                  </label>
+                )}
+                {draftDimensions.elapsedDays.mode !== "more" && (
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-muted">
+                      {draftDimensions.elapsedDays.mode === "between"
+                        ? "Hasta"
+                        : "Días"}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={draftDimensions.elapsedDays.to}
+                      onChange={(event) =>
+                        updateDraftDimensions({
+                          elapsedDays: {
+                            ...draftDimensions.elapsedDays,
+                            to: Math.max(
+                              0,
+                              Math.trunc(Number(event.target.value) || 0),
+                            ),
+                          },
+                        })
+                      }
+                      className={selectClassName}
+                    />
+                  </label>
+                )}
               </div>
             )}
           </section>

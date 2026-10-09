@@ -15,6 +15,7 @@ export * as Dev_tablecategorytemplatesModel from './models/Dev_tablecategorytemp
 export * as Dev_tablecourseinstancesModel from './models/Dev_tablecourseinstancesModel';
 export * as Dev_tabledeliverablesModel from './models/Dev_tabledeliverablesModel';
 export * as Dev_tableleaderusersesModel from './models/Dev_tableleaderusersesModel';
+export * as Dev_tableoperationsModel from './models/Dev_tableoperationsModel';
 export * as Dev_tablephasesModel from './models/Dev_tablephasesModel';
 export * as Dev_tablephasetemplatesModel from './models/Dev_tablephasetemplatesModel';
 export * as Dev_tablerolesModel from './models/Dev_tablerolesModel';
@@ -40,6 +41,7 @@ export * from './services/Dev_tablecategorytemplatesService';
 export * from './services/Dev_tablecourseinstancesService';
 export * from './services/Dev_tabledeliverablesService';
 export * from './services/Dev_tableleaderusersesService';
+export * from './services/Dev_tableoperationsService';
 export * from './services/Dev_tablephasesService';
 export * from './services/Dev_tablephasetemplatesService';
 export * from './services/Dev_tablerolesService';

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   IoAddCircleOutline,
@@ -5,7 +6,9 @@ import {
   IoCheckmarkDoneOutline,
   IoIdCardOutline,
   IoListOutline,
+  IoPeopleOutline,
   IoTimeOutline,
+  IoTrashOutline,
   IoWarningOutline,
   IoLayersOutline,
 } from "react-icons/io5";
@@ -21,9 +24,15 @@ import VideoTutorialsButton from "../../global/components/videoTutorialsButton";
 import { processStatusColors } from "../../processVirtualization/constants/processStatusStyles";
 import type { DashboardMetrics } from "../../courses/types/course.types";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
+import StatisticsDeliverablesModal from "../../statistics/components/StatisticsDeliverablesModal";
+import StatisticsProcessesModal from "../../statistics/components/StatisticsProcessesModal";
+import type { StatisticsDeliverableRow } from "../../statistics/types/statistics.types";
+import { isLeaderSyllabusStatus } from "../../courses/domain/processRules";
+import { isSyllabusDeliverable } from "../../courses/services/deliverableService";
 import {
   PHASE_DISTRIBUTION_ORDER,
   PHASE_SHORT_LABELS,
+  PROCESS_PHASES,
   USER_ROLES,
   isVirtualizationLeaderRole,
 } from "../../global/constants/domainConstants";
@@ -49,11 +58,78 @@ function LeaderDashboard({
       ? Math.round((metrics.completed / metrics.total) * 100)
       : 0;
 
-  const phaseItems = PHASE_DISTRIBUTION_ORDER.map((label) => ({
+  const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
+  const [showFinalized, setShowFinalized] = useState(false);
+
+  const chartPhases = PHASE_DISTRIBUTION_ORDER.filter(
+    (label) => label !== PROCESS_PHASES.COMPLETED,
+  );
+
+  const phaseOnChart = (itemPhase: string): string =>
+    (chartPhases as readonly string[]).includes(itemPhase) ? itemPhase : "";
+
+  const deliverableRows: Array<StatisticsDeliverableRow & { phase: string }> =
+    processes.flatMap((process) => {
+      if (process.status === PROCESS_PHASES.COMPLETED) return [];
+      let items = process.phaseBreakdown?.deliverables ?? [];
+      if (isLeaderSyllabusStatus(process.status)) {
+        const syllabus = items.filter((item) =>
+          isSyllabusDeliverable({ name: item.name }),
+        );
+        items = (syllabus.length > 0 ? syllabus : items).slice(0, 1);
+      }
+      return items.flatMap((item) => {
+        // El syllabus solo existe en Cargue Syllabus. No recorre validador ni las demás aprobaciones.
+        if (
+          !isLeaderSyllabusStatus(process.status) &&
+          isSyllabusDeliverable({ name: item.name })
+        ) {
+          return [];
+        }
+        const phase = isLeaderSyllabusStatus(process.status)
+          ? PROCESS_PHASES.LEADER_SYLLABUS
+          : phaseOnChart(item.phase);
+        if (!phase) return [];
+        const stateLabel =
+          phase === PROCESS_PHASES.AUTHOR_UPLOAD
+            ? item.isRequired
+              ? "Obligatorio"
+              : "Opcional"
+            : (PHASE_SHORT_LABELS[phase] ?? item.stateLabel);
+        return [
+          {
+            id: item.id,
+            name: item.name,
+            creditNumber: item.creditNumber,
+            creditLabel: item.creditLabel,
+            stateLabel,
+            phaseKey: phase,
+            elapsedDays: 0,
+            processId: process.processId,
+            processName: process.processName,
+            courseName: process.courseName,
+            facultyName: process.facultyName,
+            programName: process.programName,
+            modifiedOn: process.modifiedOn,
+            phase,
+          },
+        ];
+      });
+    });
+
+  const phaseItems = chartPhases.map((label) => ({
+    key: label,
     label: PHASE_SHORT_LABELS[label] ?? label,
-    count: processes.filter((p) => p.status === label).length,
+    count: deliverableRows.filter((item) => item.phase === label).length,
     color: processStatusColors[label] ?? "#64748b",
   }));
+
+  const finalizedProcesses = processes.filter(
+    (process) => process.status === PROCESS_PHASES.COMPLETED,
+  );
+  const selectedDeliverables = deliverableRows.filter(
+    (item) => item.phase === selectedPhase,
+  );
 
   // Sin estado: el detalle del proceso es el que muestra la fase real.
   const recentItems = processes.slice(0, 5).map((p) => ({
@@ -99,6 +175,17 @@ function LeaderDashboard({
             Seguimiento
           </Button>
         </Link>
+        {canManageProcesses && (
+          <Link
+            to="/virtualization-processes"
+            state={{ showDeleted: true }}
+          >
+            <Button variant="soft" size="sm">
+              <IoTrashOutline size={16} />
+              Procesos eliminados
+            </Button>
+          </Link>
+        )}
         {roleLabel === USER_ROLES.ADMIN && (
           <>
             <Link to="/admin/people">
@@ -115,11 +202,19 @@ function LeaderDashboard({
             </Link>
             <Link to="/admin/leader-users">
               <Button variant="soft" size="sm">
-                <IoAddCircleOutline size={16} />
+                <IoPeopleOutline size={16} />
                 Usuarios líderes
               </Button>
             </Link>
           </>
+        )}
+        {roleLabel === USER_ROLES.DIDE_COORDINATOR && (
+          <Link to="/admin/leader-users">
+            <Button variant="soft" size="sm">
+              <IoPeopleOutline size={16} />
+              Usuarios líderes
+            </Button>
+          </Link>
         )}
         <FormatsFolderButton />
         <VideoTutorialsButton />
@@ -161,7 +256,15 @@ function LeaderDashboard({
           <PhaseDistribution
             title="Distribución por fase"
             items={phaseItems}
-            total={metrics.total}
+            total={deliverableRows.length}
+            totalUnit="entregables"
+            onItemClick={setSelectedPhase}
+            footer={{
+              label: "Procesos finalizados",
+              count: finalizedProcesses.length,
+              total: processes.length,
+              onClick: () => setShowFinalized(true),
+            }}
           />
         </div>
 
@@ -176,6 +279,22 @@ function LeaderDashboard({
         </div>
       </div>
 
+      <StatisticsDeliverablesModal
+        isOpen={selectedPhase !== null}
+        onClose={() => setSelectedPhase(null)}
+        title={
+          selectedPhase
+            ? `Entregables en ${PHASE_SHORT_LABELS[selectedPhase] ?? selectedPhase}`
+            : "Entregables"
+        }
+        deliverables={selectedDeliverables}
+      />
+      <StatisticsProcessesModal
+        isOpen={showFinalized}
+        onClose={() => setShowFinalized(false)}
+        title="Procesos finalizados"
+        processes={finalizedProcesses}
+      />
     </div>
   );
 }

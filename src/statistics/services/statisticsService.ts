@@ -15,7 +15,9 @@ import type { Dev_tablevirtualizationprocesses } from "../../generated/models/De
 import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 import { mapVirtualizationProcesses } from "../../processVirtualization/mappers/processMappers";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
+import { mapDeliverableStateToPhaseKey } from "../../courses/utils/phaseBreakdown";
 import { formatDeliverableState } from "../../courses/services/deliverableService";
+import { processElapsedDayCount } from "../../global/utils/colombiaBusinessDays";
 import {
   matchesPeriodFilter,
   type PeriodFilter,
@@ -26,6 +28,7 @@ import {
   USER_ROLES,
 } from "../../global/constants/domainConstants";
 import { formatDomainLabel } from "../../global/utils/textUtils";
+import { isActiveDataverseRecord } from "../../global/utils/dataverseState";
 import { buildLeaderStatistics } from "../mappers/statisticsMappers";
 import type {
   LeaderStatistics,
@@ -34,7 +37,9 @@ import type {
   StatisticsFilterOption,
   StatisticsFilterOptions,
   StatisticsScope,
+  StatisticsViewMode,
   UserWorkloadStat,
+  ElapsedDaysFilter,
 } from "../types/statistics.types";
 import {
   ALL_DIMENSION_VALUE,
@@ -59,10 +64,30 @@ const STATUS_FILTER_ORDER = [
   PROCESS_PHASES.COMPLETED,
 ] as const;
 
-const uniqueSorted = (values: string[]): string[] =>
-  [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort(
-    (a, b) => a.localeCompare(b, "es"),
-  );
+/** Misma clave para el valor del filtro y el dato del proceso. */
+const dimensionKey = (value: string): string =>
+  value
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .normalize("NFC")
+    .toLocaleLowerCase("es");
+
+const sameDimension = (left: string, right: string): boolean =>
+  dimensionKey(left) === dimensionKey(right);
+
+const uniqueSorted = (values: string[]): string[] => {
+  const byKey = new Map<string, string>();
+  for (const value of values) {
+    const label = value
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .trim()
+      .normalize("NFC");
+    const key = dimensionKey(label);
+    if (!key || byKey.has(key)) continue;
+    byKey.set(key, label);
+  }
+  return [...byKey.values()].sort((a, b) => a.localeCompare(b, "es"));
+};
 
 const normalizeCreditNumber = (value: unknown): number => {
   const numeric = typeof value === "number" ? value : Number(value);
@@ -99,13 +124,23 @@ const mapStatisticsDeliverables = (
       if (!process) return null;
 
       const creditNumber = normalizeCreditNumber(row.dev_creditnumber);
+      const stateLabel = resolveDeliverableStateLabel(row);
+      const phaseKey = mapDeliverableStateToPhaseKey(stateLabel);
+      const elapsedDays = processElapsedDayCount(
+        process.createdOn || row.createdon || "",
+        phaseKey === PROCESS_PHASES.COMPLETED
+          ? row.modifiedon || process.modifiedOn
+          : undefined,
+      );
       return {
         id: row.dev_tabledeliverableid,
         name: row.dev_namedeliverable?.trim() || "Entregable",
         creditNumber,
         creditLabel:
           creditNumber === 0 ? "General" : `Unidad ${creditNumber}`,
-        stateLabel: resolveDeliverableStateLabel(row),
+        stateLabel,
+        phaseKey,
+        elapsedDays,
         processId,
         processName: process.processName,
         courseName: process.courseName,
@@ -146,9 +181,23 @@ export const getStatisticsSource = async (): Promise<StatisticsSource> => {
     }).catch(() => ({ data: [] })),
   ]);
 
-  const rawProcesses = processesResult.data ?? [];
-  const phases = phasesResult.data ?? [];
-  const activities = activitiesResult.data ?? [];
+  const rawProcesses = (processesResult.data ?? []).filter((process) =>
+    isActiveDataverseRecord(process.statecode),
+  );
+  const activeProcessIds = new Set(
+    rawProcesses.map((process) => process.dev_tablevirtualizationprocessid),
+  );
+  const phases = (phasesResult.data ?? []).filter(
+    (phase) =>
+      isActiveDataverseRecord(phase.statecode) &&
+      activeProcessIds.has(phase._dev_tablevirtualizationprocess_value ?? ""),
+  );
+  const phaseIds = new Set(phases.map((phase) => phase.dev_tablephaseid));
+  const activities = (activitiesResult.data ?? []).filter(
+    (activity) =>
+      isActiveDataverseRecord(activity.statecode) &&
+      phaseIds.has(activity._dev_tablephase_value ?? ""),
+  );
 
   const processes = mapVirtualizationProcesses({
     processes: rawProcesses,
@@ -212,14 +261,14 @@ const matchesDimensionFilters = (
 ): boolean => {
   if (
     dimensions.facultyName !== ALL_DIMENSION_VALUE &&
-    process.facultyName !== dimensions.facultyName
+    !sameDimension(process.facultyName, dimensions.facultyName)
   ) {
     return false;
   }
 
   if (
     dimensions.programName !== ALL_DIMENSION_VALUE &&
-    process.programName !== dimensions.programName
+    !sameDimension(process.programName, dimensions.programName)
   ) {
     return false;
   }
@@ -238,20 +287,32 @@ const matchesDimensionFilters = (
     return false;
   }
 
-  if (
-    dimensions.statuses.length > 0 &&
-    !dimensions.statuses.includes(process.status)
-  ) {
-    return false;
-  }
-
   return true;
 };
+
+const matchesElapsedDays = (
+  days: number,
+  filter: ElapsedDaysFilter,
+): boolean => {
+  if (filter.mode === "all") return true;
+  if (filter.mode === "more") return days > filter.from;
+  if (filter.mode === "less") return days < filter.to;
+  const low = Math.min(filter.from, filter.to);
+  const high = Math.max(filter.from, filter.to);
+  return days >= low && days <= high;
+};
+
+const processElapsedDays = (process: VirtualizationProcess): number =>
+  processElapsedDayCount(
+    process.createdOn,
+    process.status === PROCESS_PHASES.COMPLETED ? process.modifiedOn : undefined,
+  );
 
 export const filterStatisticsSource = (
   source: StatisticsSource,
   periodFilter: PeriodFilter,
   dimensions: StatisticsDimensionFilters = EMPTY_DIMENSION_FILTERS,
+  viewMode: StatisticsViewMode = "process",
 ): StatisticsSource => {
   const filteredProcesses = source.processes.filter((process) => {
     if (
@@ -262,7 +323,21 @@ export const filterStatisticsSource = (
       return false;
     }
 
-    return matchesDimensionFilters(process, dimensions);
+    if (!matchesDimensionFilters(process, dimensions)) return false;
+
+    if (viewMode === "process") {
+      if (
+        dimensions.statuses.length > 0 &&
+        !dimensions.statuses.includes(process.status)
+      ) {
+        return false;
+      }
+      if (!matchesElapsedDays(processElapsedDays(process), dimensions.elapsedDays)) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   const processIds = new Set(filteredProcesses.map((p) => p.processId));
@@ -277,9 +352,17 @@ export const filterStatisticsSource = (
   const activities = source.activities.filter((activity) =>
     phaseIds.has(activity._dev_tablephase_value ?? ""),
   );
-  const deliverables = source.deliverables.filter((item) =>
-    processIds.has(item.processId),
-  );
+  const deliverables = source.deliverables.filter((item) => {
+    if (!processIds.has(item.processId)) return false;
+    if (viewMode !== "deliverable") return true;
+    if (
+      dimensions.statuses.length > 0 &&
+      !dimensions.statuses.includes(item.phaseKey)
+    ) {
+      return false;
+    }
+    return matchesElapsedDays(item.elapsedDays, dimensions.elapsedDays);
+  });
 
   return {
     processes: filteredProcesses,
@@ -293,11 +376,12 @@ export const filterStatisticsSource = (
 export const buildStatisticsFilterOptions = (
   processes: VirtualizationProcess[],
   dimensions: StatisticsDimensionFilters,
+  extraStatuses: string[] = [],
 ): StatisticsFilterOptions => {
   const facultyScoped = processes.filter(
     (process) =>
       dimensions.facultyName === ALL_DIMENSION_VALUE ||
-      process.facultyName === dimensions.facultyName,
+      sameDimension(process.facultyName, dimensions.facultyName),
   );
 
   const faculties = uniqueSorted(
@@ -333,7 +417,10 @@ export const buildStatisticsFilterOptions = (
     .sort((a, b) => a.label.localeCompare(b.label, "es"));
 
   const presentStatuses = new Set(
-    processes.map((process) => process.status).filter(Boolean),
+    [
+      ...processes.map((process) => process.status),
+      ...extraStatuses,
+    ].filter(Boolean),
   );
   const statuses: StatisticsFilterOption[] = [
     ...STATUS_FILTER_ORDER.filter((status) => presentStatuses.has(status)),
@@ -355,8 +442,14 @@ export const buildStatisticsFromSource = (
   source: StatisticsSource,
   periodFilter: PeriodFilter = { type: "all", value: "" },
   dimensions: StatisticsDimensionFilters = EMPTY_DIMENSION_FILTERS,
+  viewMode: StatisticsViewMode = "process",
 ): LeaderStatistics => {
-  const filtered = filterStatisticsSource(source, periodFilter, dimensions);
+  const filtered = filterStatisticsSource(
+    source,
+    periodFilter,
+    dimensions,
+    viewMode,
+  );
   return buildLeaderStatistics(
     filtered.processes,
     filtered.rawProcesses,
@@ -447,6 +540,17 @@ export const buildUserWorkloadStats = (
     .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, "es"));
 };
 
+const formatElapsedDaysFilter = (filter: ElapsedDaysFilter): string => {
+  if (filter.mode === "more") return `Más de ${filter.from} días`;
+  if (filter.mode === "less") return `Menos de ${filter.to} días`;
+  if (filter.mode === "between") {
+    const low = Math.min(filter.from, filter.to);
+    const high = Math.max(filter.from, filter.to);
+    return `Entre ${low} y ${high} días`;
+  }
+  return "";
+};
+
 export const buildActiveFiltersLabel = (
   periodLabel: string,
   dimensions: StatisticsDimensionFilters,
@@ -480,6 +584,8 @@ export const buildActiveFiltersLabel = (
     );
     parts.push(`Estados: ${statusLabels.join(", ")}`);
   }
+  const elapsedLabel = formatElapsedDaysFilter(dimensions.elapsedDays);
+  if (elapsedLabel) parts.push(elapsedLabel);
 
   return parts.join(" · ");
 };

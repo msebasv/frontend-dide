@@ -38,6 +38,8 @@ export interface DeliverableTrackingItem {
   leaderClassroomStatus: ActorProgressCode;
   leaderClassroomStatusLabel: string;
   activityCount: number;
+  /** Días hábiles en el estado actual. Vacío si no hay fecha de inicio. */
+  elapsedLabel: string;
 }
 
 export interface ProcessTrackingRow {
@@ -45,6 +47,11 @@ export interface ProcessTrackingRow {
   processName: string;
   courseName: string;
   facultyName: string;
+  programName: string;
+  /** Semestre académico del proceso, p. ej. "2026-1". */
+  semester: string;
+  /** Fecha de creación del proceso. */
+  createdOn: string;
   phase: string;
   phaseShort: string;
   authorEmail: string;
@@ -82,6 +89,8 @@ export interface ProcessTrackingRow {
   detailPath: string;
   /** Entregables del proceso agrupables por General / crédito. */
   deliverables: DeliverableTrackingItem[];
+  /** Días hábiles del proceso, desde su creación. */
+  elapsedLabel: string;
 }
 
 export interface ProcessTrackingSummary {

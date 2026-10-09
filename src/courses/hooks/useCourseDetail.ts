@@ -13,7 +13,10 @@ export const useCourseDetail = () => {
   const requestRef = useRef(0);
 
   const loadDetail = useCallback(
-    async (processId: string, options?: { refresh?: boolean }) => {
+    async (
+      processId: string,
+      options?: { refresh?: boolean; includeInactive?: boolean },
+    ) => {
       const requestId = ++requestRef.current;
       const refresh = options?.refresh === true;
 
@@ -23,11 +26,12 @@ export const useCourseDetail = () => {
       }
 
       try {
-        const data = await getCourseDetail(processId);
+        const data = await getCourseDetail(processId, {
+          includeInactive: options?.includeInactive,
+        });
         if (requestRef.current !== requestId) return;
         setDetail(data);
-      } catch (error) {
-        console.error("Error cargando detalle del curso", error);
+      } catch {
         if (requestRef.current === requestId && !refresh) {
           setDetail(null);
         }

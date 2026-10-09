@@ -50,7 +50,11 @@ import {
   isLeaderSyllabusStatus,
   isVirtualizationLeaderRole,
 } from "../mappers/courseMappers";
-import { isLeaderRole, PROCESS_PHASES } from "../../global/constants/domainConstants";
+import {
+  canUploadProcessSyllabus,
+  isAdminRole,
+  PROCESS_PHASES,
+} from "../../global/constants/domainConstants";
 
 type ScopeType = "general" | "credit";
 
@@ -80,7 +84,7 @@ const UploadCourse = () => {
 
   const isLeaderUpload =
     isVirtualizationLeaderRole(currentRole) ||
-    (isLeaderRole(currentRole) &&
+    (isAdminRole(currentRole) &&
       Boolean(detail && isLeaderSyllabusStatus(detail.status)));
 
   const isAdvisorGuideUpload = isAdvisorRole(currentRole);
@@ -339,9 +343,8 @@ const UploadCourse = () => {
             "No se encontró un entregable llamado Syllabus en este proceso.",
           );
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
-          console.error("Error cargando entregables para carga", error);
           setDeliverablesError(
             "No se pudieron cargar los entregables disponibles para este proceso.",
           );
@@ -526,9 +529,7 @@ const UploadCourse = () => {
   }
 
   const canRoleUpload =
-    isAuthorRole(currentRole) ||
-    isVirtualizationLeaderRole(currentRole) ||
-    isLeaderRole(currentRole);
+    isAuthorRole(currentRole) || canUploadProcessSyllabus(currentRole);
 
   if (!canRoleUpload) {
     return (

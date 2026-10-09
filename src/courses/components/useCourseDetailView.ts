@@ -9,8 +9,7 @@ import {
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
-  canCreateOrEditProcesses,
-  isLeaderRole,
+  canUploadProcessSyllabus,
   PROCESS_PHASES,
 } from "../../global/constants/domainConstants";
 import {
@@ -23,7 +22,6 @@ import {
   isAuthorRole,
   isLeaderClassroomConfirmStatus,
   isLeaderSyllabusStatus,
-  isVirtualizationLeaderRole,
 } from "../mappers/courseMappers";
 import {
   getDeliverableUploadStatus,
@@ -110,9 +108,8 @@ export function useCourseDetailView({
 
           return allItems[0]?.id ?? "";
         });
-      } catch (error) {
+      } catch {
         if (!cancelled) {
-          console.error("Error cargando entregables", error);
           setGroupsError(
             "No se pudieron cargar los entregables del proceso.",
           );
@@ -183,15 +180,14 @@ export function useCourseDetailView({
   }, [selectedDeliverable, detail.materials, detail.status]);
 
   const canUploadCurrentDeliverable = useMemo(() => {
-    if (detail.status === PROCESS_PHASES.COMPLETED) return false;
+    if (detail.isDeleted || detail.status === PROCESS_PHASES.COMPLETED) {
+      return false;
+    }
     if (!selectedDeliverable) return false;
     const isSyllabus = isSyllabusDeliverable(selectedDeliverable);
 
-    // Líder de virtualización carga el syllabus (solo si ya hay validador)
-    if (
-      isVirtualizationLeaderRole(currentRole) ||
-      (isLeaderRole(currentRole) && canCreateOrEditProcesses(currentRole))
-    ) {
+    // El líder de virtualización o el administrador cargan el syllabus.
+    if (canUploadProcessSyllabus(currentRole)) {
       if (!isSyllabus) return false;
       if (needsValidatorForSyllabus) return false;
       return Boolean(selectedDeliverableStatus?.canUpload);
@@ -264,6 +260,7 @@ export function useCourseDetailView({
     currentRole,
     selectedDeliverableStatus,
     detail.status,
+    detail.isDeleted,
     needsValidatorForSyllabus,
     needsDesignerForGuide,
   ]);
@@ -378,13 +375,17 @@ export function useCourseDetailView({
     );
   }, [currentRole, selectedDeliverable]);
 
-  const canApproveCurrent = hasDeliverables
-    ? deliverableValidation.canApprove
-    : Boolean(canApprove);
+  const canApproveCurrent = detail.isDeleted
+    ? false
+    : hasDeliverables
+      ? deliverableValidation.canApprove
+      : Boolean(canApprove);
 
-  const canReturnCurrent = hasDeliverables
-    ? deliverableValidation.canReturn
-    : Boolean(canReturn);
+  const canReturnCurrent = detail.isDeleted
+    ? false
+    : hasDeliverables
+      ? deliverableValidation.canReturn
+      : Boolean(canReturn);
 
   const showValidationActions =
     canApproveCurrent || canReturnCurrent;

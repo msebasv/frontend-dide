@@ -34,8 +34,8 @@ export const useVirtualizationProcesses = (
           )
         : data;
       setProcesses(visible);
-    } catch (error) {
-      console.error("Error cargando procesos", error);
+    } catch {
+      // La lista queda como estaba.
     } finally {
       setLoading(false);
     }

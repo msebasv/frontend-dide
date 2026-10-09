@@ -29,6 +29,7 @@ import {
   type LeaderStatistics,
   type StatisticsDimensionFilters,
   type StatisticsScope,
+  type StatisticsViewMode,
   type UserWorkloadStat,
 } from "../types/statistics.types";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
@@ -54,7 +55,11 @@ const resolveStatisticsScope = (
   return { mode: "global", email: normalizedEmail };
 };
 
-export const useStatistics = (userEmail = "", userRole = "") => {
+export const useStatistics = (
+  userEmail = "",
+  userRole = "",
+  viewMode: StatisticsViewMode = "process",
+) => {
   const [source, setSource] = useState<StatisticsSource | null>(null);
   const [loading, setLoading] = useState(false);
   const [periodFilter, setPeriodFilterState] =
@@ -77,8 +82,8 @@ export const useStatistics = (userEmail = "", userRole = "") => {
       setLoading(true);
       const data = await getStatisticsSource();
       setSource(data);
-    } catch (error) {
-      console.error("Error cargando estadísticas", error);
+    } catch {
+      // Las estadísticas quedan como estaban.
     } finally {
       setLoading(false);
     }
@@ -102,8 +107,11 @@ export const useStatistics = (userEmail = "", userRole = "") => {
     return buildStatisticsFilterOptions(
       scopedSource.processes,
       dimensionFilters,
+      viewMode === "deliverable"
+        ? scopedSource.deliverables.map((item) => item.phaseKey)
+        : [],
     );
-  }, [scopedSource, dimensionFilters]);
+  }, [scopedSource, dimensionFilters, viewMode]);
 
   const getFilterOptions = useCallback(
     (dimensions: StatisticsDimensionFilters) => {
@@ -116,9 +124,15 @@ export const useStatistics = (userEmail = "", userRole = "") => {
           statuses: [],
         };
       }
-      return buildStatisticsFilterOptions(scopedSource.processes, dimensions);
+      return buildStatisticsFilterOptions(
+        scopedSource.processes,
+        dimensions,
+        viewMode === "deliverable"
+          ? scopedSource.deliverables.map((item) => item.phaseKey)
+          : [],
+      );
     },
-    [scopedSource],
+    [scopedSource, viewMode],
   );
 
   const setPeriodFilter = useCallback(
@@ -155,8 +169,9 @@ export const useStatistics = (userEmail = "", userRole = "") => {
       scopedSource,
       periodFilter,
       dimensionFilters,
+      viewMode,
     );
-  }, [scopedSource, periodFilter, dimensionFilters]);
+  }, [scopedSource, periodFilter, dimensionFilters, viewMode]);
 
   const statistics: LeaderStatistics | null = useMemo(() => {
     if (!scopedSource) return null;
@@ -164,8 +179,9 @@ export const useStatistics = (userEmail = "", userRole = "") => {
       scopedSource,
       periodFilter,
       dimensionFilters,
+      viewMode,
     );
-  }, [scopedSource, periodFilter, dimensionFilters]);
+  }, [scopedSource, periodFilter, dimensionFilters, viewMode]);
 
   const filteredProcesses: VirtualizationProcess[] = useMemo(
     () => filteredSource?.processes ?? [],

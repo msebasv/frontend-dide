@@ -37,6 +37,7 @@ import {
   toFriendlyFlowError,
   type FlowConfirmOutcome,
 } from "../utils/flowResult";
+import { notifyOperationSettled } from "../utils/operationSettled";
 import {
   clearPendingOperation,
   PENDING_OPERATION_TTL_MS,
@@ -133,6 +134,9 @@ interface ActionFeedbackContextValue {
     next: FeedbackState & { onSuccessClose?: () => void },
   ) => void;
   dismissToast: () => void;
+  /** El aviso de carga se cerró y la solicitud sigue en curso. */
+  showRunningIndicator: boolean;
+  restoreRunningToast: () => void;
 }
 
 const ActionFeedbackContext = createContext<ActionFeedbackContextValue | null>(
@@ -154,6 +158,7 @@ export function ActionFeedbackProvider({
 }: ActionFeedbackProviderProps) {
   const [feedback, setFeedback] = useState<FeedbackState>(closedFeedback);
   const [toast, setToast] = useState<ToastState>(closedToast);
+  const [runningMinimized, setRunningMinimized] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [pendingResourceLock, setPendingResourceLock] = useState<{
     processId: string;
@@ -164,6 +169,8 @@ export function ActionFeedbackProvider({
   const backgroundGenRef = useRef(0);
   const pendingSoftRef = useRef<PendingSoft | null>(null);
   const isConfirmingRef = useRef(false);
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const setConfirming = useCallback((value: boolean) => {
     isConfirmingRef.current = value;
@@ -174,11 +181,26 @@ export function ActionFeedbackProvider({
   }, []);
 
   const dismissToast = useCallback(() => {
+    const current = toastRef.current;
+    if (current.isOpen && current.status === "loading") {
+      setRunningMinimized(true);
+      setToast({ ...current, isOpen: false });
+      return;
+    }
+    setRunningMinimized(false);
     setToast(closedToast);
     onViewActionRef.current = null;
   }, []);
 
+  const restoreRunningToast = useCallback(() => {
+    setRunningMinimized(false);
+    setToast((current) =>
+      current.status === "loading" ? { ...current, isOpen: true } : current,
+    );
+  }, []);
+
   const showLoadingToast = useCallback((options: RunActionOptions) => {
+    setRunningMinimized(false);
     setToast({
       isOpen: true,
       status: "loading",
@@ -198,6 +220,7 @@ export function ActionFeedbackProvider({
       options: RunActionOptions,
       error?: unknown,
     ) => {
+      setRunningMinimized(false);
       if (outcome === "confirmed") {
         onViewActionRef.current = options.onViewAction ?? null;
         setToast({
@@ -211,6 +234,7 @@ export function ActionFeedbackProvider({
       }
 
       onViewActionRef.current = null;
+      notifyOperationSettled();
       const fallback =
         options.onBackgroundFailedMessage ??
         OPERATION_COPY.backgroundFailedDefault;
@@ -276,14 +300,18 @@ export function ActionFeedbackProvider({
         return;
       }
 
+      setConfirming(true);
+
       try {
         await action();
         await options.onSuccess?.();
         options.onReleaseLock?.();
         pendingSoftRef.current = null;
         setConfirming(false);
+        setRunningMinimized(false);
         setToast(closedToast);
         onCloseSuccessRef.current = options.onSuccessClose ?? null;
+        notifyOperationSettled();
         setFeedback({
           isOpen: true,
           type: "success",
@@ -291,8 +319,6 @@ export function ActionFeedbackProvider({
           message: options.successMessage,
         });
       } catch (error) {
-        console.error(error);
-
         if (
           isFlowConfirmationTimeoutError(error) &&
           (error.continueConfirm || options.continueConfirm)
@@ -341,6 +367,7 @@ export function ActionFeedbackProvider({
 
               if (outcome === "confirmed") {
                 void Promise.resolve(options.onSuccess?.()).finally(() => {
+                  notifyOperationSettled();
                   options.onSuccessClose?.();
                 });
               }
@@ -359,8 +386,10 @@ export function ActionFeedbackProvider({
         }
         pendingSoftRef.current = null;
         setConfirming(false);
+        setRunningMinimized(false);
         setToast(closedToast);
         onCloseSuccessRef.current = null;
+        notifyOperationSettled();
         setFeedback({
           isOpen: true,
           type: "error",
@@ -404,6 +433,7 @@ export function ActionFeedbackProvider({
       clearPendingOperation();
       setConfirming(false);
       setFeedback(closedFeedback);
+      if (outcome === "confirmed") notifyOperationSettled();
       showSettledToast(outcome, options, error);
     };
 
@@ -448,6 +478,21 @@ export function ActionFeedbackProvider({
 
   const isOperationPending = isConfirming;
 
+  useEffect(() => {
+    if (!isOperationPending) return;
+
+    const warnBeforeLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = OPERATION_COPY.leaveWhilePending;
+      return event.returnValue;
+    };
+
+    window.addEventListener("beforeunload", warnBeforeLeave);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeave);
+  }, [isOperationPending]);
+  const showRunningIndicator =
+    runningMinimized && !toast.isOpen && toast.status === "loading";
+
   const value = useMemo(
     () => ({
       feedback,
@@ -457,6 +502,8 @@ export function ActionFeedbackProvider({
       runAction,
       showFeedback,
       dismissToast,
+      showRunningIndicator,
+      restoreRunningToast,
     }),
     [
       feedback,
@@ -466,6 +513,8 @@ export function ActionFeedbackProvider({
       runAction,
       showFeedback,
       dismissToast,
+      showRunningIndicator,
+      restoreRunningToast,
     ],
   );
 

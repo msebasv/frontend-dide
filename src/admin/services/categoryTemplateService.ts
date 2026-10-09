@@ -407,11 +407,8 @@ export const listCategoryTemplates = async (): Promise<
   let links: Dev_tablecategoryphasetemplates[] = [];
   try {
     links = await listCategoryPhaseLinks();
-  } catch (error) {
-    console.error(
-      "No se pudieron cargar vínculos de table-category-phase-template",
-      error,
-    );
+  } catch {
+    links = [];
   }
 
   const phases = await listPhaseTemplateOptions();

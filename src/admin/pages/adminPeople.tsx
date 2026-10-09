@@ -162,8 +162,8 @@ function AdminPeoplePage() {
       setLoading(true);
       const data = await getPeopleDirectory();
       setPeople(data);
-    } catch (error) {
-      console.error("Error cargando directorio de personas", error);
+    } catch {
+      // El directorio queda como estaba.
     } finally {
       setLoading(false);
     }

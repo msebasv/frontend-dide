@@ -67,8 +67,7 @@ function AssignDideDesigner() {
         setProcessName(editData.processName);
         setCourseName(editData.courseName);
         setDesignerEmail(editData.designerEmail);
-      } catch (error) {
-        console.error("Error cargando proceso para asignar diseñador", error);
+      } catch {
         setNotFound(true);
       } finally {
         setLoading(false);

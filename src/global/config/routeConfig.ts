@@ -22,6 +22,7 @@ export const routeTitles: { pattern: RegExp; title: string }[] = [
   { pattern: /^\/virtualization-processes\/[^/]+$/, title: "Ver Proceso" },
   { pattern: /^\/courses\/[^/]+\/upload$/, title: "Cargar Curso" },
   { pattern: /^\/courses\/[^/]+$/, title: "Ver Proceso" },
+  { pattern: /.+/, title: "Página no encontrada" },
 ];
 
 export const getPageTitle = (pathname: string): string => {

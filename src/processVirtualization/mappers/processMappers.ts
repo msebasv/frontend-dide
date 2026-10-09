@@ -13,6 +13,7 @@ import type { Dev_tableactivities } from "../../generated/models/Dev_tableactivi
 import type { Dev_tableassignroles } from "../../generated/models/Dev_tableassignrolesModel";
 import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 import type { Dev_tableactivitytemplates } from "../../generated/models/Dev_tableactivitytemplatesModel";
+import type { Dev_tablecategorytemplates } from "../../generated/models/Dev_tablecategorytemplatesModel";
 
 import type { VirtualizationProcess } from "../types/process.types";
 import { buildProcessPhaseBreakdown } from "../../courses/utils/phaseBreakdown";
@@ -28,9 +29,35 @@ import {
   isLeaderClassroomConfirmStatus,
   isLeaderSyllabusStatus,
 } from "../../courses/mappers/courseMappers";
+import { isActiveDataverseRecord } from "../../global/utils/dataverseState";
 
 type AssignRoleWithFormatted = Dev_tableassignroles & {
   "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"?: string;
+};
+
+const guidKey = (value: string | null | undefined): string =>
+  String(value ?? "")
+    .replace(/[{}]/g, "")
+    .trim()
+    .toLowerCase();
+
+/** El host a veces devuelve el lookup como GUID y a veces como objeto. */
+const lookupGuid = (
+  record: object,
+  valueKey: string,
+  objectKey: string,
+): string => {
+  const row = record as Record<string, unknown>;
+  const direct = row[valueKey];
+  if (typeof direct === "string" && direct.trim()) return guidKey(direct);
+  const lookup = row[objectKey];
+  if (typeof lookup === "string" && lookup.trim()) return guidKey(lookup);
+  if (lookup && typeof lookup === "object") {
+    const nested = lookup as { id?: unknown; value?: unknown };
+    const id = nested.id ?? nested.value;
+    if (typeof id === "string" && id.trim()) return guidKey(id);
+  }
+  return "";
 };
 
 interface MapperParams {
@@ -44,6 +71,7 @@ interface MapperParams {
   /** Entregables activos: permiten mostrar el avance por estado, no solo la fase. */
   deliverables?: Dev_tabledeliverables[];
   activityTemplates?: Dev_tableactivitytemplates[];
+  categoryTemplates?: Dev_tablecategorytemplates[];
 }
 
 interface AssignedPerson {
@@ -132,20 +160,40 @@ export const mapVirtualizationProcesses = ({
   assignRoles = [],
   deliverables = [],
   activityTemplates = [],
-}: MapperParams): VirtualizationProcess[] => {
+  categoryTemplates = [],
+  recordState = "active",
+}: MapperParams & {
+  recordState?: "active" | "inactive";
+}): VirtualizationProcess[] => {
   const coursesMap = new Map(
-    courses.map((course) => [course.dev_tablecourseinstanceid, course]),
+    courses.flatMap((course) => {
+      const id = guidKey(course.dev_tablecourseinstanceid);
+      return id ? [[id, course] as const] : [];
+    }),
   );
 
   const programsMap = new Map(
-    programs.map((program) => [program.dev_table_programid, program]),
+    programs.flatMap((program) => {
+      const id = guidKey(program.dev_table_programid);
+      return id ? [[id, program] as const] : [];
+    }),
   );
 
   const facultiesMap = new Map(
-    faculties.map((faculty) => [faculty.dev_table_facultyid, faculty]),
+    faculties.flatMap((faculty) => {
+      const id = guidKey(faculty.dev_table_facultyid);
+      return id ? [[id, faculty] as const] : [];
+    }),
   );
 
   const assigneesByProcess = buildAssigneesByProcess(assignRoles);
+
+  const requiredByCategoryId = new Map(
+    categoryTemplates.map((category) => [
+      guidKey(category.dev_tablecategorytemplateid),
+      Boolean(category.dev_isrequired),
+    ]),
+  );
 
   const templatesMap = new Map(
     activityTemplates.map((template) => [
@@ -156,8 +204,11 @@ export const mapVirtualizationProcesses = ({
 
   const deliverablesByProcess = new Map<string, Dev_tabledeliverables[]>();
   for (const deliverable of deliverables) {
-    const processId =
-      deliverable._dev_tablevirtualizationprocess_value?.trim() ?? "";
+    const processId = lookupGuid(
+      deliverable,
+      "_dev_tablevirtualizationprocess_value",
+      "dev_tablevirtualizationprocess",
+    );
     if (!processId) continue;
     const list = deliverablesByProcess.get(processId) ?? [];
     list.push(deliverable);
@@ -178,13 +229,33 @@ export const mapVirtualizationProcesses = ({
     phasesByProcess.set(processId, current);
   }
 
+  const wantInactive = recordState === "inactive";
+
   return processes
+    .filter((process) => {
+      const active = isActiveDataverseRecord(process.statecode);
+      return wantInactive ? !active : active;
+    })
     .map((process) => {
-      const course = coursesMap.get(process._dev_tablecourse_value ?? "");
+      const course = coursesMap.get(
+        lookupGuid(process, "_dev_tablecourse_value", "dev_tablecourse"),
+      );
 
-      const program = programsMap.get(course?._dev_tableprogram_value ?? "");
+      const program = course
+        ? programsMap.get(
+            lookupGuid(course, "_dev_tableprogram_value", "dev_tableprogram"),
+          )
+        : undefined;
 
-      const faculty = facultiesMap.get(program?._dev_table_faculty_value ?? "");
+      const faculty = program
+        ? facultiesMap.get(
+            lookupGuid(
+              program,
+              "_dev_table_faculty_value",
+              "dev_table_faculty",
+            ),
+          )
+        : undefined;
 
       type PhaseWithFormattedValue = Dev_tablephases & {
         "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
@@ -216,6 +287,8 @@ export const mapVirtualizationProcesses = ({
         : activityName;
 
       const processId = process.dev_tablevirtualizationprocessid;
+      const processDeliverables =
+        deliverablesByProcess.get(guidKey(processId)) ?? [];
       const phaseIds = new Set(
         processPhases.map((phase) => phase.dev_tablephaseid),
       );
@@ -237,13 +310,13 @@ export const mapVirtualizationProcesses = ({
 
       const assignees = assigneesByProcess.get(processId);
 
-      const processDeliverables = deliverablesByProcess.get(processId) ?? [];
       const phaseBreakdown = processDeliverables.length
         ? buildProcessPhaseBreakdown({
             processStatus: resolvedStatus,
             deliverables: processDeliverables,
             phases: processPhases,
             templatesMap,
+            requiredByCategoryId,
           })
         : undefined;
 
@@ -251,8 +324,14 @@ export const mapVirtualizationProcesses = ({
         processId,
         processName: process.dev_nameprocess ?? "",
         courseName: course?.dev_namecourse ?? "",
-        programName: program?.dev_nameprogram ?? "",
-        facultyName: faculty?.dev_namefaculty ?? "",
+        programName:
+          program?.dev_nameprogram?.trim() ||
+          course?.dev_tableprogramname?.trim() ||
+          "",
+        facultyName:
+          faculty?.dev_namefaculty?.trim() ||
+          program?.dev_table_facultyname?.trim() ||
+          "",
         status: resolvedStatus,
         modifiedOn,
         createdOn: process.createdon ?? "",
@@ -271,10 +350,12 @@ export const mapVirtualizationProcesses = ({
         designerEmail: assignees?.designer?.email ?? "",
         designerLabel: assignees?.designer?.label ?? "",
         canUploadSyllabus:
+          !wantInactive &&
           !processClosed &&
           isLeaderSyllabusStatus(activityName) &&
           Boolean(assignees?.validator?.email),
         needsValidatorAssignment:
+          !wantInactive &&
           !processClosed &&
           isLeaderSyllabusStatus(activityName) &&
           !assignees?.validator?.email,
@@ -282,9 +363,13 @@ export const mapVirtualizationProcesses = ({
          * true si aún no hay Diseñador DIDE: el coordinador puede asignarlo
          * en cualquier momento (no está atado a una fase).
          */
-        needsDesignerAssignment: !processClosed && !assignees?.designer?.email,
+        needsDesignerAssignment:
+          !wantInactive && !processClosed && !assignees?.designer?.email,
         canConfirmClassroom:
-          !processClosed && isLeaderClassroomConfirmStatus(activityName),
+          !wantInactive &&
+          !processClosed &&
+          isLeaderClassroomConfirmStatus(activityName),
+        isDeleted: wantInactive,
         phaseBreakdown,
       };
     })

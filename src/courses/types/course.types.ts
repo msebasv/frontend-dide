@@ -12,6 +12,10 @@ export interface Course {
   courseName: string;
   programName: string;
   facultyName: string;
+  /** Semestre académico del proceso, p. ej. "2026-1". */
+  semester: string;
+  /** Fecha de creación del proceso. */
+  createdOn: string;
   authorName: string;
   /** Nombre de la plantilla de actividad de la fase actual. */
   status: string;
@@ -37,9 +41,22 @@ export interface Course {
   phaseBreakdown?: CoursePhaseBreakdown;
 }
 
+/** Entregable ya ubicado en una fase, para el panel del inicio. */
+export interface PhaseBreakdownDeliverable {
+  id: string;
+  name: string;
+  creditNumber: number;
+  creditLabel: string;
+  phase: string;
+  stateLabel: string;
+  isRequired: boolean;
+}
+
 /** Conteo de materiales/entregables por nombre de fase. */
 export interface CoursePhaseBreakdown {
   counts: Partial<Record<string, number>>;
+  /** Entregables con su fase. El conteo de la tabla no depende de esta lista. */
+  deliverables?: PhaseBreakdownDeliverable[];
   /** true solo si los conteos son de demostración (legacy). */
   isMock?: boolean;
 }
@@ -118,7 +135,11 @@ export interface CourseDetail {
   programName: string;
   facultyName: string;
   folderBase: string;
+  /** Fecha de creación del proceso. */
+  createdOn: string;
   status: string;
+  /** true si el proceso fue eliminado y solo se consulta. */
+  isDeleted: boolean;
   currentRole: string;
   materials: CourseMaterial[];
   /** Líder, autor, validador disciplinar y asesor pedagógico del proceso. */

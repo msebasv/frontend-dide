@@ -15,18 +15,27 @@ import {
   PHASE_SHORT_LABELS,
   PROCESS_PHASES,
   USER_ROLES,
+  VISUAL_CLASSROOM_UPLOAD_LABEL,
   canonicalizeUserRole,
   isProcessCloseReady,
   isLeaderRole,
   isVirtualizationLeaderRole,
 } from "../../global/constants/domainConstants";
 import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
+import { isActiveDataverseRecord } from "../../global/utils/dataverseState";
+import {
+  deliverableElapsedDayCount,
+  formatActorElapsed,
+  processElapsedLabel,
+} from "../../global/utils/colombiaBusinessDays";
+import { resolveProcessSemester } from "../../global/utils/semesterUtils";
 import { normalizeComparableText } from "../../global/utils/textUtils";
 import {
   formatActivityStatus,
   isAdvisorAudiovisualApprovalStatus,
   isAdvisorGuideUploadStatus,
   isAdvisorRole,
+  isLeaderClassroomConfirmStatus,
   isLeaderSyllabusStatus,
   isActivityProcessingStatus,
   resolveActivityStatusRaw,
@@ -65,6 +74,109 @@ const ACTOR_STATUS_LABELS: Record<ActorProgressCode, string> = {
 
 const creditLabelFor = (creditNumber: number): string =>
   creditNumber === 0 ? "General" : `Unidad ${creditNumber}`;
+
+const activityStamp = (activity: Dev_tableactivities): string =>
+  activity.createdon || activity.modifiedon || "";
+
+const latestActivity = (
+  activities: Dev_tableactivities[],
+): Dev_tableactivities | undefined =>
+  [...activities].sort(
+    (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
+  )[0];
+
+const WAITING_ACTORS: { key: keyof ActorStatusSet; label: string }[] = [
+  { key: "leaderPre", label: "Líder" },
+  { key: "author", label: "Autor" },
+  { key: "validator", label: "Validador" },
+  { key: "advisor", label: "Asesor" },
+  { key: "designer", label: "Diseñador" },
+  { key: "advisorAv", label: "Asesor" },
+  { key: "leaderClassroom", label: "Líder" },
+];
+
+const deliverableElapsedLabel = (params: {
+  statuses: ActorStatusSet;
+  activities: Dev_tableactivities[];
+  processCreatedOn: string;
+  syllabusCompletedOn?: string;
+  isSyllabus: boolean;
+  syllabusLoaded: boolean;
+  finalized: boolean;
+}): string => {
+  const {
+    statuses,
+    activities,
+    processCreatedOn,
+    syllabusCompletedOn,
+    isSyllabus,
+    syllabusLoaded,
+    finalized,
+  } = params;
+  const settled = activities.filter(
+    (activity) =>
+      !isActivityProcessingStatus(resolveActivityStatusRaw(activity)),
+  );
+  const pool = settled.length > 0 ? settled : activities;
+  const latest = latestActivity(pool);
+  const latestReturned = latest
+    ? isReturnedLabel(formatActivityStatus(resolveActivityStatusRaw(latest)))
+    : false;
+  const eventDates = [...pool]
+    .map(activityStamp)
+    .filter(Boolean)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+  const pending = WAITING_ACTORS.find(
+    (actor) => statuses[actor.key] === "pending",
+  );
+
+  let actor = "En este estado";
+  if (latestReturned) {
+    actor = "Devuelto";
+  } else if (pending) {
+    actor = pending.label;
+  } else if (syllabusLoaded) {
+    actor = "Syllabus listo";
+  } else if (
+    finalized ||
+    WAITING_ACTORS.every(
+      (item) => statuses[item.key] === "done" || statuses[item.key] === "na",
+    )
+  ) {
+    actor = "Completado";
+  }
+
+  const days = deliverableElapsedDayCount({
+    isSyllabus,
+    returned: latestReturned,
+    eventDates,
+    processCreatedOn,
+    syllabusCompletedOn: isSyllabus ? undefined : syllabusCompletedOn,
+  });
+
+  return formatActorElapsed(actor, days);
+};
+
+const guidKey = (value: string | null | undefined): string =>
+  String(value ?? "")
+    .replace(/[{}]/g, "")
+    .trim()
+    .toLowerCase();
+
+/** El host a veces devuelve el lookup como GUID suelto y a veces como objeto. */
+const deliverableProcessId = (deliverable: Dev_tabledeliverables): string => {
+  const row = deliverable as unknown as Record<string, unknown>;
+  const direct = deliverable._dev_tablevirtualizationprocess_value?.trim();
+  if (direct) return direct;
+  const lookup = row.dev_tablevirtualizationprocess;
+  if (typeof lookup === "string" && lookup.trim()) return lookup.trim();
+  if (lookup && typeof lookup === "object") {
+    const nested = lookup as { id?: unknown; value?: unknown };
+    const id = nested.id ?? nested.value;
+    if (typeof id === "string" && id.trim()) return id.trim();
+  }
+  return "";
+};
 
 const resolvePerson = (
   assignRole: AssignRoleWithFormatted,
@@ -149,16 +261,72 @@ const donePipeline = (): ActorStatusSet => ({
   leaderClassroom: "done",
 });
 
+/** La aprobación deja la actividad en Aprobado aunque la fase no avance. */
+const isApprovedActivityStatus = (raw: string): boolean => {
+  const label = normalizePhase(formatActivityStatus(raw));
+  if (!label) return false;
+  if (
+    label.includes("no aprobado") ||
+    label.includes("por aprobar") ||
+    label.includes("corregir") ||
+    label.includes("devuelto") ||
+    label.includes("en proceso")
+  ) {
+    return false;
+  }
+  return label.includes("aprobado") || label === "terminado";
+};
+
+const sameActivityName = (left: string, right: string): boolean =>
+  normalizePhase(left).replace(/\s+/g, " ") ===
+  normalizePhase(right).replace(/\s+/g, " ");
+
+const activityTemplateLabel = (
+  activity: Dev_tableactivities,
+  templatesMap?: Map<string, Dev_tableactivitytemplates>,
+): string => {
+  const named = activity.dev_tableactivitytemplatename?.trim();
+  if (named) return named;
+
+  const templateId = activity._dev_tableactivitytemplate_value;
+  const fromMap = templateId
+    ? templatesMap?.get(templateId)?.dev_activityname?.trim()
+    : "";
+  if (fromMap) return fromMap;
+
+  return (activity.dev_activityname?.trim() ?? "").replace(/^estado\s+/i, "");
+};
+
+/**
+ * Actor que el tablero muestra como pendiente mientras la fase no cambia.
+ * La fase solo avanza cuando todos los obligatorios cierran ese paso.
+ */
+const pendingActorForPhase = (phase: string): keyof ActorStatusSet | null => {
+  if (isLeaderSyllabusStatus(phase)) return "leaderPre";
+  if (isClassroomConfirmPhase(phase)) return "leaderClassroom";
+  if (
+    matchPhase(phase, PROCESS_PHASES.ADVISOR_AV_APPROVAL) ||
+    isAdvisorAudiovisualApprovalStatus(phase)
+  ) {
+    return "advisorAv";
+  }
+  if (matchPhase(phase, PROCESS_PHASES.DIDE_REVIEW)) return "designer";
+  if (
+    matchPhase(phase, PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD) ||
+    isAdvisorGuideUploadStatus(phase) ||
+    matchPhase(phase, PROCESS_PHASES.ADVISOR_REVIEW)
+  ) {
+    return "advisor";
+  }
+  if (matchPhase(phase, PROCESS_PHASES.VALIDATOR_REVIEW)) return "validator";
+  if (matchPhase(phase, PROCESS_PHASES.AUTHOR_UPLOAD)) return "author";
+  return null;
+};
+
 const isClassroomConfirmPhase = (phase: string): boolean => {
-  if (matchPhase(phase, PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM)) return true;
-  const n = phase
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-  return (
-    (n.includes("validacion cargue") && n.includes("aula")) ||
-    n.includes("cargue en el aula")
-  );
+  if (!phase.trim()) return false;
+  if (matchPhase(phase, VISUAL_CLASSROOM_UPLOAD_LABEL)) return false;
+  return isLeaderClassroomConfirmStatus(phase);
 };
 
 /**
@@ -177,7 +345,10 @@ const deriveActorStatuses = (
     return donePipeline();
   }
 
-  if (isClassroomConfirmPhase(phase)) {
+  if (
+    isClassroomConfirmPhase(phase) ||
+    matchPhase(phase, VISUAL_CLASSROOM_UPLOAD_LABEL)
+  ) {
     return { ...donePipeline(), leaderClassroom: "pending" };
   }
 
@@ -262,6 +433,46 @@ const deriveActorStatuses = (
   };
 };
 
+/**
+ * Si este entregable ya tiene la actividad de la fase en Aprobado,
+ * el actor deja de verse pendiente aunque la fase siga igual
+ * hasta que el resto de obligatorios termine.
+ */
+const applyRecordedApproval = (
+  statuses: ActorStatusSet,
+  phase: string,
+  phaseId: string | undefined,
+  activities: Dev_tableactivities[],
+  templatesMap?: Map<string, Dev_tableactivitytemplates>,
+): void => {
+  const actor = pendingActorForPhase(phase);
+  if (!actor || !phaseId || statuses[actor] !== "pending") return;
+
+  const approved = activities.some((activity) => {
+    if ((activity._dev_tablephase_value ?? "") !== phaseId) return false;
+    if (!isApprovedActivityStatus(resolveActivityStatusRaw(activity))) {
+      return false;
+    }
+    const template = activityTemplateLabel(activity, templatesMap);
+    return Boolean(template) && sameActivityName(template, phase);
+  });
+
+  if (approved) statuses[actor] = "done";
+};
+
+const rollupActorStatus = (
+  codes: ActorProgressCode[],
+  fallback: ActorProgressCode,
+): ActorProgressCode => {
+  const relevant = codes.filter((code) => code !== "na");
+  if (relevant.length === 0) return fallback;
+  if (relevant.includes("returned")) return "returned";
+  if (relevant.includes("pending")) return "pending";
+  if (relevant.includes("done")) return "done";
+  if (relevant.includes("waiting")) return "waiting";
+  return fallback;
+};
+
 const formatActorLabels = (
   phase: string,
   statuses: ActorStatusSet,
@@ -325,15 +536,22 @@ const buildDeliverableTracking = (params: {
   processPhases: PhaseWithFormatted[];
   activities: Dev_tableactivities[];
   templatesMap?: Map<string, Dev_tableactivitytemplates>;
+  processCreatedOn: string;
+  syllabusCompletedOn?: string;
   /** Proceso con close-ready: todos los entregables figuran finalizados. */
   processFinalized?: boolean;
+  /** Ya existe la fase real de validación del cargue en el aula. */
+  classroomPhaseOpen?: boolean;
 }): DeliverableTrackingItem => {
   const {
     deliverable,
     processPhases,
     activities,
     templatesMap,
+    processCreatedOn,
+    syllabusCompletedOn,
     processFinalized = false,
+    classroomPhaseOpen = false,
   } = params;
   const deliverableId = deliverable.dev_tabledeliverableid;
   const name = deliverable.dev_namedeliverable?.trim() || "Entregable";
@@ -342,27 +560,6 @@ const buildDeliverableTracking = (params: {
       ? deliverable.dev_creditnumber
       : Number(deliverable.dev_creditnumber) || 0;
   const isSyllabus = isSyllabusDeliverable({ name });
-
-  if (processFinalized) {
-    const completedPhase = PROCESS_PHASES.COMPLETED;
-    const statuses = deriveActorStatuses(completedPhase, false);
-    const labels = formatActorLabels(
-      completedPhase,
-      statuses,
-      true,
-      false,
-    );
-    return {
-      id: deliverableId,
-      name,
-      creditNumber,
-      creditLabel: creditLabelFor(creditNumber),
-      phase: completedPhase,
-      phaseShort: PHASE_SHORT_LABELS[completedPhase] ?? completedPhase,
-      ...labels,
-      activityCount: 0,
-    };
-  }
 
   const linkedPhases = processPhases.filter((phase) => {
     const phaseDeliverableId = phase._dev_tabledeliverable_value ?? "";
@@ -378,8 +575,11 @@ const buildDeliverableTracking = (params: {
     return false;
   });
 
-  const phase = linkedPhases.length
-    ? getCurrentPhase(linkedPhases, templatesMap)
+  const currentPhaseRecord = [...linkedPhases].sort(
+    (a, b) => getRecordTimestamp(b) - getRecordTimestamp(a),
+  )[0];
+  let phase = currentPhaseRecord
+    ? getCurrentPhase([currentPhaseRecord], templatesMap)
     : PROCESS_PHASES.UNKNOWN;
   const phaseIds = new Set(linkedPhases.map((item) => item.dev_tablephaseid));
   const deliverableActivities = activities.filter((activity) =>
@@ -395,7 +595,7 @@ const buildDeliverableTracking = (params: {
     (activity) =>
       !isActivityProcessingStatus(resolveActivityStatusRaw(activity)),
   );
-  const statuses = deriveActorStatuses(
+  let statuses = deriveActorStatuses(
     phase,
     hasReturnedMaterial,
   );
@@ -408,22 +608,94 @@ const buildDeliverableTracking = (params: {
   ) {
     statuses.leaderPre = "done";
   }
-  const labels = formatActorLabels(
+  // El syllabus no recorre autor, validador ni las demás aprobaciones.
+  if (isSyllabus) {
+    statuses.author = "na";
+    statuses.validator = "na";
+    statuses.advisor = "na";
+    statuses.designer = "na";
+    statuses.advisorAv = "na";
+    statuses.leaderClassroom = "na";
+  } else {
+    applyRecordedApproval(
+      statuses,
+      phase,
+      currentPhaseRecord?.dev_tablephaseid,
+      deliverableActivities,
+      templatesMap,
+    );
+  }
+  let syllabusLoaded = isSyllabus && statuses.leaderPre === "done";
+  const avApprovedAheadOfPhase =
+    !isSyllabus &&
+    statuses.advisorAv === "done" &&
+    (matchPhase(phase, PROCESS_PHASES.ADVISOR_AV_APPROVAL) ||
+      isAdvisorAudiovisualApprovalStatus(phase));
+  const onClassroomStep =
+    !isSyllabus &&
+    (isClassroomConfirmPhase(phase) ||
+      matchPhase(phase, VISUAL_CLASSROOM_UPLOAD_LABEL));
+  const awaitingClassroomConfirm =
+    onClassroomStep ||
+    (!isSyllabus && classroomPhaseOpen && statuses.advisorAv === "done");
+  if (awaitingClassroomConfirm) {
+    statuses.leaderPre = "done";
+    statuses.author = "done";
+    statuses.validator = "done";
+    statuses.advisor = "done";
+    statuses.designer = "done";
+    statuses.advisorAv = "done";
+    statuses.leaderClassroom = "pending";
+  }
+  let displayPhase = syllabusLoaded
+    ? "Syllabus listo"
+    : awaitingClassroomConfirm
+      ? PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM
+      : avApprovedAheadOfPhase
+        ? VISUAL_CLASSROOM_UPLOAD_LABEL
+        : phase;
+  let labels = formatActorLabels(
     phase,
     statuses,
     hasAuthorMaterial,
     hasReturnedMaterial,
   );
 
+  if (processFinalized) {
+    phase = PROCESS_PHASES.COMPLETED;
+    statuses = deriveActorStatuses(phase, false);
+    syllabusLoaded = false;
+    displayPhase = phase;
+    labels = formatActorLabels(phase, statuses, hasAuthorMaterial, false);
+  }
+
+  const phaseShort =
+    processFinalized || syllabusLoaded
+      ? displayPhase
+      : awaitingClassroomConfirm
+        ? PHASE_SHORT_LABELS[PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM]
+        : avApprovedAheadOfPhase
+          ? VISUAL_CLASSROOM_UPLOAD_LABEL
+          : (PHASE_SHORT_LABELS[phase] ?? phase);
+
   return {
     id: deliverableId,
     name,
     creditNumber,
     creditLabel: creditLabelFor(creditNumber),
-    phase,
-    phaseShort: PHASE_SHORT_LABELS[phase] ?? phase,
+    phase: displayPhase,
+    phaseShort,
     ...labels,
     activityCount: deliverableActivities.length,
+    elapsedLabel: deliverableElapsedLabel({
+      statuses,
+      activities: deliverableActivities,
+      processCreatedOn,
+      syllabusCompletedOn,
+      isSyllabus,
+      syllabusLoaded,
+      finalized: processFinalized,
+    }),
   };
 };
 
@@ -484,9 +756,9 @@ export const buildProcessTrackingRows = (params: {
 
   const deliverablesByProcess = new Map<string, Dev_tabledeliverables[]>();
   for (const deliverable of deliverables) {
-    if (deliverable.statecode !== 0) continue;
-    const processId =
-      deliverable._dev_tablevirtualizationprocess_value?.trim() ?? "";
+    const state = Number(deliverable.statecode);
+    if (Number.isFinite(state) && state !== 0) continue;
+    const processId = guidKey(deliverableProcessId(deliverable));
     if (!processId) continue;
     const current = deliverablesByProcess.get(processId) ?? [];
     current.push(deliverable);
@@ -540,6 +812,7 @@ export const buildProcessTrackingRows = (params: {
       : `/courses/${processId}`;
 
   return processes
+    .filter((process) => isActiveDataverseRecord(process.statecode))
     .map((process) => {
       const processId = process.dev_tablevirtualizationprocessid;
       const assignees = assigneesByProcess.get(processId) ?? {};
@@ -561,6 +834,18 @@ export const buildProcessTrackingRows = (params: {
         process.dev_closeready,
         process.dev_closereadyname,
       );
+      const classroomPhaseOpen =
+        !processClosed &&
+        processPhases.some((item) => {
+          const phaseName = item.dev_namephase?.trim() ?? "";
+          const templateName = item.dev_tablephasetemplatename?.trim() ?? "";
+          const expected = getCurrentPhase([item], templatesMap);
+          return (
+            isClassroomConfirmPhase(phaseName) ||
+            isClassroomConfirmPhase(templateName) ||
+            isClassroomConfirmPhase(expected)
+          );
+        });
       const phase = processClosed
         ? PROCESS_PHASES.COMPLETED
         : phaseFromActivities;
@@ -584,23 +869,49 @@ export const buildProcessTrackingRows = (params: {
         phase,
         hasReturnedMaterial,
       );
-      const labels = formatActorLabels(
-        phase,
-        statuses,
-        hasAuthorMaterial,
-        hasReturnedMaterial,
-      );
 
-      const processDeliverables = (
-        deliverablesByProcess.get(processId) ?? []
-      )
+      const ownedDeliverables =
+        deliverablesByProcess.get(guidKey(processId)) ?? [];
+      const syllabusDeliverable = ownedDeliverables.find((item) =>
+        isSyllabusDeliverable({
+          name: item.dev_namedeliverable?.trim() || "",
+        }),
+      );
+      const syllabusPhaseIds = new Set(
+        processPhases
+          .filter((item) => {
+            const linked = item._dev_tabledeliverable_value ?? "";
+            if (
+              syllabusDeliverable &&
+              linked === syllabusDeliverable.dev_tabledeliverableid
+            ) {
+              return true;
+            }
+            return Boolean(syllabusDeliverable) && !linked;
+          })
+          .map((item) => item.dev_tablephaseid),
+      );
+      const syllabusCompletedOn =
+        [...processActivities]
+          .filter((activity) =>
+            syllabusPhaseIds.has(activity._dev_tablephase_value ?? ""),
+          )
+          .map(activityStamp)
+          .filter(Boolean)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] ??
+        "";
+
+      const processDeliverables = ownedDeliverables
         .map((deliverable) =>
           buildDeliverableTracking({
             deliverable,
             processPhases,
             activities,
             templatesMap,
+            processCreatedOn: process.createdon ?? "",
+            syllabusCompletedOn,
             processFinalized: processClosed,
+            classroomPhaseOpen,
           }),
         )
         .sort((a, b) => {
@@ -609,6 +920,43 @@ export const buildProcessTrackingRows = (params: {
           }
           return a.name.localeCompare(b.name, "es");
         });
+
+      const rolled: ActorStatusSet = {
+        leaderPre: rollupActorStatus(
+          processDeliverables.map((item) => item.leaderPreStatus),
+          statuses.leaderPre,
+        ),
+        author: rollupActorStatus(
+          processDeliverables.map((item) => item.authorStatus),
+          statuses.author,
+        ),
+        validator: rollupActorStatus(
+          processDeliverables.map((item) => item.validatorStatus),
+          statuses.validator,
+        ),
+        advisor: rollupActorStatus(
+          processDeliverables.map((item) => item.advisorStatus),
+          statuses.advisor,
+        ),
+        designer: rollupActorStatus(
+          processDeliverables.map((item) => item.designerStatus),
+          statuses.designer,
+        ),
+        advisorAv: rollupActorStatus(
+          processDeliverables.map((item) => item.advisorAvStatus),
+          statuses.advisorAv,
+        ),
+        leaderClassroom: rollupActorStatus(
+          processDeliverables.map((item) => item.leaderClassroomStatus),
+          statuses.leaderClassroom,
+        ),
+      };
+      const labels = formatActorLabels(
+        phase,
+        processDeliverables.length > 0 ? rolled : statuses,
+        hasAuthorMaterial,
+        hasReturnedMaterial,
+      );
 
       const modifiedOn =
         getLatestDate(
@@ -624,6 +972,12 @@ export const buildProcessTrackingRows = (params: {
         processName: process.dev_nameprocess?.trim() || "Sin nombre",
         courseName: course?.dev_namecourse?.trim() || "Sin curso",
         facultyName: faculty?.dev_namefaculty?.trim() || "—",
+        programName: program?.dev_nameprogram?.trim() || "—",
+        semester: resolveProcessSemester(
+          process.dev_nameprocess ?? "",
+          process.createdon,
+        ),
+        createdOn: process.createdon ?? "",
         phase,
         phaseShort: PHASE_SHORT_LABELS[phase] ?? phase,
         authorEmail: assignees.author?.email ?? "",
@@ -642,6 +996,10 @@ export const buildProcessTrackingRows = (params: {
         modifiedOn,
         detailPath: detailPathFor(processId),
         deliverables: processDeliverables,
+        elapsedLabel: processElapsedLabel(
+          process.createdon ?? "",
+          processClosed ? modifiedOn : undefined,
+        ),
       } satisfies ProcessTrackingRow;
     })
     .filter((row): row is ProcessTrackingRow => row !== null)

@@ -6,7 +6,6 @@
  *   (re-exportadas abajo).
  */
 import { Dev_tablephasesService } from "../../generated/services/Dev_tablephasesService";
-import { Dev_tablevirtualizationprocessesService } from "../../generated/services/Dev_tablevirtualizationprocessesService";
 import { Dev_tableactivitiesService } from "../../generated/services/Dev_tableactivitiesService";
 import { Dev_tablephasetemplatesService } from "../../generated/services/Dev_tablephasetemplatesService";
 import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
@@ -23,6 +22,7 @@ import {
   runFlowAndConfirm,
   SOFT_CONFIRM_TIMEOUT_MS,
 } from "../../global/utils/flowResult";
+import { confirmTableOperation } from "../../global/services/tableOperationService";
 import {
   acquireOperationLock,
   buildOperationLockKey,
@@ -53,10 +53,7 @@ import {
   type PhaseWithFormatted,
 } from "../mappers/courseMappers";
 import { getRecordTimestamp } from "../../global/utils/dateUtils";
-import {
-  isProcessCloseReady,
-  PROCESS_PHASES,
-} from "../../global/constants/domainConstants";
+import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 import {
   isActivityProcessingStatus,
   resolveActivityStatusRaw,
@@ -312,12 +309,14 @@ const runCuActivityFlow = async (params: {
     return;
   }
 
-  savePendingOperation(watch);
+  const requestId = crypto.randomUUID();
+  input.text_5 = requestId;
+  savePendingOperation(watch, requestId);
 
   try {
     await runFlowAndConfirm(() => Fl_dev_cu_activityService.Run(input), {
       actionLabel,
-      confirm: confirmProgress,
+      confirm: () => confirmTableOperation(requestId),
       timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
       intervalMs: 1_000,
       softTimeout: true,
@@ -751,25 +750,19 @@ export const confirmClassroomUpload = async (params: {
     processId,
   );
 
+  const requestId = crypto.randomUUID();
   const input: ManualTriggerInput = {
     text_1: processId,
     text_2: templateActivityId,
     boolean: true,
     text_3: "[]",
     text_4: "null",
+    text_5: requestId,
   };
 
   await runFlowAndConfirm(() => Fl_dev_cu_activityService.Run(input), {
     actionLabel: "confirmación de cargue en el aula",
-    confirm: async () => {
-      const processResult =
-        await Dev_tablevirtualizationprocessesService.get(processId);
-      const process = processResult.data;
-      return isProcessCloseReady(
-        process?.dev_closeready,
-        process?.dev_closereadyname,
-      );
-    },
+    confirm: () => confirmTableOperation(requestId),
     timeoutMs: SOFT_CONFIRM_TIMEOUT_MS,
     intervalMs: 1_000,
     softTimeout: true,

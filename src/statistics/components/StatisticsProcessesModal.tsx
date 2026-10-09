@@ -5,6 +5,8 @@ import DataTable, { type Column } from "../../global/components/dataTable";
 import Modal from "../../global/components/modal";
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
 import { formatDateTime } from "../../global/utils/dateUtils";
+import { formatElapsedDays, processElapsedDayCount } from "../../global/utils/colombiaBusinessDays";
+import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
 
 interface StatisticsProcessesModalProps {
@@ -91,6 +93,20 @@ function StatisticsProcessesModal({
       ),
     },
     {
+      key: "createdOn",
+      header: "Días transcurridos",
+      render: (row) => (
+        <span className="text-xs font-semibold text-primary">
+          {formatElapsedDays(
+            processElapsedDayCount(
+              row.createdOn,
+              row.status === PROCESS_PHASES.COMPLETED ? row.modifiedOn : undefined,
+            ),
+          )}
+        </span>
+      ),
+    },
+    {
       key: "modifiedOn",
       header: "Actualizado",
       render: (row) => (
@@ -124,7 +140,6 @@ function StatisticsProcessesModal({
       <DataTable
         columns={columns}
         data={processes}
-        pageSize={8}
         searchable
         searchPlaceholder="Buscar proceso, curso, facultad..."
         searchKeys={[

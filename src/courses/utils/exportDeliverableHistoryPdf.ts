@@ -5,6 +5,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
+import { movementElapsedDays } from "../../global/utils/colombiaBusinessDays";
 import { formatDateTime } from "../../global/utils/dateUtils";
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import { formatActivityStatus } from "../mappers/courseMappers";
@@ -165,6 +166,13 @@ export const exportDeliverableHistoryPdf = ({
     doc.setTextColor(100, 110, 120);
     doc.text("No hay movimientos registrados para este entregable.", margin, y);
   } else {
+    const elapsedById = movementElapsedDays(
+      chronological.map((material) => ({
+        id: material.activityId,
+        at: material.createdOn || material.modifiedOn,
+      })),
+    );
+    const newestId = chronological[chronological.length - 1]?.activityId;
     const body = chronological.map((material) => {
       const statusLabel = formatActivityStatus(material.status);
       const actor =
@@ -173,9 +181,13 @@ export const exportDeliverableHistoryPdf = ({
         ? formatDomainLabel(material.performedByRole)
         : "—";
       const comments = material.description?.trim() || "—";
+      const days = elapsedById.get(material.activityId) ?? 0;
+      const daysLabel =
+        material.activityId === newestId ? `${days} (curso)` : String(days);
 
       return [
         formatDateTime(material.createdOn || material.modifiedOn),
+        daysLabel,
         movementLabel(material),
         statusLabel,
         `${actor}${role !== "—" ? ` (${role})` : ""}`,
@@ -186,7 +198,17 @@ export const exportDeliverableHistoryPdf = ({
     autoTable(doc, {
       startY: y,
       margin: { left: margin, right: margin },
-      head: [["Fecha", "Movimiento", "Estado", "Realizado por", "Comentarios"]],
+      tableWidth: pageWidth - margin * 2,
+      head: [
+        [
+          "Fecha",
+          "Días",
+          "Movimiento",
+          "Estado",
+          "Realizado por",
+          "Comentarios",
+        ],
+      ],
       body,
       styles: {
         fontSize: 8,
@@ -200,11 +222,12 @@ export const exportDeliverableHistoryPdf = ({
         fontStyle: "bold",
       },
       columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 32 },
-        2: { cellWidth: 24 },
-        3: { cellWidth: 40 },
-        4: { cellWidth: "auto" },
+        0: { cellWidth: 26 },
+        1: { cellWidth: 16, halign: "center" },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 34 },
+        5: { cellWidth: "auto" },
       },
     });
   }

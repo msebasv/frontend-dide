@@ -8,7 +8,8 @@ import {
 } from "../../generated/models/Dev_tableactivitiesModel";
 import {
   ACTIVITY_STATUS_LABELS,
-  isLeaderRole,
+  canUploadProcessSyllabus,
+  isAdminRole,
   isVirtualizationLeaderRole,
   PROCESS_PHASES,
 } from "../../global/constants/domainConstants";
@@ -143,7 +144,7 @@ export const isAdvisorAudiovisualApprovalStatus = (status: string): boolean => {
 /**
  * Indica si el usuario puede cargar material en la fase actual.
  * - Autor: cargue de documentos por el autor.
- * - Líder / gestión: fase de syllabus (el flujo avanza al autor).
+ * - Líder de virtualización o administrador: fase de syllabus (el flujo avanza al autor).
  * - Asesor: fase "Cargar Guión instruccional" (tras aprobar la revisión).
  */
 export const canUserUploadStatus = (
@@ -152,7 +153,7 @@ export const canUserUploadStatus = (
 ): boolean =>
   (isAuthorRole(userRole) &&
     normalizePhaseLabel(status) === normalizePhaseLabel(AUTHOR_UPLOAD_STATUS)) ||
-  (isLeaderRole(userRole) && isLeaderSyllabusStatus(status)) ||
+  (canUploadProcessSyllabus(userRole) && isLeaderSyllabusStatus(status)) ||
   (isAdvisorRole(userRole) && isAdvisorGuideUploadStatus(status));
 
 /**
@@ -162,7 +163,7 @@ export const canUserConfirmClassroomStatus = (
   userRole: string,
   status: string,
 ): boolean =>
-  isVirtualizationLeaderRole(userRole) &&
+  (isVirtualizationLeaderRole(userRole) || isAdminRole(userRole)) &&
   isLeaderClassroomConfirmStatus(status);
 
 /**

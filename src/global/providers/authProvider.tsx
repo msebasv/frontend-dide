@@ -4,6 +4,7 @@
  * Al iniciar la app:
  * 1. Obtiene el perfil del usuario desde Office 365 (nombre, correo).
  * 2. Consulta asignaciones de rol en Dataverse (dev_tableassignroles).
+ *    Esas asignaciones solo cuentan si el proceso sigue activo.
  * 3. Verifica leader users (dev_tableleaderuserses): Líder, Coordinador DIDE,
  *    Coordinador Diseñador o Administrador. El Diseñador DIDE se obtiene de
  *    las asignaciones por proceso (assign roles).
@@ -19,12 +20,14 @@ import { AuthContext } from "../context/authContext";
 import { Office365UsersService } from "../../generated/services/Office365UsersService";
 import { Dev_tableassignrolesService } from "../../generated/services/Dev_tableassignrolesService";
 import { Dev_tableleaderusersesService } from "../../generated/services/Dev_tableleaderusersesService";
+import { Dev_tablevirtualizationprocessesService } from "../../generated/services/Dev_tablevirtualizationprocessesService";
 import { Dev_tablerolesService } from "../../generated/services/Dev_tablerolesService";
 import {
   canonicalizeUserRole,
   LEADER_USERS_ONLY_ROLES,
   USER_ROLES,
 } from "../constants/domainConstants";
+import { isActiveDataverseRecord } from "../utils/dataverseState";
 import { escapeODataString } from "../utils/inputValidation";
 
 interface AuthProviderProps {
@@ -40,8 +43,10 @@ interface DevTableAssignRole {
   dev_person?: string;
   dev_tableassignroleid?: string;
   _dev_tablerole_value?: string;
+  _dev_tablevirtualizationprocess_value?: string;
   dev_tablerolename?: string;
   "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"?: string;
+  statecode?: number | string;
 }
 
 interface LeaderUser {
@@ -80,6 +85,48 @@ const resolveRoleDisplayName = (
     : undefined) ||
   "";
 
+const guidKey = (value: string | null | undefined): string =>
+  String(value ?? "")
+    .replace(/[{}]/g, "")
+    .trim()
+    .toLowerCase();
+
+/**
+ * Un rol de proceso (autor, líder, validador, asesor, diseñador) solo existe
+ * mientras ese proceso esté activo. Si era la única asignación, el rol desaparece.
+ */
+const activeProcessIdsForAssignments = async (
+  assignments: DevTableAssignRole[],
+): Promise<Set<string>> => {
+  const processIds = new Map<string, string>();
+  for (const item of assignments) {
+    const raw = item._dev_tablevirtualizationprocess_value?.replace(/[{}]/g, "").trim();
+    const key = guidKey(raw);
+    if (key && raw) processIds.set(key, raw);
+  }
+  const activeIds = new Set<string>();
+
+  await Promise.all(
+    [...processIds.entries()].map(async ([key, processId]) => {
+      try {
+        const result = await Dev_tablevirtualizationprocessesService.get(
+          processId,
+          {
+            select: ["dev_tablevirtualizationprocessid", "statecode"],
+          },
+        );
+        if (isActiveDataverseRecord(result.data?.statecode)) {
+          activeIds.add(key);
+        }
+      } catch {
+        // Sin proceso activo, esa asignación no otorga rol.
+      }
+    }),
+  );
+
+  return activeIds;
+};
+
 const fetchUserRoles = async (email: string): Promise<string[]> => {
   const [rolesResult, leaderResult, rolesCatalog] = await Promise.all([
     Dev_tableassignrolesService.getAll({
@@ -91,7 +138,10 @@ const fetchUserRoles = async (email: string): Promise<string[]> => {
     Dev_tablerolesService.getAll(),
   ]);
 
-  const assignData = (rolesResult.data as DevTableAssignRole[]) ?? [];
+  const assignData = ((rolesResult.data as DevTableAssignRole[]) ?? []).filter(
+    (item) => isActiveDataverseRecord(item.statecode),
+  );
+  const activeProcessIds = await activeProcessIdsForAssignments(assignData);
   const leaderData = ((leaderResult.data as LeaderUser[]) ?? []).filter(
     (item) => {
       // Solo filas activas otorgan rol. statecode 0 = Active; ausente = legacy activo.
@@ -107,9 +157,14 @@ const fetchUserRoles = async (email: string): Promise<string[]> => {
     }
   }
 
-  // Roles globales (Admin, Coordinador DIDE, Coordinador Diseñador) solo desde
-  // leader-users. Diseñador DIDE y Líder también pueden venir por proceso.
+  // Roles de proceso solo si la asignación y el proceso siguen activos.
+  // Admin y coordinadores siguen saliendo de Usuarios líderes.
   const userRoles = assignData
+    .filter((item) =>
+      activeProcessIds.has(
+        guidKey(item._dev_tablevirtualizationprocess_value),
+      ),
+    )
     .map((item) =>
       canonicalizeUserRole(resolveRoleDisplayName(item, roleNameById)),
     )
@@ -198,8 +253,8 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const uniqueRoles = await fetchUserRoles(user.email);
       applyRoles(user.email, uniqueRoles);
-    } catch (error) {
-      console.error("Error refreshing roles:", error);
+    } catch {
+      // El rol actual se conserva si la recarga falla.
     }
   }, [user?.email, applyRoles]);
 
@@ -218,8 +273,8 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
         const uniqueRoles = await fetchUserRoles(currentUser.email);
         applyRoles(currentUser.email, uniqueRoles);
-      } catch (error) {
-        console.error("Error loading auth:", error);
+      } catch {
+        // Sin perfil no se abre la sesión.
       } finally {
         setLoading(false);
       }

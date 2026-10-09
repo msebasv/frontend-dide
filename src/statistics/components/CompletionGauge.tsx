@@ -8,6 +8,7 @@ interface CompletionGaugeProps {
   total: number;
   title?: string;
   subtitle?: string;
+  onSelect?: () => void;
 }
 
 function CompletionGauge({
@@ -16,11 +17,15 @@ function CompletionGauge({
   total,
   title = "Tasa de finalización",
   subtitle = "Procesos completados sobre el total",
+  onSelect,
 }: CompletionGaugeProps) {
   const chartData = [{ name: "Completados", value: rate, fill: "#86c127" }];
 
-  return (
-    <Card className="flex h-full flex-col items-center justify-center" padding="md">
+  const gauge = (
+    <Card
+      className="flex h-full flex-col items-center justify-center"
+      padding="md"
+    >
       <div className="mb-2 text-center">
         <h3 className="text-sm font-semibold text-primary">{title}</h3>
         <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
@@ -61,6 +66,14 @@ function CompletionGauge({
         </div>
       </div>
     </Card>
+  );
+
+  if (!onSelect) return gauge;
+
+  return (
+    <button type="button" onClick={onSelect} className="h-full w-full text-left">
+      {gauge}
+    </button>
   );
 }
 

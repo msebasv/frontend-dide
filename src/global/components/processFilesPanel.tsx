@@ -8,13 +8,11 @@ import clsx from "clsx";
 
 import Button from "./button";
 import LoadingState from "./loadingState";
-import MediaPreviewViewer from "./mediaPreviewViewer";
 
 import {
-  canPreviewFile,
-  getProcessFileBlob,
   getProcessFileKey,
   listProcessFiles,
+  resolveProcessFileSharePointUrl,
 } from "../../courses/services/processFileService";
 import { fileBelongsToActivity } from "../../courses/services/deliverableService";
 import { getUserFriendlySharePointMessage } from "../../courses/errors/sharePointSetupError";
@@ -35,9 +33,6 @@ function ProcessFilesPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedFileKey, setSelectedFileKey] = useState("");
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [previewMimeType, setPreviewMimeType] = useState("");
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,47 +90,15 @@ function ProcessFilesPanel({
   const selectedFile =
     files.find((file) => getProcessFileKey(file) === selectedFileKey) ?? null;
 
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl = "";
-
-    const loadPreview = async () => {
-      setPreviewUrl("");
-      setPreviewMimeType("");
-
-      if (!selectedFile) return;
-
-      if (!canPreviewFile(selectedFile.name)) return;
-
-      try {
-        setPreviewLoading(true);
-        const { blob, mimeType } = await getProcessFileBlob(selectedFile);
-        if (cancelled) return;
-
-        if (!canPreviewFile(selectedFile.name, mimeType)) return;
-
-        objectUrl = URL.createObjectURL(blob);
-        setPreviewUrl(objectUrl);
-        setPreviewMimeType(mimeType);
-      } catch {
-        // Sin banner de error: se muestra el fallback con enlace a SharePoint.
-      } finally {
-        if (!cancelled) setPreviewLoading(false);
-      }
-    };
-
-    void loadPreview();
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [selectedFile]);
-
   const openInSharePoint = (file: ProcessFile) => {
-    if (!file.previewUrl) return;
-    window.open(file.previewUrl, "_blank", "noopener,noreferrer");
+    const url = resolveProcessFileSharePointUrl(file);
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
+
+  const selectedSharePointUrl = selectedFile
+    ? resolveProcessFileSharePointUrl(selectedFile)
+    : "";
 
   if (loading) {
     return (
@@ -251,7 +214,7 @@ function ProcessFilesPanel({
             <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5">
               <div className="min-w-0">
                 <h4 className="truncate text-sm font-semibold text-primary">
-                  {selectedFile?.name ?? "Vista previa"}
+                  {selectedFile?.name ?? "Archivo"}
                 </h4>
                 {selectedFile && (
                   <p className="truncate text-xs text-muted">
@@ -259,7 +222,7 @@ function ProcessFilesPanel({
                   </p>
                 )}
               </div>
-              {selectedFile?.previewUrl ? (
+              {selectedSharePointUrl && selectedFile ? (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -276,24 +239,19 @@ function ProcessFilesPanel({
                 <div className="flex h-56 flex-col items-center justify-center gap-2">
                   <IoDocumentTextOutline className="text-gray-300" size={32} />
                   <p className="text-sm text-muted">
-                    Seleccione un archivo para consultar la vista previa
+                    Seleccione un archivo
                   </p>
                 </div>
-              ) : previewLoading ? (
-                <LoadingState message="Generando vista previa..." />
-              ) : previewUrl ? (
-                <MediaPreviewViewer
-                  url={previewUrl}
-                  fileName={selectedFile.name}
-                  mimeType={previewMimeType}
-                />
               ) : (
                 <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-gray-50/50 px-6 text-center">
                   <IoDocumentTextOutline className="text-gray-300" size={32} />
-                  <p className="text-sm text-muted">
-                    Abre el archivo en SharePoint para revisarlo.
+                  <p className="text-sm font-medium text-primary">
+                    {selectedFile.name}
                   </p>
-                  {selectedFile.previewUrl ? (
+                  <p className="text-sm text-muted">
+                    No se generó la vista previa.
+                  </p>
+                  {selectedSharePointUrl ? (
                     <Button onClick={() => openInSharePoint(selectedFile)}>
                       <IoOpenOutline size={14} />
                       Abrir en SharePoint
