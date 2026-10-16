@@ -24,6 +24,15 @@ export const formatDateTime = (dateStr: string): string => {
  * Retorna la fecha más reciente entre varias fechas ISO opcionales.
  * Usado para calcular la última modificación de un proceso.
  */
+/**
+ * Fecha del movimiento: creación de la actividad.
+ * La modificación solo se usa si el registro no trae createdon.
+ */
+export const movementCreatedOn = (
+  created?: string,
+  modified?: string,
+): string => created?.trim() || modified?.trim() || "";
+
 export const getLatestDate = (...dates: (string | undefined)[]): string => {
   const timestamps = dates
     .filter(Boolean)

@@ -3,7 +3,7 @@
  * Administrador y Coordinador DIDE. El coordinador no asigna Administrador.
  * Incluye Coordinador DIDE, Coordinador Diseñador y Administrador.
  * El Líder de virtualización y el Diseñador DIDE se asignan por proceso, no aquí.
- * Soft-delete: inactivar / reactivar (no borra el registro).
+ * Soft-delete: desactivar / reactivar (no borra el registro).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
@@ -56,6 +56,10 @@ function AdminLeaderUsersPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [userToDeactivate, setUserToDeactivate] = useState<LeaderUserRow | null>(
+    null,
+  );
+  const [deactivating, setDeactivating] = useState(false);
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<SelectOption | null>({
@@ -152,22 +156,25 @@ function AdminLeaderUsersPage() {
     }
   };
 
-  const handleDeactivate = async (row: LeaderUserRow) => {
-    const confirmed = window.confirm(
-      `¿Inactivar a ${row.email} con el rol "${row.roleName}"?\n\nEl usuario dejará de tener ese rol global. Puede reactivarlo posteriormente.`,
-    );
-    if (!confirmed) return;
+  const handleDeactivate = async () => {
+    if (!userToDeactivate) return;
 
-    await runAction(() => deactivateLeaderUser(row.id), {
-      successTitle: "Usuario inactivado",
-      successMessage:
-        "El registro sigue en Leaders Users, pero ya no otorga el rol.",
-      errorTitle: "No se pudo inactivar",
-      errorMessage: "Intente nuevamente o verifique los permisos en Dataverse.",
-      onSuccess: async () => {
-        await loadData();
-      },
-    });
+    try {
+      setDeactivating(true);
+      await runAction(() => deactivateLeaderUser(userToDeactivate.id), {
+        successTitle: "Usuario desactivado",
+        successMessage:
+          "El registro sigue en Leaders Users, pero ya no otorga el rol.",
+        errorTitle: "No se pudo desactivar",
+        errorMessage: "Intente nuevamente o verifique los permisos en Dataverse.",
+        onSuccess: async () => {
+          setUserToDeactivate(null);
+          await loadData();
+        },
+      });
+    } finally {
+      setDeactivating(false);
+    }
   };
 
   const handleActivate = async (row: LeaderUserRow) => {
@@ -261,10 +268,10 @@ function AdminLeaderUsersPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => void handleDeactivate(row)}
+                  onClick={() => setUserToDeactivate(row)}
                 >
                   <IoBanOutline size={16} />
-                  Inactivar
+                  Desactivar
                 </Button>
               ) : (
                 <Button
@@ -348,6 +355,46 @@ function AdminLeaderUsersPage() {
               {submitting ? "Guardando..." : "Guardar"}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(userToDeactivate)}
+        onClose={() => {
+          if (deactivating) return;
+          setUserToDeactivate(null);
+        }}
+        title="Desactivar usuario líder"
+        icon={<IoBanOutline size={20} />}
+        size="md"
+        preventClose={deactivating}
+      >
+        <div className="space-y-1">
+          <p className="text-sm text-gray-600">
+            {userToDeactivate
+              ? `¿Desea desactivar a ${userToDeactivate.email} con el rol «${userToDeactivate.roleName}»?`
+              : "¿Desea desactivar este usuario líder?"}
+          </p>
+          <p className="text-xs text-muted">
+            Dejará de tener ese rol global. Puede reactivarlo después.
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&_button]:w-full sm:[&_button]:w-auto">
+          <Button
+            variant="secondary"
+            onClick={() => setUserToDeactivate(null)}
+            disabled={deactivating}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => void handleDeactivate()}
+            disabled={deactivating}
+          >
+            {deactivating ? "Desactivando..." : "Desactivar"}
+          </Button>
         </div>
       </Modal>
     </div>

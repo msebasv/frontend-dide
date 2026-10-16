@@ -127,8 +127,8 @@ export const bogotaDateKey = (iso: string): string => {
 };
 
 /**
- * Días hábiles transcurridos después de `startIso` y hasta `endIso`, inclusive.
- * El día del cambio cuenta como 0. Un cambio de hoy devuelve 0.
+ * Días hábiles en Colombia después de `startIso` y hasta `endIso`.
+ * No cuenta sábados, domingos ni festivos. El día del cambio cuenta como 0.
  */
 export const businessDaysBetween = (startIso: string, endIso: string): number => {
   const start = bogotaDateKey(startIso);
@@ -150,14 +150,9 @@ export const businessDaysBetween = (startIso: string, endIso: string): number =>
 export const formatElapsedDays = (days: number): string =>
   days === 1 ? "1 día transcurrido" : `${days} días transcurridos`;
 
-/** Etiqueta corta para un paso del historial. El vigente sigue contando. */
-export const formatHistoryStepElapsed = (
-  days: number,
-  open: boolean,
-): string => {
-  const count = days === 1 ? "1 día hábil" : `${days} días hábiles`;
-  return open ? `En curso · ${count}` : count;
-};
+/** Etiqueta de un paso del historial. El movimiento ya ocurrió y queda cerrado. */
+export const formatHistoryStepElapsed = (days: number): string =>
+  days === 1 ? "1 día hábil" : `${days} días hábiles`;
 
 /** «Autor: 2 días transcurridos». */
 export const formatActorElapsed = (actor: string, days: number): string =>
@@ -194,10 +189,13 @@ export const actorLabelForState = (
 };
 
 /**
- * Días del entregable.
- * Si ya se cargó, el tramo queda cerrado en esa fecha: no sigue corriendo
- * aunque la fase interna del proceso todavía no avance.
- * Si aún no se carga, cuenta desde que le tocó el turno hasta hoy.
+ * Días hábiles que el entregable lleva en el área actual.
+ * El área empieza en la fecha de creación de la actividad del movimiento anterior.
+ * Sábados, domingos
+ * y festivos de Colombia no suman. Cuando el validador valida, el conteo
+ * se reinicia para el asesor.
+ * El syllabus ya cargado queda cerrado en su fecha de cargue.
+ * Un entregable terminado queda cerrado en su último movimiento.
  */
 export const deliverableElapsedDayCount = (params: {
   isSyllabus: boolean;
@@ -207,30 +205,39 @@ export const deliverableElapsedDayCount = (params: {
   processCreatedOn: string;
   /** Fecha en que se cargó el syllabus, si ya ocurrió. */
   syllabusCompletedOn?: string;
+  /**
+   * Sigue en el área de un responsable.
+   * En false, el conteo se detiene en el último movimiento.
+   */
+  open?: boolean;
 }): number => {
-  const uploadedAt = params.eventDates.find((date) => date.trim()) ?? "";
-  const latestAt =
-    [...params.eventDates].reverse().find((date) => date.trim()) ?? "";
+  const dates = params.eventDates.filter((date) => date.trim());
+  const firstAt = dates[0] ?? "";
+  const latestAt = dates[dates.length - 1] ?? "";
   const now = new Date().toISOString();
+  const open = params.open !== false;
 
   if (params.returned && latestAt) {
     return businessDaysBetween(latestAt, now);
   }
 
-  if (uploadedAt && !params.returned) {
-    const start = params.isSyllabus
-      ? params.processCreatedOn || uploadedAt
-      : params.syllabusCompletedOn || params.processCreatedOn || uploadedAt;
-    return businessDaysBetween(start, uploadedAt);
-  }
-
   if (params.isSyllabus) {
-    if (!params.processCreatedOn) return 0;
-    return businessDaysBetween(params.processCreatedOn, now);
+    const start = params.processCreatedOn || firstAt;
+    if (!start) return 0;
+    if (!firstAt) return businessDaysBetween(start, now);
+    return businessDaysBetween(start, firstAt);
   }
 
-  if (!params.syllabusCompletedOn) return 0;
-  return businessDaysBetween(params.syllabusCompletedOn, now);
+  const turnStartedAt = latestAt || params.syllabusCompletedOn || "";
+  if (!turnStartedAt) return 0;
+
+  if (open) {
+    return businessDaysBetween(turnStartedAt, now);
+  }
+
+  const closedStart =
+    params.syllabusCompletedOn || params.processCreatedOn || firstAt;
+  return businessDaysBetween(closedStart, latestAt || firstAt);
 };
 
 /** Días hábiles desde que el entregable entró en su estado actual. */
@@ -261,7 +268,7 @@ export const processElapsedLabel = (
   closedOn?: string,
 ): string => {
   if (!createdOn) return "";
-  return formatElapsedDays(processElapsedDayCount(createdOn, closedOn));
+  return `Proceso: ${formatElapsedDays(processElapsedDayCount(createdOn, closedOn))}`;
 };
 
 export interface ElapsedMovement {
@@ -270,12 +277,14 @@ export interface ElapsedMovement {
 }
 
 /**
- * Días hábiles de cada movimiento hasta el siguiente.
- * El más reciente sigue abierto y cuenta hasta hoy.
+ * Días hábiles que tardó cada movimiento, cerrados en su fecha de creación.
+ * El primero cuenta desde `startedOn` (cuando le tocó el turno).
+ * Los siguientes, desde el movimiento anterior.
+ * El tiempo que sigue después del último es el área actual y no se suma aquí.
  */
 export const movementElapsedDays = (
   movements: ElapsedMovement[],
-  nowIso: string = new Date().toISOString(),
+  startedOn = "",
 ): Map<string, number> => {
   const sorted = [...movements]
     .filter((item) => item.id && item.at)
@@ -284,8 +293,8 @@ export const movementElapsedDays = (
     );
   const result = new Map<string, number>();
   sorted.forEach((item, index) => {
-    const end = index < sorted.length - 1 ? sorted[index + 1].at : nowIso;
-    result.set(item.id, businessDaysBetween(item.at, end));
+    const start = index === 0 ? startedOn : sorted[index - 1].at;
+    result.set(item.id, start ? businessDaysBetween(start, item.at) : 0);
   });
   return result;
 };

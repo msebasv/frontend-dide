@@ -73,7 +73,7 @@ export const exportStatisticsPdf = ({
     margin: { left: margin, right: margin },
     head: [["Indicador", "Valor"]],
     body: [
-      ["Total procesos", String(metrics.totalProcesses)],
+      ["Total de procesos", String(metrics.totalProcesses)],
       ["En progreso", String(metrics.inProgress)],
       ["Por aprobar", String(metrics.pendingApproval)],
       ["Completados", String(metrics.completed)],
@@ -103,7 +103,7 @@ export const exportStatisticsPdf = ({
     margin: { left: margin, right: margin },
     head: [["Indicador", "Valor"]],
     body: [
-      ["Total entregables", String(deliverableMetrics.totalDeliverables)],
+      ["Total de entregables", String(deliverableMetrics.totalDeliverables)],
       ["Pendientes", String(deliverableMetrics.pending)],
       ["En revisión", String(deliverableMetrics.inReview)],
       ["Aprobados", String(deliverableMetrics.approved)],

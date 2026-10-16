@@ -54,7 +54,7 @@ export const hasAssignedValidator = (
 
 /**
  * Indica si el proceso ya tiene diseñador DIDE asignado.
- * Requerido antes de permitir el cargue de guión instruccional.
+ * El asesor puede cargar el guión aunque este rol aún no esté asignado.
  */
 export const hasAssignedDideDesigner = (
   assignedRoles?: Array<{ role: string; email?: string; name?: string }>,

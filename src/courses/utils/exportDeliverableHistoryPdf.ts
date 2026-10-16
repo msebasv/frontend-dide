@@ -6,7 +6,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 import { movementElapsedDays } from "../../global/utils/colombiaBusinessDays";
-import { formatDateTime } from "../../global/utils/dateUtils";
+import { formatDateTime, movementCreatedOn } from "../../global/utils/dateUtils";
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import { formatActivityStatus } from "../mappers/courseMappers";
 import type { CourseDetail, CourseMaterial } from "../types/course.types";
@@ -17,6 +17,8 @@ interface ExportDeliverableHistoryPdfOptions {
   deliverable: ProcessDeliverableItem;
   deliverableLocation: string;
   materials: CourseMaterial[];
+  /** Inicio del turno del primer movimiento. */
+  elapsedStartedOn?: string;
 }
 
 const formatStamp = () => {
@@ -64,6 +66,7 @@ export const exportDeliverableHistoryPdf = ({
   deliverable,
   deliverableLocation,
   materials,
+  elapsedStartedOn = "",
 }: ExportDeliverableHistoryPdfOptions): void => {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -154,8 +157,8 @@ export const exportDeliverableHistoryPdf = ({
   y += 4;
 
   const chronological = [...materials].sort((a, b) => {
-    const aTime = new Date(a.createdOn || a.modifiedOn || 0).getTime();
-    const bTime = new Date(b.createdOn || b.modifiedOn || 0).getTime();
+    const aTime = new Date(movementCreatedOn(a.createdOn, a.modifiedOn) || 0).getTime();
+    const bTime = new Date(movementCreatedOn(b.createdOn, b.modifiedOn) || 0).getTime();
     return aTime - bTime;
   });
 
@@ -169,10 +172,10 @@ export const exportDeliverableHistoryPdf = ({
     const elapsedById = movementElapsedDays(
       chronological.map((material) => ({
         id: material.activityId,
-        at: material.createdOn || material.modifiedOn,
+        at: movementCreatedOn(material.createdOn, material.modifiedOn),
       })),
+      elapsedStartedOn,
     );
-    const newestId = chronological[chronological.length - 1]?.activityId;
     const body = chronological.map((material) => {
       const statusLabel = formatActivityStatus(material.status);
       const actor =
@@ -182,11 +185,10 @@ export const exportDeliverableHistoryPdf = ({
         : "—";
       const comments = material.description?.trim() || "—";
       const days = elapsedById.get(material.activityId) ?? 0;
-      const daysLabel =
-        material.activityId === newestId ? `${days} (curso)` : String(days);
+      const daysLabel = String(days);
 
       return [
-        formatDateTime(material.createdOn || material.modifiedOn),
+        formatDateTime(movementCreatedOn(material.createdOn, material.modifiedOn)),
         daysLabel,
         movementLabel(material),
         statusLabel,

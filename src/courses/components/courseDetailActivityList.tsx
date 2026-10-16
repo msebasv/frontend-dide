@@ -9,7 +9,7 @@ import {
   formatHistoryStepElapsed,
   movementElapsedDays,
 } from "../../global/utils/colombiaBusinessDays";
-import { formatDateTime } from "../../global/utils/dateUtils";
+import { formatDateTime, movementCreatedOn } from "../../global/utils/dateUtils";
 import { formatActivityStatus } from "../mappers/courseMappers";
 import type { CourseMaterial } from "../types/course.types";
 import { materialStatusStyle } from "./courseDetailViewHelpers";
@@ -21,6 +21,8 @@ export interface CourseDetailActivityListProps {
   onSelectMaterial: (activityId: string) => void;
   /** Días hábiles entre movimientos. Solo en el historial de un entregable. */
   showElapsed?: boolean;
+  /** Cuándo empezó el turno del primer movimiento (syllabus o creación del proceso). */
+  elapsedStartedOn?: string;
 }
 
 export function CourseDetailActivityList({
@@ -29,6 +31,7 @@ export function CourseDetailActivityList({
   selectedMaterialId,
   onSelectMaterial,
   showElapsed = false,
+  elapsedStartedOn = "",
 }: CourseDetailActivityListProps) {
   if (materials.length === 0) {
     return (
@@ -47,22 +50,17 @@ export function CourseDetailActivityList({
     ? movementElapsedDays(
         materials.map((material) => ({
           id: material.activityId,
-          at: material.createdOn || material.modifiedOn,
+          at: movementCreatedOn(material.createdOn, material.modifiedOn),
         })),
+        elapsedStartedOn,
       )
     : new Map<string, number>();
-  const newestId = [...materials].sort(
-    (a, b) =>
-      new Date(b.createdOn || b.modifiedOn || 0).getTime() -
-      new Date(a.createdOn || a.modifiedOn || 0).getTime(),
-  )[0]?.activityId;
-
   return (
     <ul className="divide-y divide-border-light">
       {materials.map((material) => {
         const statusLabel = formatActivityStatus(material.status);
         const statusDate = formatDateTime(
-          material.modifiedOn || material.createdOn,
+          movementCreatedOn(material.createdOn, material.modifiedOn),
         );
         const isLatestAuthorUpload =
           material.isAuthorUpload && material.version === latestAuthorVersion;
@@ -129,17 +127,9 @@ export function CourseDetailActivityList({
                 </div>
                 {showElapsed && elapsedById.has(material.activityId) ? (
                   <p className="mt-1.5">
-                    <span
-                      className={clsx(
-                        "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                        material.activityId === newestId
-                          ? "bg-primary/10 text-primary"
-                          : "bg-gray-100 text-muted",
-                      )}
-                    >
+                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-muted">
                       {formatHistoryStepElapsed(
                         elapsedById.get(material.activityId) ?? 0,
-                        material.activityId === newestId,
                       )}
                     </span>
                   </p>

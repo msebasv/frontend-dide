@@ -26,8 +26,6 @@ import {
   canUserConfirmClassroomStatus,
   canUserFinalizeStatus,
   canUserValidateStatus,
-  hasAssignedDideDesigner,
-  isAdvisorGuideUploadStatus,
   isAdvisorRole,
   isDideDesignerRole,
   isValidatorRole,
@@ -112,15 +110,6 @@ const ViewCourse = () => {
     isValidatorRole(currentRole) ||
     isAdvisorRole(currentRole) ||
     isDideDesignerRole(currentRole);
-
-  const guideBlockedWithoutDesigner = useMemo(() => {
-    if (isFinalized || !detail || !isAdvisorRole(currentRole)) return false;
-    if (hasAssignedDideDesigner(detail.assignedRoles)) return false;
-    if (isAdvisorGuideUploadStatus(detail.status)) return true;
-    return detail.materials.some((material) =>
-      isAdvisorGuideUploadStatus(material.status),
-    );
-  }, [detail, currentRole, isFinalized]);
 
   const canValidate = useMemo(
     () =>
@@ -365,9 +354,6 @@ const ViewCourse = () => {
         description={detail.processName}
         backTo="/my-courses"
         compact
-        badge={
-          guideBlockedWithoutDesigner ? "Diseñador pendiente" : undefined
-        }
       />
 
       <CourseDetailView

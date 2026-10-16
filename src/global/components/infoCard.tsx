@@ -8,6 +8,8 @@ import clsx from "clsx";
 interface InfoItem {
   label: string;
   value: string;
+  /** Segunda línea, por ejemplo el correo bajo el nombre. */
+  detail?: string;
 }
 
 interface InfoCardProps {
@@ -100,6 +102,16 @@ function InfoCard({
                 )}
               >
                 {item.value || "—"}
+                {item.detail ? (
+                  <span
+                    className={clsx(
+                      "block font-medium text-muted [overflow-wrap:anywhere]",
+                      compact ? "mt-0.5 text-[11px]" : "mt-0.5 text-xs",
+                    )}
+                  >
+                    {item.detail}
+                  </span>
+                ) : null}
               </dd>
             </div>
           ))}

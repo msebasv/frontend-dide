@@ -62,6 +62,50 @@ export const assertDirectoryEmails = async (emails: string[]): Promise<void> => 
   }
 };
 
+/** Nombre para mostrar de cada correo institucional. Omite los que no resuelve. */
+export const lookupOrganizationDisplayNames = async (
+  emails: string[],
+): Promise<Map<string, string>> => {
+  const unique = [
+    ...new Set(
+      emails.map((email) => email.trim().toLowerCase()).filter(isOrganizationEmail),
+    ),
+  ];
+  const resolved = await Promise.all(
+    unique.map(async (email) => {
+      try {
+        const profile = await Office365UsersService.UserProfile_V2(
+          email,
+          "displayName,mail,userPrincipalName",
+        );
+        const name = profile.data?.displayName?.trim() ?? "";
+        if (name && !isOrganizationEmail(name) && !name.includes("@")) {
+          return [email, name] as const;
+        }
+      } catch {
+        // El perfil por correo a veces no responde. Se intenta la búsqueda.
+      }
+
+      try {
+        const matches = await searchOrganizationUsers(email);
+        const match = matches.find(
+          (user) => user.email.trim().toLowerCase() === email,
+        );
+        const name = match?.name.trim() ?? "";
+        if (name && name.toLowerCase() !== email) return [email, name] as const;
+      } catch {
+        // Sin directorio, la tarjeta conserva el correo.
+      }
+
+      return null;
+    }),
+  );
+
+  return new Map(
+    resolved.filter((entry): entry is readonly [string, string] => entry !== null),
+  );
+};
+
 export const searchOrganizationUsers = async (
   query: string,
 ): Promise<OrganizationUser[]> => {

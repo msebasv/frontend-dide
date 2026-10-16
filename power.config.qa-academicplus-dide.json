@@ -172,6 +172,11 @@
           "entitySetName": "dev_tablevirtualizationprocesses",
           "logicalName": "dev_tablevirtualizationprocess",
           "isHidden": false
+        },
+        "table_operations": {
+          "entitySetName": "dev_tableoperations",
+          "logicalName": "dev_tableoperation",
+          "isHidden": false
         }
       },
       "environmentVariableName": ""

@@ -32,12 +32,6 @@ export const resolveSharePointFolder = (
   const trimmed = folderBase.trim();
   const { siteUrl, defaultLibrary } = sharepointConfig;
 
-  if (!siteUrl) {
-    throw new Error(
-      "No fue posible acceder a los archivos en este momento. Intente nuevamente más tarde.",
-    );
-  }
-
   if (!trimmed) {
     return { siteUrl, library: defaultLibrary, folderPath: "" };
   }

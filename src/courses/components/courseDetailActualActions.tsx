@@ -5,7 +5,6 @@ import {
   IoReturnDownBackOutline,
 } from "react-icons/io5";
 import { Link } from "react-router-dom";
-import clsx from "clsx";
 
 import Button from "../../global/components/button";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
@@ -27,7 +26,6 @@ import type { MaterialValidationContext } from "./courseDetailViewHelpers";
 export interface CourseDetailActualActionsProps {
   selectedDeliverable: ProcessDeliverableItem;
   currentRole: string;
-  needsDesignerForGuide: boolean;
   canUploadCurrentDeliverable: boolean;
   showValidationActions: boolean;
   needsValidatorForSyllabus: boolean;
@@ -53,7 +51,6 @@ export interface CourseDetailActualActionsProps {
 export function CourseDetailActualActions({
   selectedDeliverable,
   currentRole,
-  needsDesignerForGuide,
   canUploadCurrentDeliverable,
   showValidationActions,
   needsValidatorForSyllabus,
@@ -73,8 +70,6 @@ export function CourseDetailActualActions({
   validationContext,
 }: CourseDetailActualActionsProps) {
   const { pendingResourceLock } = useActionFeedback();
-  const advisorNeedsDesigner =
-    needsDesignerForGuide && isAdvisorRole(currentRole);
 
   const uploadLockedForDeliverable =
     pendingResourceLock?.processId === processId &&
@@ -85,7 +80,6 @@ export function CourseDetailActualActions({
     canUploadCurrentDeliverable ||
     showValidationActions ||
     needsValidatorForSyllabus ||
-    advisorNeedsDesigner ||
     (canAssignDideDesigner(currentRole) && !processHasDideDesigner);
 
   if (!hasPrimaryAction && scopedMaterialsLength > 0) {
@@ -102,9 +96,7 @@ export function CourseDetailActualActions({
     );
   }
 
-  const actionMessage = advisorNeedsDesigner
-    ? "La carga del guión instruccional requiere la previa asignación del Diseñador DIDE por parte del Coordinador de Diseñadores."
-    : selectedDeliverableStatusDetailMessage;
+  const actionMessage = selectedDeliverableStatusDetailMessage;
 
   return (
     <div className="rounded-lg border border-border bg-white px-4 py-3">
@@ -112,25 +104,10 @@ export function CourseDetailActualActions({
         Acciones disponibles
       </p>
       {actionMessage ? (
-        <p
-          className={clsx(
-            "mt-1 text-xs",
-            advisorNeedsDesigner
-              ? "font-medium text-amber-900"
-              : "text-muted",
-          )}
-        >
-          {actionMessage}
-        </p>
+        <p className="mt-1 text-xs text-muted">{actionMessage}</p>
       ) : null}
 
-      {advisorNeedsDesigner ? (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950">
-          Hasta completar dicha asignación, la carga del guión de este
-          entregable permanecerá bloqueada.
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
           {canUploadCurrentDeliverable && (
             <>
               {isAdvisorRole(currentRole) && onGuideUploadRequest ? (
@@ -246,7 +223,6 @@ export function CourseDetailActualActions({
             </Link>
           )}
         </div>
-      )}
     </div>
   );
 }

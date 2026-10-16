@@ -1,75 +1,115 @@
-# React + TypeScript + Vite
+# AcademicPlus — Frontend (Code App)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación web de virtualización de asignaturas de la **Universidad El Bosque** (DIDE).  
+Es una **Power Apps Code App** construida con React, TypeScript y Vite.
 
-It is preconfigured to work with Power Apps Code Apps.
+Cuenta operativa de plataforma: `serviciosdide@unbosque.edu.co`.
 
-Currently, two official plugins are available:
+## Ambientes
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+| Ambiente | Aplicación | Archivo de configuración |
+| --- | --- | --- |
+| **QA** | AcademicPlusQA | `power.config.json` (activo por defecto) y `power.config.qa-academicplus-dide.json` |
+| **PRE** | AcademicPlusPre | `power.config.pre-academic-plus-dide.json` |
 
-## React Compiler
+`power.config.json` es el archivo que leen Vite y la CLI al desarrollar o publicar. Los demás son respaldos para cambiar de ambiente.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Requisitos
 
-## Expanding the ESLint configuration
+- Node.js LTS (recomendado 22.x)
+- npm
+- [Power Platform CLI](https://aka.ms/PowerPlatformCLI) (`pac`)
+- Acceso al tenant y a los ambientes QA / PRE
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Instalación
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Autenticación
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Hay dos sesiones distintas:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+# Ambiente Dataverse
+pac auth create
+pac auth list
+pac org who
+
+# CLI de Code Apps (publicación / orígenes)
+npx power-apps logout
 ```
+
+Usar siempre `serviciosdide@unbosque.edu.co`.
+
+## Cambiar de ambiente
+
+**QA**
+
+```powershell
+Copy-Item .\power.config.qa-academicplus-dide.json .\power.config.json -Force
+pac org select --environment 0c519c7e-6118-e58b-8859-5f8447eb0aec
+pac org who
+```
+
+**PRE**
+
+```powershell
+Copy-Item .\power.config.pre-academic-plus-dide.json .\power.config.json -Force
+pac org select --environment bdbaee81-c705-e431-9cc7-e8bd7151e7e0
+pac org who
+```
+
+Antes de agregar tablas, refrescar orígenes o publicar, el `environmentId` de `pac org who` debe coincidir con el de `power.config.json`.
+
+## Desarrollo local
+
+```powershell
+npm run dev
+```
+
+Abrir la URL **Local Play** que imprime la consola (no solo `http://localhost:5173/`), para autenticarse con Microsoft dentro del reproductor de Power Apps.
+
+## Publicación
+
+Con flujos conectados (`workflowDetails` en la configuración), el procedimiento es:
+
+```powershell
+pac org who
+npm run build
+npx power-apps push
+```
+
+No utilizar `pac code push` en este proyecto.
+
+Tras publicar, si `power.config.json` cambió, guardar de nuevo el respaldo del ambiente correspondiente (`power.config.qa-…` o `power.config.pre-…`).
+
+## Estructura del código
+
+| Carpeta | Contenido |
+| --- | --- |
+| `src/courses` | Mis cursos, detalle, cargue y validación |
+| `src/processVirtualization` | Gestión de procesos |
+| `src/tracking` | Seguimiento |
+| `src/statistics` | Estadísticas |
+| `src/admin` | Programas, personas, entregables, líderes |
+| `src/home` | Inicio según rol |
+| `src/global` | Layout, autenticación, componentes compartidos |
+| `src/generated` | Cliente Dataverse / flujos (generado por la CLI; no editar) |
+
+Las pantallas no llaman Dataverse ni flujos directamente: lo hacen los servicios en `src/**/services`.
+
+## Scripts npm
+
+| Comando | Descripción |
+| --- | --- |
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | Compilación TypeScript + empaquetado en `dist/` |
+| `npm run preview` | Vista previa del build |
+| `npm run lint` | ESLint |
+
+## Notas
+
+- La documentación técnica ampliada puede vivir en `docs/` de forma local; esa carpeta no forma parte del repositorio remoto.
+- No editar a mano `src/generated` ni `.power/schemas`. Para cambios de contrato, usar `npx power-apps refresh-data-source` / `add-data-source` / `add-flow` en el ambiente correcto.

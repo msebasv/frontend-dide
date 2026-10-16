@@ -21,7 +21,7 @@ import {
   isLeaderRole,
   isVirtualizationLeaderRole,
 } from "../../global/constants/domainConstants";
-import { getLatestDate, getRecordTimestamp } from "../../global/utils/dateUtils";
+import { getLatestDate, getRecordTimestamp, movementCreatedOn } from "../../global/utils/dateUtils";
 import { isActiveDataverseRecord } from "../../global/utils/dataverseState";
 import {
   deliverableElapsedDayCount,
@@ -76,7 +76,7 @@ const creditLabelFor = (creditNumber: number): string =>
   creditNumber === 0 ? "General" : `Unidad ${creditNumber}`;
 
 const activityStamp = (activity: Dev_tableactivities): string =>
-  activity.createdon || activity.modifiedon || "";
+  movementCreatedOn(activity.createdon, activity.modifiedon);
 
 const latestActivity = (
   activities: Dev_tableactivities[],
@@ -146,12 +146,18 @@ const deliverableElapsedLabel = (params: {
     actor = "Completado";
   }
 
+  const open =
+    !finalized &&
+    !syllabusLoaded &&
+    actor !== "Completado" &&
+    actor !== "Syllabus listo";
   const days = deliverableElapsedDayCount({
     isSyllabus,
     returned: latestReturned,
     eventDates,
     processCreatedOn,
     syllabusCompletedOn: isSyllabus ? undefined : syllabusCompletedOn,
+    open,
   });
 
   return formatActorElapsed(actor, days);

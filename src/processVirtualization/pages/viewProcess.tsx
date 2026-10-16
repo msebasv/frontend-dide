@@ -27,7 +27,6 @@ import {
   canUserUploadStatus,
   hasAssignedDideDesigner,
   hasAssignedValidator,
-  isAdvisorGuideUploadStatus,
   isLeaderSyllabusStatus,
 } from "../../courses/mappers/courseMappers";
 import {
@@ -97,15 +96,6 @@ const ViewProcess = () => {
 
   const needsValidatorAssignment =
     !isDeleted && !isFinalized && isSyllabusPhase && !hasValidator;
-
-  /** Bloqueo del asesor: fase de guión sin diseñador. */
-  const guideBlockedWithoutDesigner = useMemo(() => {
-    if (isFinalized || isDeleted || !detail || hasDesigner) return false;
-    if (isAdvisorGuideUploadStatus(detail.status)) return true;
-    return detail.materials.some((material) =>
-      isAdvisorGuideUploadStatus(material.status),
-    );
-  }, [detail, hasDesigner, isFinalized, isDeleted]);
 
   const canUpload = useMemo(() => {
     if (isFinalized || isDeleted || !detail || needsValidatorAssignment) {
@@ -288,16 +278,6 @@ const ViewProcess = () => {
           <p className="mt-1 text-xs text-amber-900/80">
             La carga del syllabus requiere la previa asignación del validador
             disciplinar. Utilice la opción «Asignar validador».
-          </p>
-        </div>
-      )}
-
-      {guideBlockedWithoutDesigner && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">Asignación de Diseñador DIDE requerida</p>
-          <p className="mt-1 text-xs text-amber-900/80">
-            La carga del guión instruccional requiere la previa asignación del
-            Diseñador DIDE por parte del Coordinador de Diseñadores.
           </p>
         </div>
       )}

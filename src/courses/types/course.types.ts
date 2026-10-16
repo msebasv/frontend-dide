@@ -137,6 +137,8 @@ export interface CourseDetail {
   folderBase: string;
   /** Fecha de creación del proceso. */
   createdOn: string;
+  /** Última modificación del proceso. Cierra los días si ya finalizó. */
+  modifiedOn: string;
   status: string;
   /** true si el proceso fue eliminado y solo se consulta. */
   isDeleted: boolean;

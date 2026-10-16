@@ -323,7 +323,7 @@ const Statistics = () => {
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard
-              label="Total procesos"
+              label="Total de procesos"
               value={metrics.totalProcesses}
               icon={<IoBookOutline size={22} />}
               color="primary"
@@ -561,7 +561,7 @@ const Statistics = () => {
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              label="Total entregables"
+              label="Total de entregables"
               value={deliverableMetrics.totalDeliverables}
               icon={<IoLayersOutline size={22} />}
               color="primary"

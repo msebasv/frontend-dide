@@ -42,7 +42,6 @@ import {
   type ProcessDeliverableItem,
 } from "../services/deliverableService";
 import {
-  hasAssignedDideDesigner,
   hasAssignedValidator,
   isAdvisorGuideUploadStatus,
   isAdvisorRole,
@@ -622,42 +621,6 @@ const UploadCourse = () => {
               </Button>
             </Link>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  const needsDesignerForGuide =
-    isAdvisorGuideUpload &&
-    !hasAssignedDideDesigner(detail.assignedRoles);
-
-  if (needsDesignerForGuide) {
-    return (
-      <div>
-        <PageHeader
-          title="Cargar guión instruccional"
-          description="Asignación de Diseñador DIDE pendiente"
-          backTo={backTo}
-          badge="Asignación pendiente"
-        />
-        <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-4 rounded-xl border border-amber-200 bg-amber-50/90 p-8 text-center shadow-[var(--shadow-card)]">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-            <FaExclamationTriangle size={22} />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold text-amber-950">
-              Asignación de Diseñador DIDE requerida
-            </h3>
-            <p className="text-sm text-amber-900/80">
-              La carga del guión instruccional requiere la previa asignación del
-              Diseñador DIDE por parte del Coordinador de Diseñadores.
-            </p>
-          </div>
-          <Link to={backTo}>
-            <Button variant="primary" size="sm">
-              Volver
-            </Button>
-          </Link>
         </div>
       </div>
     );

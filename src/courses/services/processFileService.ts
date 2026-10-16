@@ -7,10 +7,7 @@ import {
   resolveSharePointFolder,
   sharepointConfig,
 } from "../../global/config/sharepointConfig";
-import {
-  getUserFriendlySharePointMessage,
-  isSharePointNotFoundError,
-} from "../errors/sharePointSetupError";
+import { isSharePointNotFoundError } from "../errors/sharePointSetupError";
 import {
   extractActivityVersionMetaFromPath,
   fileBelongsToActivity,
@@ -658,7 +655,7 @@ const listProcessFilesFromDocumentsLibrary = async (
 ): Promise<ProcessFile[]> => {
   const folderTokenLower = folderToken.toLowerCase();
 
-  const result = await DocumentosService.getAll({
+  let result = await DocumentosService.getAll({
     top: 5000,
     select: [
       "{FilenameWithExtension}",
@@ -673,6 +670,10 @@ const listProcessFilesFromDocumentsLibrary = async (
       "ID",
     ],
   });
+
+  if (getOperationErrorMessage(result, "DocumentosService.getAll")) {
+    result = await DocumentosService.getAll({ top: 5000 });
+  }
 
   const errorMessage = getOperationErrorMessage(result, "DocumentosService.getAll");
   if (errorMessage) {
@@ -852,6 +853,7 @@ export const listProcessFiles = async (
         : "";
 
   let lastError: unknown;
+  let libraryFiles: ProcessFile[] = [];
 
   try {
     const documentLibraryFiles = await listProcessFilesFromDocumentsLibrary(
@@ -877,9 +879,11 @@ export const listProcessFiles = async (
         return rest.split("/").filter(Boolean).length >= 2;
       });
 
-      if (hasNestedFile && (filtered.length > 0 || !activityId)) {
+      if (hasNestedFile && filtered.length > 0) {
         return filtered;
       }
+
+      libraryFiles = filtered;
     }
   } catch (error) {
     lastError = error;
@@ -988,12 +992,14 @@ export const listProcessFiles = async (
     }
   }
 
+  if (libraryFiles.length > 0) return libraryFiles;
+
   if (lastError) {
     if (isSharePointNotFoundError(lastError)) {
       return [];
     }
 
-    throw new Error(getUserFriendlySharePointMessage(lastError));
+    throw lastError;
   }
 
   return [];

@@ -22,14 +22,14 @@ import {
   deliverableElapsedDayCount,
   formatHistoryStepElapsed,
   movementElapsedDays,
+  processElapsedDayCount,
 } from "../../global/utils/colombiaBusinessDays";
-import { formatDateTime } from "../../global/utils/dateUtils";
+import { formatDateTime, movementCreatedOn } from "../../global/utils/dateUtils";
 import { stripHttpLinksFromText } from "../../global/utils/inputValidation";
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import { PROCESS_PHASES, isLeaderRole } from "../../global/constants/domainConstants";
 import {
   formatActivityStatus,
-  isAdvisorGuideUploadStatus,
   isAdvisorRole,
   isDideDesignerRole,
   isVirtualizationLeaderRole,
@@ -115,8 +115,6 @@ function CourseDetailView({
     currentRole,
     processHasDideDesigner,
     needsValidatorForSyllabus,
-    needsDesignerForGuide,
-    showAdvisorDesignerRequiredMessage,
     selectedDeliverableStatus,
     canUploadCurrentDeliverable,
     uploadButtonLabel,
@@ -184,7 +182,7 @@ function CourseDetailView({
             </span>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted">
               <IoTimeOutline size={13} />
-              {formatDateTime(material.modifiedOn || material.createdOn)}
+              {formatDateTime(movementCreatedOn(material.createdOn, material.modifiedOn))}
             </span>
           </div>
 
@@ -356,32 +354,43 @@ function CourseDetailView({
     );
   };
 
-  const selectedDeliverableElapsed = (() => {
-    if (!selectedDeliverable) return null;
+  const syllabusCompletedOn = (() => {
     const syllabusItem = groups
       .flatMap((group) => group.items)
       .find((item) => isSyllabusDeliverable(item));
-    const syllabusDates = syllabusItem
-      ? detail.materials
-          .filter((material) =>
-            materialBelongsToDeliverable(material, syllabusItem),
-          )
-          .map((material) => material.createdOn || material.modifiedOn)
-          .filter(Boolean)
-          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-      : [];
+    if (!syllabusItem) return "";
+    return (
+      detail.materials
+        .filter((material) =>
+          materialBelongsToDeliverable(material, syllabusItem),
+        )
+        .map((material) =>
+          movementCreatedOn(material.createdOn, material.modifiedOn),
+        )
+        .filter(Boolean)
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] ?? ""
+    );
+  })();
+  const historyStartedOn =
+    selectedDeliverable && isSyllabusDeliverable(selectedDeliverable)
+      ? detail.createdOn
+      : syllabusCompletedOn || detail.createdOn;
+
+  const selectedDeliverableElapsed = (() => {
+    if (!selectedDeliverable) return null;
+    const syllabusDates = syllabusCompletedOn ? [syllabusCompletedOn] : [];
     const related = detail.materials.filter((material) =>
       materialBelongsToDeliverable(material, selectedDeliverable),
     );
     const latest = [...related].sort(
       (a, b) =>
-        new Date(b.createdOn || b.modifiedOn || 0).getTime() -
-        new Date(a.createdOn || a.modifiedOn || 0).getTime(),
+        new Date(movementCreatedOn(b.createdOn, b.modifiedOn) || 0).getTime() -
+        new Date(movementCreatedOn(a.createdOn, a.modifiedOn) || 0).getTime(),
     )[0];
     const latestStatus = latest ? formatActivityStatus(latest.status) : "";
     const returned = /devuelto|corregir|no aprobado/i.test(latestStatus);
     const eventDates = related
-      .map((material) => material.createdOn || material.modifiedOn)
+      .map((material) => movementCreatedOn(material.createdOn, material.modifiedOn))
       .filter(Boolean)
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     return deliverableElapsedDayCount({
@@ -392,6 +401,7 @@ function CourseDetailView({
       syllabusCompletedOn: isSyllabusDeliverable(selectedDeliverable)
         ? undefined
         : syllabusDates[0],
+      open: detail.status !== PROCESS_PHASES.COMPLETED,
     });
   })();
 
@@ -400,16 +410,6 @@ function CourseDetailView({
       {detail.status === PROCESS_PHASES.COMPLETED && (
         <div className="rounded-xl border border-[#86c127]/35 bg-[#86c127]/10 px-4 py-3 text-sm font-semibold text-[#3f8f2a]">
           Proceso finalizado
-        </div>
-      )}
-
-      {showAdvisorDesignerRequiredMessage && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">Asignación de Diseñador DIDE requerida</p>
-          <p className="mt-1 text-xs text-amber-900/80">
-            La carga del guión instruccional está condicionada a que el
-            Coordinador de Diseñadores asigne el Diseñador DIDE a este proceso.
-          </p>
         </div>
       )}
 
@@ -462,6 +462,7 @@ function CourseDetailView({
               materials={detail.materials}
               deliverableCount={deliverableCount}
               processCreatedOn={detail.createdOn}
+              countUntilToday={detail.status !== PROCESS_PHASES.COMPLETED}
               expandedCredits={expandedCredits}
               selectedDeliverableId={selectedDeliverableId}
               onToggleCreditGroup={toggleCreditGroup}
@@ -500,9 +501,19 @@ function CourseDetailView({
                         )}
                       </div>
                       {selectedDeliverable && (
-                        <div className="mt-1.5">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <ElapsedDaysBadge
+                            prefix="Entregable"
                             days={selectedDeliverableElapsed ?? 0}
+                          />
+                          <ElapsedDaysBadge
+                            prefix="Proceso"
+                            days={processElapsedDayCount(
+                              detail.createdOn,
+                              detail.status === PROCESS_PHASES.COMPLETED
+                                ? detail.modifiedOn
+                                : undefined,
+                            )}
                           />
                         </div>
                       )}
@@ -522,6 +533,7 @@ function CourseDetailView({
                                 selectedDeliverable,
                               ),
                             materials: scopedMaterials,
+                            elapsedStartedOn: historyStartedOn,
                           })
                         }
                       >
@@ -574,7 +586,6 @@ function CourseDetailView({
                       <CourseDetailActualActions
                         selectedDeliverable={selectedDeliverable}
                         currentRole={currentRole}
-                        needsDesignerForGuide={needsDesignerForGuide}
                         canUploadCurrentDeliverable={canUploadCurrentDeliverable}
                         showValidationActions={showValidationActions}
                         needsValidatorForSyllabus={needsValidatorForSyllabus}
@@ -643,28 +654,6 @@ function CourseDetailView({
                         </div>
                       </div>
                     ) : scopedMaterials.length === 0 &&
-                      needsDesignerForGuide &&
-                      selectedDeliverable &&
-                      isAdvisorGuideUploadStatus(
-                        selectedDeliverable.stateLabel,
-                      ) &&
-                      isAdvisorRole(currentRole) ? (
-                      <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-                          <IoPersonOutline size={26} />
-                        </div>
-                        <div className="max-w-sm space-y-1">
-                          <p className="text-sm font-semibold text-amber-950">
-                            Asignación de Diseñador DIDE requerida
-                          </p>
-                          <p className="text-xs text-amber-900/80">
-                            La carga del guión instruccional requiere la previa
-                            asignación del Diseñador DIDE por parte del
-                            Coordinador de Diseñadores.
-                          </p>
-                        </div>
-                      </div>
-                    ) : scopedMaterials.length === 0 &&
                       canUploadCurrentDeliverable &&
                       selectedDeliverable ? (
                       <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border p-6 text-center">
@@ -726,19 +715,18 @@ function CourseDetailView({
                       <ol className="space-y-4">
                         {correctionMaterials.map((material, index) => {
                           const correctionElapsed = movementElapsedDays(
-                            correctionMaterials.map((item) => ({
+                            scopedMaterials.map((item) => ({
                               id: item.activityId,
-                              at: item.createdOn || item.modifiedOn,
+                              at: movementCreatedOn(
+                                item.createdOn,
+                                item.modifiedOn,
+                              ),
                             })),
+                            historyStartedOn,
                           );
                           const correctionDays = correctionElapsed.get(
                             material.activityId,
                           );
-                          const newestCorrectionId = [...correctionMaterials].sort(
-                            (a, b) =>
-                              new Date(b.createdOn || b.modifiedOn || 0).getTime() -
-                              new Date(a.createdOn || a.modifiedOn || 0).getTime(),
-                          )[0]?.activityId;
                           const statusLabel = formatActivityStatus(
                             material.status,
                           );
@@ -808,24 +796,16 @@ function CourseDetailView({
                                         <p className="inline-flex items-center gap-1.5 text-[11px] text-muted">
                                           <IoTimeOutline size={12} />
                                           {formatDateTime(
-                                            material.modifiedOn ||
+                                            movementCreatedOn(
                                               material.createdOn,
+                                              material.modifiedOn,
+                                            ),
                                           )}
                                         </p>
                                         {correctionDays != null ? (
-                                          <span
-                                            className={clsx(
-                                              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                                              material.activityId ===
-                                                newestCorrectionId
-                                                ? "bg-primary/10 text-primary"
-                                                : "bg-gray-100 text-muted",
-                                            )}
-                                          >
+                                          <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-muted">
                                             {formatHistoryStepElapsed(
                                               correctionDays,
-                                              material.activityId ===
-                                                newestCorrectionId,
                                             )}
                                           </span>
                                         ) : null}
@@ -881,6 +861,7 @@ function CourseDetailView({
                         selectedMaterialId={selectedMaterialId}
                         onSelectMaterial={setSelectedMaterial}
                         showElapsed
+                        elapsedStartedOn={historyStartedOn}
                       />
                     </div>
                     <div className="min-w-0 p-3 sm:p-5 lg:col-span-3">

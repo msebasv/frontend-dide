@@ -6,6 +6,8 @@ import {
   IoTimeOutline,
 } from "react-icons/io5";
 
+import { lookupOrganizationDisplayNames } from "../services/userService";
+import { movementCreatedOn } from "../../global/utils/dateUtils";
 import { formatDomainLabel } from "../../global/utils/textUtils";
 import { useAuth } from "../../global/hooks/useAuth";
 import {
@@ -74,6 +76,42 @@ export function useCourseDetailView({
 
   const selectedMaterialId = controlledMaterialId ?? internalMaterialId;
   const hasDeliverables = groups.length > 0;
+  const [directoryNames, setDirectoryNames] = useState<Record<string, string>>(
+    {},
+  );
+  const assignedPeopleKey = detail.assignedRoles
+    .map((assigned) => `${assigned.role}|${assigned.name}|${assigned.email}`)
+    .join(";");
+
+  useEffect(() => {
+    const missing = [
+      ...new Set(
+        detail.assignedRoles
+          .filter((assigned) => {
+            const email = assigned.email.trim().toLowerCase();
+            const name = assigned.name.trim();
+            return (
+              Boolean(email) &&
+              (!name || name.toLowerCase() === email)
+            );
+          })
+          .map((assigned) => assigned.email.trim()),
+      ),
+    ];
+    if (!missing.length) return;
+
+    let cancelled = false;
+    lookupOrganizationDisplayNames(missing)
+      .then((names) => {
+        if (cancelled) return;
+        setDirectoryNames(Object.fromEntries(names));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assignedPeopleKey, detail.assignedRoles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,7 +192,7 @@ export function useCourseDetailView({
       isAdvisorGuideUploadStatus(selectedDeliverable.stateLabel),
   );
 
-  /** Solo bloquea al asesor en la fase de guión si falta el diseñador. */
+  /** El entregable está en guión y el proceso todavía no tiene diseñador DIDE. */
   const needsDesignerForGuide =
     selectedIsGuideUpload && !processHasDideDesigner;
 
@@ -193,13 +231,12 @@ export function useCourseDetailView({
       return Boolean(selectedDeliverableStatus?.canUpload);
     }
 
-    // Asesor: solo en "Cargar Guión instruccional" de ESE entregable.
+    // Asesor: el guión se puede cargar aunque el diseñador DIDE aún no esté asignado.
     if (isAdvisorRole(currentRole)) {
       if (isSyllabus) return false;
       if (!isAdvisorGuideUploadStatus(selectedDeliverable.stateLabel)) {
         return false;
       }
-      if (needsDesignerForGuide) return false;
       return Boolean(selectedDeliverableStatus?.canUpload);
     }
 
@@ -208,7 +245,7 @@ export function useCourseDetailView({
       // Mientras el proceso esté en cargue de syllabus, el autor no puede cargar
       if (isLeaderSyllabusStatus(detail.status)) return false;
       if (isSyllabus) return false;
-      // Guión instruccional: solo el asesor pedagógico (tras asignar diseñador DIDE).
+      // Guión instruccional: solo el asesor pedagógico.
       if (isAdvisorGuideUploadStatus(selectedDeliverable.stateLabel)) {
         return false;
       }
@@ -262,7 +299,6 @@ export function useCourseDetailView({
     detail.status,
     detail.isDeleted,
     needsValidatorForSyllabus,
-    needsDesignerForGuide,
   ]);
 
   const uploadButtonLabel = useMemo(() => {
@@ -422,8 +458,12 @@ export function useCourseDetailView({
       .filter(isCorrectionMaterial)
       .sort(
         (a, b) =>
-          new Date(b.modifiedOn || b.createdOn || 0).getTime() -
-          new Date(a.modifiedOn || a.createdOn || 0).getTime(),
+          new Date(
+            movementCreatedOn(b.createdOn, b.modifiedOn) || 0,
+          ).getTime() -
+          new Date(
+            movementCreatedOn(a.createdOn, a.modifiedOn) || 0,
+          ).getTime(),
       );
   }, [scopedMaterials]);
 
@@ -528,10 +568,25 @@ export function useCourseDetailView({
     { label: "Programa", value: detail.programName },
     { label: "Facultad", value: detail.facultyName },
     // Responsables del proceso (líder, autor, validador, asesor).
-    ...detail.assignedRoles.map((assigned) => ({
-      label: formatDomainLabel(assigned.role),
-      value: assigned.name || assigned.email,
-    })),
+    ...detail.assignedRoles.map((assigned) => {
+      const email = assigned.email.trim();
+      const storedName = assigned.name.trim();
+      const directoryName =
+        directoryNames[email.toLowerCase()]?.trim() ?? "";
+      const name =
+        storedName && storedName.toLowerCase() !== email.toLowerCase()
+          ? storedName
+          : directoryName;
+      const showEmail =
+        Boolean(email) &&
+        Boolean(name) &&
+        name.toLowerCase() !== email.toLowerCase();
+      return {
+        label: formatDomainLabel(assigned.role),
+        value: showEmail ? name : name || email,
+        detail: showEmail ? email : undefined,
+      };
+    }),
   ];
 
   const showClassroomStatus = isLeaderClassroomConfirmStatus(detail.status);

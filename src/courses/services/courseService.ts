@@ -58,7 +58,6 @@ import {
   isActivityProcessingStatus,
   resolveActivityStatusRaw,
 } from "../domain/processRules";
-import { getProcessForEdit } from "./courseQueryService";
 import { resolveDeliverableStateLabel } from "./deliverableService";
 
 /* ── Re-exports de compatibilidad ── */
@@ -853,15 +852,6 @@ export const uploadCourseMaterial = async (params: {
     throw new Error("Debe seleccionar el tipo de material a cargar.");
   }
 
-  if (isAdvisorGuide) {
-    const editData = await getProcessForEdit(params.processId);
-    if (!editData?.designerEmail?.trim()) {
-      throw new Error(
-        "No es posible cargar el guión instruccional hasta que el Coordinador de Diseñadores asigne el Diseñador DIDE a este proceso.",
-      );
-    }
-  }
-
   let isSyllabus = false;
   let deliverableStateLabel = "";
   try {
@@ -885,7 +875,7 @@ export const uploadCourseMaterial = async (params: {
     isAdvisorGuideUploadStatus(deliverableStateLabel)
   ) {
     throw new Error(
-      "En la fase de guión instruccional solo el asesor pedagógico puede cargar el material, una vez asignado el Diseñador DIDE.",
+      "En la fase de guión instruccional solo el asesor pedagógico puede cargar el material.",
     );
   }
 

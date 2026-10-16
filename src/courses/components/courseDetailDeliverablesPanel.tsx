@@ -3,6 +3,7 @@ import clsx from "clsx";
 
 import { ElapsedDaysBadge } from "../../global/components/elapsedDaysBadge";
 import { deliverableElapsedDayCount } from "../../global/utils/colombiaBusinessDays";
+import { movementCreatedOn } from "../../global/utils/dateUtils";
 import { formatActivityStatus } from "../mappers/courseMappers";
 import { isSyllabusDeliverable } from "../domain/deliverableDomain";
 import { ProcessStatus } from "../../processVirtualization/components/processStatus";
@@ -18,6 +19,8 @@ export interface CourseDetailDeliverablesPanelProps {
   materials: CourseMaterial[];
   deliverableCount: number;
   processCreatedOn: string;
+  /** El proceso sigue abierto: los días corren hasta hoy. */
+  countUntilToday?: boolean;
   expandedCredits: number[];
   selectedDeliverableId: string;
   onToggleCreditGroup: (creditNumber: number) => void;
@@ -29,6 +32,7 @@ export function CourseDetailDeliverablesPanel({
   materials,
   deliverableCount,
   processCreatedOn,
+  countUntilToday = true,
   expandedCredits,
   selectedDeliverableId,
   onToggleCreditGroup,
@@ -42,7 +46,9 @@ export function CourseDetailDeliverablesPanel({
         .filter((material) =>
           materialBelongsToDeliverable(material, syllabusItem),
         )
-        .map((material) => material.createdOn || material.modifiedOn)
+        .map((material) =>
+          movementCreatedOn(material.createdOn, material.modifiedOn),
+        )
         .filter(Boolean)
         .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] ??
       "")
@@ -126,8 +132,12 @@ export function CourseDetailDeliverablesPanel({
                     const activityCount = related.length;
                     const latest = [...related].sort(
                       (a, b) =>
-                        new Date(b.createdOn || b.modifiedOn || 0).getTime() -
-                        new Date(a.createdOn || a.modifiedOn || 0).getTime(),
+                        new Date(
+                          movementCreatedOn(b.createdOn, b.modifiedOn) || 0,
+                        ).getTime() -
+                        new Date(
+                          movementCreatedOn(a.createdOn, a.modifiedOn) || 0,
+                        ).getTime(),
                     )[0];
                     const latestStatus = latest
                       ? formatActivityStatus(latest.status)
@@ -137,7 +147,8 @@ export function CourseDetailDeliverablesPanel({
                     );
                     const eventDates = [...related]
                       .map(
-                        (material) => material.createdOn || material.modifiedOn,
+                        (material) =>
+                          movementCreatedOn(material.createdOn, material.modifiedOn),
                       )
                       .filter(Boolean)
                       .sort(
@@ -151,6 +162,7 @@ export function CourseDetailDeliverablesPanel({
                       syllabusCompletedOn: isSyllabusDeliverable(item)
                         ? undefined
                         : syllabusCompletedOn,
+                      open: countUntilToday,
                     });
 
                     return (
@@ -183,7 +195,10 @@ export function CourseDetailDeliverablesPanel({
                           <div className="mt-1.5 space-y-1.5">
                             <ProcessStatus status={item.stateLabel} compact />
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <ElapsedDaysBadge days={elapsedDays} />
+                              <ElapsedDaysBadge
+                                prefix="Entregable"
+                                days={elapsedDays}
+                              />
                               <span className="text-[10px] text-muted">
                                 {activityCount === 0
                                   ? "Sin historial"

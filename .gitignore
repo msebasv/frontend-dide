@@ -28,4 +28,22 @@ dist-ssr
 
 *.tmp
 .power.dev-backup/
+.power.pre-backup/
+
+# Documentación local (no va al repositorio remoto)
+docs/
+
+# Configuración Dev (cuenta personal). En GitHub: power.config.json + QA + PRE.
 power.config.dev.json
+power.config.development-dide.json
+power.config.development-academicplus-dide.json
+
+# Artefactos locales de ALM / empaquetado
+.alm/
+
+# Dumps temporales de exploración (PAC / conexiones / flujos)
+conns.json
+flows-pre.json
+fetch-cr.xml
+fetch-cr-pre.xml
+fetch-*.xml

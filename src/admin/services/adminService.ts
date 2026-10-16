@@ -366,7 +366,7 @@ export const deactivateLeaderUser = async (id: string): Promise<void> => {
     statuscode: 2,
   } as Partial<Omit<Dev_tableleaderusersesBase, "dev_tableleaderusersid">>);
 
-  assertCreateSuccess(result, "No se pudo inactivar el usuario líder.");
+  assertCreateSuccess(result, "No se pudo desactivar el usuario líder.");
 };
 
 /** Reactiva un registro previamente inactivado. */

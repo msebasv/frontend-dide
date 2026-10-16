@@ -118,6 +118,8 @@ const normalizeActivityLabel = normalizeComparableText;
 
 type AssignRoleWithFormatted = Dev_tableassignroles & {
   "_dev_tablerole_value@OData.Community.Display.V1.FormattedValue"?: string;
+  "_dev_user_value@OData.Community.Display.V1.FormattedValue"?: string;
+  "dev_user@OData.Community.Display.V1.FormattedValue"?: string;
 };
 
 export type PhaseWithFormatted = Dev_tablephases & {
@@ -969,6 +971,7 @@ export const mapCourseDetail = ({
     facultyName: faculty?.dev_namefaculty ?? "",
     folderBase: process.dev_folderbase ?? "",
     createdOn: process.createdon ?? "",
+    modifiedOn: process.modifiedon ?? "",
     status,
     isDeleted: !isActiveDataverseRecord(process.statecode),
     currentRole,
@@ -1020,11 +1023,37 @@ interface AssignedPersonInfo {
 const looksLikeEmail = (value: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const readText = (value: unknown): string =>
+  typeof value === "string" ? value.trim() : "";
+
+/** Nombre visible del usuario asignado, aparte del correo en dev_person. */
+const assignedDisplayName = (assignRole: AssignRoleWithFormatted): string => {
+  const nested = assignRole.dev_user;
+  const nestedName =
+    nested && typeof nested === "object"
+      ? readText((nested as { name?: unknown; fullname?: unknown }).name) ||
+        readText((nested as { fullname?: unknown }).fullname)
+      : "";
+  const candidates = [
+    assignRole.dev_username,
+    assignRole["_dev_user_value@OData.Community.Display.V1.FormattedValue"],
+    assignRole["dev_user@OData.Community.Display.V1.FormattedValue"],
+    nestedName,
+    assignRole.dev_useryominame,
+  ];
+
+  return (
+    candidates
+      .map((value) => readText(value))
+      .find((value) => value && !looksLikeEmail(value)) ?? ""
+  );
+};
+
 const toAssignedPerson = (
-  assignRole: Pick<AssignRoleWithFormatted, "dev_username" | "dev_person">,
+  assignRole: AssignRoleWithFormatted,
 ): AssignedPersonInfo => {
-  const username = assignRole.dev_username?.trim() || "";
-  const person = assignRole.dev_person?.trim() || "";
+  const username = readText(assignRole.dev_username);
+  const person = readText(assignRole.dev_person);
 
   const email = looksLikeEmail(person)
     ? person
@@ -1032,11 +1061,8 @@ const toAssignedPerson = (
       ? username
       : "";
   const name =
-    username && !looksLikeEmail(username)
-      ? username
-      : person && !looksLikeEmail(person)
-        ? person
-        : "";
+    assignedDisplayName(assignRole) ||
+    (person && !looksLikeEmail(person) ? person : "");
 
   return { name, email };
 };
