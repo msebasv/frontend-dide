@@ -150,6 +150,10 @@ const buildAssigneesByProcess = (
   return byProcess;
 };
 
+/**
+ * Arma la lista global de procesos para el líder: curso, roles, flags de acción
+ * y desglose por fase cuando hay entregables.
+ */
 export const mapVirtualizationProcesses = ({
   processes,
   courses,

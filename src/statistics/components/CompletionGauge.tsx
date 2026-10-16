@@ -1,3 +1,6 @@
+/**
+ * Medidor radial de tasa de finalización de procesos.
+ */
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from "recharts";
 
 import Card from "../../global/components/card";
@@ -11,6 +14,7 @@ interface CompletionGaugeProps {
   onSelect?: () => void;
 }
 
+/** Medidor circular de tasa de completitud. */
 function CompletionGauge({
   rate,
   completed,

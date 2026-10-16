@@ -1,3 +1,6 @@
+/**
+ * Página de detalle del curso y operaciones de validación.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 
@@ -35,6 +38,7 @@ import ClassroomConfirmModal from "../components/classroomConfirmModal";
 import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 import { OPERATION_SETTLED_EVENT } from "../../global/utils/operationSettled";
 
+/** Detalle del proceso: materiales, validación y cargues según rol. */
 const ViewCourse = () => {
   const { processId } = useParams<{ processId: string }>();
   const location = useLocation();

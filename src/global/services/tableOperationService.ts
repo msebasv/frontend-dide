@@ -6,6 +6,7 @@
 import { Dev_tableoperationsService } from "../../generated/services/Dev_tableoperationsService";
 import { FlowRunFailedError } from "../utils/flowResult";
 
+/** Fila genérica devuelta por operaciones de tabla en Dataverse. */
 export type OperationRow = {
   status: string;
   message: string;

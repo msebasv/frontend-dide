@@ -25,6 +25,7 @@ export const routeTitles: { pattern: RegExp; title: string }[] = [
   { pattern: /.+/, title: "Página no encontrada" },
 ];
 
+/** Título de página según la ruta actual. */
 export const getPageTitle = (pathname: string): string => {
   const match = routeTitles.find((route) => route.pattern.test(pathname));
   return match?.title ?? "AcademicPlus";

@@ -3,6 +3,7 @@
  * Los detalles técnicos se dejan solo en consola.
  */
 
+/** Error de acceso a SharePoint con mensaje genérico para la UI. */
 export class SharePointSetupError extends Error {
   constructor(message = SharePointSetupError.defaultMessage()) {
     super(message);
@@ -14,6 +15,7 @@ export class SharePointSetupError extends Error {
   }
 }
 
+/** true si el error indica falta de permisos o acceso denegado (401/403). */
 export const isSharePointAccessError = (error: unknown): boolean => {
   const message = getRawErrorMessage(error).toLowerCase();
   return (
@@ -28,6 +30,7 @@ export const isSharePointAccessError = (error: unknown): boolean => {
   );
 };
 
+/** true si el archivo o carpeta no existe en SharePoint (404). */
 export const isSharePointNotFoundError = (error: unknown): boolean => {
   const message = getRawErrorMessage(error).toLowerCase();
 
@@ -40,6 +43,7 @@ export const isSharePointNotFoundError = (error: unknown): boolean => {
   );
 };
 
+/** Traduce errores técnicos de SharePoint a texto comprensible para el usuario. */
 export const getUserFriendlySharePointMessage = (error: unknown): string => {
   if (error instanceof SharePointSetupError) {
     return error.message;

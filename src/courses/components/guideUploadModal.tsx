@@ -24,6 +24,7 @@ interface GuideUploadModalProps {
   loading?: boolean;
 }
 
+/** Permite al asesor adjuntar el guión instruccional en Word. */
 function GuideUploadModal({
   isOpen,
   deliverableLabel,

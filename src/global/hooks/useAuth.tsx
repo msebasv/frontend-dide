@@ -1,3 +1,6 @@
+/**
+ * Hook de acceso al contexto de autenticación y rol activo.
+ */
 import { useContext } from "react";
 
 import { AuthContext } from "../context/authContext";

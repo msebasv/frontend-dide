@@ -1,3 +1,6 @@
+﻿/**
+ * Tarjeta de datos clave en formato lista, opcionalmente colapsable.
+ */
 import { useState } from "react";
 import {
   IoAdd,
@@ -121,4 +124,5 @@ function InfoCard({
   );
 }
 
+/** Tarjeta de datos clave en formato lista, opcionalmente colapsable. */
 export default InfoCard;

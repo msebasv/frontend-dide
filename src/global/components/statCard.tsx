@@ -1,3 +1,6 @@
+﻿/**
+ * Tarjeta métrica con valor, icono y tendencia opcional.
+ */
 import type { ReactNode } from "react";
 import clsx from "clsx";
 
@@ -39,6 +42,7 @@ const colorConfig = {
   },
 };
 
+/** Tarjeta KPI con icono, valor y variante de color. */
 function StatCard({
   label,
   value,
@@ -110,4 +114,5 @@ function StatCard({
   return <div className={className}>{content}</div>;
 }
 
+/** Tarjeta métrica con valor, icono y tendencia opcional. */
 export default StatCard;

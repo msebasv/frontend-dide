@@ -1,3 +1,6 @@
+/**
+ * Página de listado de cursos asignados al usuario según su rol.
+ */
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../global/hooks/useAuth";
@@ -27,6 +30,7 @@ const roleToColumnRole = (role: string) => {
   return "author" as const;
 };
 
+/** Listado de procesos asignados al usuario con filtros por estado. */
 const CourseList = () => {
   const { user, currentRole } = useAuth();
   const { courses, loading, loadCourses } = useCourses(

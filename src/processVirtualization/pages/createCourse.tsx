@@ -1,3 +1,6 @@
+/**
+ * Página de alta de curso institucional vinculable a procesos.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
@@ -30,6 +33,7 @@ import type { Dev_table_programs } from "../../generated/models/Dev_table_progra
 
 type SelectOption = { label: string; value: string };
 
+/** Formulario para registrar un curso antes de crear procesos. */
 function CreateCourse() {
   const navigate = useNavigate();
   const location = useLocation();

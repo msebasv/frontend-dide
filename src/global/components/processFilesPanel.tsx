@@ -1,3 +1,6 @@
+﻿/**
+ * Listado de archivos del proceso almacenados en SharePoint.
+ */
 import { useEffect, useState } from "react";
 import {
   IoDocumentTextOutline,
@@ -24,6 +27,7 @@ interface ProcessFilesPanelProps {
   activityId?: string;
 }
 
+/** Lista y enlaces a archivos del proceso en SharePoint. */
 function ProcessFilesPanel({
   folderBase,
   processId,
@@ -267,4 +271,5 @@ function ProcessFilesPanel({
   );
 }
 
+/** Listado de archivos del proceso almacenados en SharePoint. */
 export default ProcessFilesPanel;

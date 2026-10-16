@@ -1,3 +1,6 @@
+/**
+ * Componente acordeón reutilizable para secciones expandibles.
+ */
 import { useState, type ReactNode } from "react";
 import { IoAdd } from "react-icons/io5";
 import clsx from "clsx";
@@ -47,8 +50,10 @@ interface AccordionProps {
   className?: string;
 }
 
+/** Agrupa ítems de acordeón con espaciado uniforme. */
 function Accordion({ children, className }: AccordionProps) {
   return <div className={clsx("space-y-2", className)}>{children}</div>;
 }
 
+/** Contenedor acordeón e ítem expandible exportados. */
 export { Accordion, AccordionItem };

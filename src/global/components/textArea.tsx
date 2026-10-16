@@ -1,3 +1,6 @@
+﻿/**
+ * Campo de texto multilínea.
+ */
 import clsx from "clsx";
 
 interface TextAreaProps {
@@ -10,6 +13,7 @@ interface TextAreaProps {
   disabled?: boolean;
 }
 
+/** Campo de texto multilínea con estados de validación. */
 function TextArea({
   value,
   onChange,
@@ -40,4 +44,5 @@ function TextArea({
   );
 }
 
+/** Campo de texto multilínea. */
 export default TextArea;

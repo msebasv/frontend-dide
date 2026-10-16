@@ -81,6 +81,8 @@ export {
   assignProcessDideDesigner,
 } from "../../processVirtualization/services/processMutationService";
 
+// --- Helpers internos (plantillas, flujos CU, temp-folder) ---
+
 const normalizePhaseName = normalizeComparableText;
 
 const matchesPhaseName = (value: string | undefined, target: string): boolean =>
@@ -628,6 +630,9 @@ const uploadTempFiles = async (
   return paths;
 };
 
+// --- Mutaciones de material (cargue / validación / aula) ---
+
+/** Aprueba material (validador, asesor o confirmación DIDE) vía flujo CU activity. */
 export const approveCourseMaterial = async (params: {
   processId: string;
   userRole: string;
@@ -768,6 +773,7 @@ export const confirmClassroomUpload = async (params: {
   });
 };
 
+/** Devuelve material con comentarios y archivos opcionales de corrección. */
 export const returnCourseMaterial = async (params: {
   processId: string;
   userRole: string;
@@ -823,6 +829,10 @@ export const returnCourseMaterial = async (params: {
   });
 };
 
+/**
+ * Carga inicial, corrección, syllabus o guión: temp-folder + fl-dev-cu-activity.
+ * Resuelve plantilla según rol (autor / asesor / líder) y entregable seleccionado.
+ */
 export const uploadCourseMaterial = async (params: {
   activityName: string;
   description: string;

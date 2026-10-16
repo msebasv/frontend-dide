@@ -4,6 +4,7 @@
  */
 import { DELIVERABLE_STATES } from "../../global/constants/domainConstants";
 
+/** Estados de entregable con color y bucket para KPIs y gráficas. */
 export const DELIVERABLE_STATS_CONFIG = [
   {
     key: DELIVERABLE_STATES.PENDING,
@@ -43,9 +44,11 @@ export const DELIVERABLE_STATS_CONFIG = [
   },
 ] as const;
 
+/** Agrupación KPI: pendiente, en revisión o aprobado. */
 export type DeliverableStatBucket =
   (typeof DELIVERABLE_STATS_CONFIG)[number]["bucket"];
 
+/** Agrupa etiqueta de estado en pending / inReview / approved para KPIs. */
 export const resolveDeliverableStatBucket = (
   stateLabel: string,
 ): DeliverableStatBucket | "other" => {

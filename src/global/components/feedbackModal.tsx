@@ -1,3 +1,6 @@
+﻿/**
+ * Modal de retroalimentación (éxito, error, advertencia e información).
+ */
 import { createPortal } from "react-dom";
 import {
   IoCheckmarkCircle,
@@ -8,6 +11,7 @@ import {
 
 import Button from "./button";
 
+/** Variante visual del modal de retroalimentación. */
 export type FeedbackType = "success" | "error" | "warning" | "info";
 
 interface FeedbackModalProps {
@@ -45,6 +49,7 @@ const typeStyles: Record<
   },
 };
 
+/** Modal de feedback con icono según éxito, error o información. */
 function FeedbackModal({
   isOpen,
   type,
@@ -97,4 +102,5 @@ function FeedbackModal({
   );
 }
 
+/** Modal de retroalimentación (éxito, error, advertencia e información). */
 export default FeedbackModal;

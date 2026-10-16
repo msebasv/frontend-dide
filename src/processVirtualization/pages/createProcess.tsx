@@ -1,3 +1,6 @@
+/**
+ * Página de creación de un proceso de virtualización.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
@@ -48,6 +51,7 @@ type SelectOption = { label: string; value: string; action?: boolean };
 
 const CREATE_COURSE_OPTION_VALUE = "__create_course__";
 
+/** Formulario de alta de proceso de virtualización. */
 function CreateProcess() {
   const navigate = useNavigate();
   const { user, currentRole, refreshRoles } = useAuth();

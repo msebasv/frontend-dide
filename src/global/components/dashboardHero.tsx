@@ -1,3 +1,6 @@
+﻿/**
+ * Encabezado del panel con saludo, rol y acciones rápidas.
+ */
 import type { ReactNode } from "react";
 
 interface DashboardHeroProps {
@@ -101,6 +104,7 @@ function HeroDecor({ className = "" }: { className?: string }) {
   );
 }
 
+/** Banner de bienvenida con título y decoración lateral. */
 function DashboardHero({
   userName,
   role,
@@ -152,4 +156,5 @@ function DashboardHero({
   );
 }
 
+/** Encabezado del panel con saludo, rol y acciones rápidas. */
 export default DashboardHero;

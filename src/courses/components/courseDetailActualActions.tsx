@@ -1,3 +1,6 @@
+/**
+ * Acciones del entregable activo según rol y estado del proceso.
+ */
 import {
   IoCheckmarkCircle,
   IoCloudUploadOutline,
@@ -23,6 +26,7 @@ import type { ProcessDeliverableItem } from "../services/deliverableService";
 import type { CourseMaterial } from "../types/course.types";
 import type { MaterialValidationContext } from "./courseDetailViewHelpers";
 
+/** Props de botones de cargue, validación y asignación en la pestaña Actual. */
 export interface CourseDetailActualActionsProps {
   selectedDeliverable: ProcessDeliverableItem;
   currentRole: string;
@@ -48,6 +52,7 @@ export interface CourseDetailActualActionsProps {
   validationContext: (material: CourseMaterial) => MaterialValidationContext;
 }
 
+/** Renderiza acciones disponibles para el entregable y rol activos. */
 export function CourseDetailActualActions({
   selectedDeliverable,
   currentRole,

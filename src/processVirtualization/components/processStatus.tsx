@@ -1,3 +1,6 @@
+/**
+ * Insignia con el estado o fase del proceso de virtualización.
+ */
 import { processStatusStyles } from "../constants/processStatusStyles";
 import {
   formatDomainLabel,
@@ -144,6 +147,7 @@ const resolveStatusLabel = (status: string, compact: boolean): string => {
   return toUiStatusLabel(status);
 };
 
+/** Insignia de fase/estado con estilo y etiqueta compacta o completa. */
 export const ProcessStatus = ({
   status,
   compact = false,

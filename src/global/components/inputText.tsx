@@ -1,3 +1,6 @@
+﻿/**
+ * Campo de texto de una línea.
+ */
 import { Input } from "@headlessui/react";
 import clsx from "clsx";
 
@@ -50,4 +53,5 @@ const InputText = ({
   );
 };
 
+/** Campo de texto de una línea. */
 export default InputText;

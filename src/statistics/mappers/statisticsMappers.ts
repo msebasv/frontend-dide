@@ -70,6 +70,7 @@ const shortenRoleName = (role: string): string => {
     .slice(0, 28);
 };
 
+/** KPIs, distribuciones y tendencias a partir de procesos ya mapeados. */
 export const buildLeaderStatistics = (
   processes: VirtualizationProcess[],
   rawProcesses: Dev_tablevirtualizationprocesses[],

@@ -1,3 +1,6 @@
+/**
+ * Lista lateral de actividades de un entregable en el detalle del curso.
+ */
 import {
   IoDocumentTextOutline,
   IoPersonOutline,
@@ -14,6 +17,7 @@ import { formatActivityStatus } from "../mappers/courseMappers";
 import type { CourseMaterial } from "../types/course.types";
 import { materialStatusStyle } from "./courseDetailViewHelpers";
 
+/** Props del listado lateral de actividades/historial del entregable. */
 export interface CourseDetailActivityListProps {
   materials: CourseMaterial[];
   hasDeliverables: boolean;
@@ -25,6 +29,7 @@ export interface CourseDetailActivityListProps {
   elapsedStartedOn?: string;
 }
 
+/** Lista seleccionable de actividades con estado y tiempos opcionales. */
 export function CourseDetailActivityList({
   materials,
   hasDeliverables,

@@ -1,3 +1,6 @@
+﻿/**
+ * Selector y zona de arrastre para archivos adjuntos.
+ */
 import { useRef, useState } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
 import clsx from "clsx";
@@ -20,6 +23,7 @@ interface FileUploadProps {
   allowedExtensions?: Set<string>;
 }
 
+/** Zona para arrastrar o elegir archivos con restricciones. */
 function FileUpload({
   files,
   onChange,
@@ -125,4 +129,5 @@ function FileUpload({
   );
 }
 
+/** Selector y zona de arrastre para archivos adjuntos. */
 export default FileUpload;

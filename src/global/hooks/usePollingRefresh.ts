@@ -4,6 +4,7 @@
  */
 import { useEffect } from "react";
 
+/** Ejecuta un callback periódico mientras el componente está montado. */
 export const usePollingRefresh = (
   refresh: () => void | Promise<void>,
   /** Intervalo en ms; `0` o negativo desactiva el polling periódico. */

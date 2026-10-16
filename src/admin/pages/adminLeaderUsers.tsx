@@ -44,6 +44,7 @@ import {
 type SelectOption = { label: string; value: string };
 type StatusFilter = "active" | "inactive" | "all";
 
+/** Página de gestión de roles globales (Leaders Users). */
 function AdminLeaderUsersPage() {
   const { currentRole } = useAuth();
   const canAccess =

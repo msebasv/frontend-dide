@@ -18,6 +18,7 @@ const EMPTY_SUMMARY: ProcessTrackingSummary = {
   completed: 0,
 };
 
+/** Estado y recarga del tablero de seguimiento (asesor / líder). */
 export const useProcessTracking = (userEmail: string, userRole: string) => {
   const [rows, setRows] = useState<ProcessTrackingRow[]>([]);
   const [summary, setSummary] =

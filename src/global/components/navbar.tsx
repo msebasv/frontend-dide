@@ -1,3 +1,6 @@
+﻿/**
+ * Barra superior con título de página, rol y menú de usuario.
+ */
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useActionFeedback } from "../hooks/useActionFeedback";
@@ -140,4 +143,5 @@ const Navbar = ({ onMenuClick }: NavbarProps) => {
   );
 };
 
+/** Barra superior con título de página, rol y menú de usuario. */
 export default Navbar;

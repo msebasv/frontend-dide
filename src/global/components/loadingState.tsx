@@ -1,3 +1,6 @@
+﻿/**
+ * Indicador de carga centrado con mensaje.
+ */
 function LoadingState({ message = "Cargando..." }: { message?: string }) {
   return (
     <div className="flex items-center justify-center py-24">
@@ -12,4 +15,5 @@ function LoadingState({ message = "Cargando..." }: { message?: string }) {
   );
 }
 
+/** Indicador de carga centrado con mensaje. */
 export default LoadingState;

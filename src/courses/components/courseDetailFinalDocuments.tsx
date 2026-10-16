@@ -1,3 +1,6 @@
+/**
+ * Tarjetas de documentos finales del entregable seleccionado.
+ */
 import {
   IoDocumentTextOutline,
   IoLinkOutline,
@@ -10,6 +13,7 @@ import { formatDateTime } from "../../global/utils/dateUtils";
 import type { ProcessDeliverableItem } from "../services/deliverableService";
 import type { CourseMaterial } from "../types/course.types";
 
+/** Props de las tarjetas de versión final (autor, guión, enlaces DIDE). */
 export interface CourseDetailFinalDocumentsProps {
   embedded?: boolean;
   selectedDeliverable: ProcessDeliverableItem | null;
@@ -22,6 +26,7 @@ export interface CourseDetailFinalDocumentsProps {
   };
 }
 
+/** Muestra documentos finales del entregable para roles autorizados. */
 export function CourseDetailFinalDocuments({
   embedded = false,
   selectedDeliverable,

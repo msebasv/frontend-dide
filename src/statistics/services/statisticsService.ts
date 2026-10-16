@@ -46,6 +46,7 @@ import {
   EMPTY_DIMENSION_FILTERS,
 } from "../types/statistics.types";
 
+/** Datos crudos y mapeados usados para calcular estadísticas. */
 export interface StatisticsSource {
   processes: VirtualizationProcess[];
   rawProcesses: Dev_tablevirtualizationprocesses[];
@@ -158,6 +159,7 @@ const mapStatisticsDeliverables = (
     );
 };
 
+/** Snapshot único de procesos mapeados, fases, actividades y entregables para estadísticas. */
 export const getStatisticsSource = async (): Promise<StatisticsSource> => {
   const [
     processesResult,
@@ -308,6 +310,7 @@ const processElapsedDays = (process: VirtualizationProcess): number =>
     process.status === PROCESS_PHASES.COMPLETED ? process.modifiedOn : undefined,
   );
 
+/** Recorta el snapshot por periodo, dimensiones y modo proceso vs entregable. */
 export const filterStatisticsSource = (
   source: StatisticsSource,
   periodFilter: PeriodFilter,
@@ -373,6 +376,7 @@ export const filterStatisticsSource = (
   };
 };
 
+/** Valores distintos para selects de filtros según procesos visibles. */
 export const buildStatisticsFilterOptions = (
   processes: VirtualizationProcess[],
   dimensions: StatisticsDimensionFilters,
@@ -438,6 +442,7 @@ export const buildStatisticsFilterOptions = (
   return { faculties, programs, advisors, leaders, statuses };
 };
 
+/** Pipeline: filtra fuente y calcula LeaderStatistics para la página. */
 export const buildStatisticsFromSource = (
   source: StatisticsSource,
   periodFilter: PeriodFilter = { type: "all", value: "" },
@@ -551,6 +556,7 @@ const formatElapsedDaysFilter = (filter: ElapsedDaysFilter): string => {
   return "";
 };
 
+/** Texto legible de periodo y dimensiones activas (exportación PDF / encabezados). */
 export const buildActiveFiltersLabel = (
   periodLabel: string,
   dimensions: StatisticsDimensionFilters,

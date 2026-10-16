@@ -7,6 +7,7 @@ import { useState, useCallback, useRef } from "react";
 import { getCourseDetail } from "../services/courseService";
 import type { CourseDetail } from "../types/course.types";
 
+/** Detalle de proceso con cancelación de peticiones obsoletas al cambiar de id. */
 export const useCourseDetail = () => {
   const [detail, setDetail] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(false);

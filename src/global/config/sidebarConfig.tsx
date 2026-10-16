@@ -19,6 +19,7 @@ interface SidebarItemConfig {
   path: string;
 }
 
+/** Entradas de navegación del sidebar filtradas por rol. */
 export const sidebarConfig: SidebarItemConfig[] = [
   {
     text: "Inicio",

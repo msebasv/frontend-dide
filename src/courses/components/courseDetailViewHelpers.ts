@@ -1,3 +1,7 @@
+/**
+ * Helpers puros para la vista de detalle: tipos de material, enlaces,
+ * etiquetas de UI (estado, comentarios, actor) y selección por defecto.
+ */
 import {
   parseAudiovisualLinkEntries,
   type AudiovisualLinkEntry,
@@ -11,6 +15,7 @@ import type { CourseMaterial } from "../types/course.types";
 
 export type { AudiovisualLinkEntry };
 
+/** Contexto pasado a modales de aprobar/devolver material. */
 export interface MaterialValidationContext {
   material: CourseMaterial;
   /** Nombre del entregable (categoría × crédito) cuando aplica. */
@@ -19,6 +24,7 @@ export interface MaterialValidationContext {
   deliverableStateLabel?: string;
 }
 
+/** Pestañas del panel derecho del detalle por entregable. */
 export type DeliverableDetailTab =
   | "actual"
   | "corrections"
@@ -54,9 +60,11 @@ export const collectMaterialLinkEntries = (
   return parseAudiovisualLinkEntries(material.documents);
 };
 
+/** URLs planas a partir de `collectMaterialLinkEntries`. */
 export const collectMaterialLinks = (material: CourseMaterial): string[] =>
   collectMaterialLinkEntries(material).map((entry) => entry.url);
 
+/** Clases Tailwind del badge según palabras clave del estado. */
 export const materialStatusStyle = (statusLabel: string): string => {
   const normalized = statusLabel.toLowerCase();
 
@@ -77,6 +85,7 @@ export const materialStatusStyle = (statusLabel: string): string => {
   return "bg-[#004040]/10 text-[#004040] border border-[#004040]/25";
 };
 
+/** Título de la sección de texto según estado y si es cargue del autor. */
 export const commentsLabel = (
   statusLabel: string,
   isAuthorUpload: boolean,
@@ -96,6 +105,7 @@ export const commentsLabel = (
   return "Descripción / comentarios";
 };
 
+/** Actividad marcada como devuelta / por corregir. */
 export const isCorrectionMaterial = (material: CourseMaterial): boolean => {
   const normalized = formatActivityStatus(material.status).toLowerCase();
   return (
@@ -105,6 +115,7 @@ export const isCorrectionMaterial = (material: CourseMaterial): boolean => {
   );
 };
 
+/** Etiqueta del bloque de actor (cargado por, aprobado por, etc.). */
 export const actorLabel = (
   statusLabel: string,
   isAuthorUpload: boolean,
@@ -124,6 +135,7 @@ export const actorLabel = (
   return "Realizado por";
 };
 
+/** Primera actividad de autor; si no hay, la más reciente del listado. */
 export const pickDefaultActivityId = (materials: CourseMaterial[]): string =>
   materials.find((item) => item.isAuthorUpload)?.activityId ??
   materials[0]?.activityId ??

@@ -19,6 +19,7 @@ interface StatisticsDeliverablesModalProps {
   detailBasePath?: "process" | "course";
 }
 
+/** Modal con listado filtrado de entregables para drill-down. */
 function StatisticsDeliverablesModal({
   isOpen,
   onClose,

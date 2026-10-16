@@ -1,3 +1,6 @@
+/**
+ * Gráfico comparativo de procesos por facultad.
+ */
 import {
   BarChart,
   Bar,
@@ -50,6 +53,7 @@ const CustomTooltip = ({
   );
 };
 
+/** Barras apiladas de procesos por facultad. */
 function FacultyBarChart({
   data,
   title = "Procesos por facultad",

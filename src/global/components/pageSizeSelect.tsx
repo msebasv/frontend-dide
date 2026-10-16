@@ -1,10 +1,13 @@
 /**
- * Cantidad de filas por página. La elige quien usa la tabla.
+ * Selector de cantidad de filas por página en tablas.
  */
+/** Valores permitidos de filas por página. */
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
+/** Valor permitido de filas por página. */
 export type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
 
+/** Tamaño de página por defecto en tablas. */
 export const DEFAULT_PAGE_SIZE: PageSizeOption = 10;
 
 const isPageSizeOption = (value: number): value is PageSizeOption =>
@@ -16,6 +19,7 @@ interface PageSizeSelectProps {
   itemLabel?: string;
 }
 
+/** Control de filas visibles por página en tablas. */
 function PageSizeSelect({
   value,
   onChange,
@@ -43,4 +47,5 @@ function PageSizeSelect({
   );
 }
 
+/** Selector de cantidad de filas por página. */
 export default PageSizeSelect;

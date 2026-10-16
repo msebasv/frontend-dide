@@ -1,3 +1,6 @@
+﻿/**
+ * Overlay de carga sobre formularios durante operaciones.
+ */
 import type { ReactNode } from "react";
 import clsx from "clsx";
 
@@ -48,4 +51,5 @@ function FormBusyOverlay({
   );
 }
 
+/** Overlay de carga sobre formularios durante operaciones. */
 export default FormBusyOverlay;

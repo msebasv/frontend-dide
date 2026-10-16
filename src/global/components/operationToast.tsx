@@ -1,3 +1,6 @@
+﻿/**
+ * Toast flotante del estado de una operación en curso.
+ */
 import { createPortal } from "react-dom";
 import {
   IoCheckmarkCircle,
@@ -8,6 +11,7 @@ import {
 
 import Button from "./button";
 
+/** Estado visual del toast de operación (carga, éxito o error). */
 export type OperationToastStatus = "loading" | "success" | "error";
 
 interface OperationToastProps {
@@ -43,6 +47,7 @@ const statusStyles: Record<
   },
 };
 
+/** Toast de operación en curso con barra de progreso. */
 function OperationToast({
   isOpen,
   status,
@@ -118,4 +123,5 @@ function OperationToast({
   );
 }
 
+/** Toast flotante del estado de una operación en curso. */
 export default OperationToast;

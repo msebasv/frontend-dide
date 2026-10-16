@@ -1,3 +1,6 @@
+﻿/**
+ * Menú desplegable de notificaciones pendientes.
+ */
 import { Link } from "react-router-dom";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import {
@@ -23,6 +26,7 @@ const kindStyles: Record<AppNotification["kind"], string> = {
   review: "bg-secondary/10 text-secondary",
 };
 
+/** Menú de notificaciones con acceso rápido a cada ítem. */
 function NotificationsMenu() {
   const { user, currentRole } = useAuth();
   const { notifications, loading } = useNotifications(
@@ -98,4 +102,5 @@ function NotificationsMenu() {
   );
 }
 
+/** Menú desplegable de notificaciones pendientes. */
 export default NotificationsMenu;

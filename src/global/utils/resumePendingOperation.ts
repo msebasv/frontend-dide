@@ -6,6 +6,7 @@ import { confirmTableOperation } from "../services/tableOperationService";
 import { createProcessWatcher } from "../../processVirtualization/services/processMutationService";
 import type { PendingOperation } from "./pendingOperation";
 
+/** Factory de polling post-recarga según el tipo de operación pendiente. */
 export const confirmPendingOperation = (
   pending: PendingOperation,
 ): (() => Promise<boolean>) => {

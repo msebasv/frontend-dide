@@ -298,4 +298,5 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   );
 };
 
+/** Proveedor de autenticación, roles y rol activo vía AuthContext. */
 export default AuthProvider;

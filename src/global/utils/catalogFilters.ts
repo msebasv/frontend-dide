@@ -4,6 +4,7 @@
  */
 import { getYearFromSemester } from "./semesterUtils";
 
+/** Registro mínimo para filtrar listados por catálogo académico. */
 export interface CatalogRecord {
   facultyName: string;
   programName: string;
@@ -13,6 +14,7 @@ export interface CatalogRecord {
   createdOn: string;
 }
 
+/** Criterios activos del filtro de catálogo en listados. */
 export interface CatalogFilter {
   facultyName: string;
   programName: string;
@@ -23,6 +25,7 @@ export interface CatalogFilter {
   createdTo: string;
 }
 
+/** Filtro de catálogo sin criterios aplicados. */
 export const EMPTY_CATALOG_FILTER: CatalogFilter = {
   facultyName: "",
   programName: "",
@@ -32,6 +35,7 @@ export const EMPTY_CATALOG_FILTER: CatalogFilter = {
   createdTo: "",
 };
 
+/** Indica si hay al menos un criterio de catálogo seleccionado. */
 export const isCatalogFilterActive = (filter: CatalogFilter): boolean =>
   Object.values(filter).some((value) => value.trim() !== "");
 
@@ -43,6 +47,7 @@ const toLocalDateKey = (value: string): string => {
   return `${date.getFullYear()}-${month}-${day}`;
 };
 
+/** Aplica filtros de facultad, programa, periodo y rango de creación a un registro. */
 export const matchesCatalogFilter = (
   record: CatalogRecord,
   filter: CatalogFilter,
@@ -92,6 +97,7 @@ export const catalogProgramOptions = (
   );
 };
 
+/** Facultades únicas presentes en los registros, ordenadas. */
 export const catalogFacultyOptions = (records: CatalogRecord[]): string[] =>
   uniqueSorted(
     records.map((record) => record.facultyName),

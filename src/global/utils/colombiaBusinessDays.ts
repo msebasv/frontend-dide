@@ -265,6 +265,7 @@ export const processElapsedDayCount = (
   return businessDaysBetween(createdOn, end);
 };
 
+/** Etiqueta legible de días hábiles transcurridos del proceso. */
 export const processElapsedLabel = (
   createdOn: string,
   closedOn?: string,
@@ -273,6 +274,7 @@ export const processElapsedLabel = (
   return `Proceso: ${formatElapsedDays(processElapsedDayCount(createdOn, closedOn))}`;
 };
 
+/** Movimiento del historial con identificador y fecha ISO. */
 export interface ElapsedMovement {
   id: string;
   at: string;

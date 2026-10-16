@@ -1,3 +1,6 @@
+/**
+ * Definición de columnas del listado de cursos según el rol del usuario.
+ */
 import type { ReactNode } from "react";
 import { IoCloudUploadOutline, IoEyeOutline } from "react-icons/io5";
 
@@ -20,6 +23,7 @@ const viewerRoleLabel: Record<CourseColumnRole, string> = {
   designer: USER_ROLES.DIDE_DESIGNER,
 };
 
+/** Columnas de la tabla Mis Cursos según rol (autor, validador, asesor, diseñador). */
 export const getCourseColumns = (role: CourseColumnRole): Column<Course>[] => {
   const viewerRole = viewerRoleLabel[role];
 

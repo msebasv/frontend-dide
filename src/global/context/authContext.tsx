@@ -11,6 +11,7 @@ interface User {
   email: string;
 }
 
+/** Valores expuestos por el contexto de autenticación. */
 export interface AuthContextProps {
   /** Usuario autenticado; null si aún no se cargó o falló la consulta. */
   user: User | null;
@@ -23,6 +24,7 @@ export interface AuthContextProps {
   refreshRoles: () => Promise<void>;
 }
 
+/** Contexto React de usuario, roles y rol activo. */
 export const AuthContext = createContext<AuthContextProps>({
   user: null,
   roles: [],

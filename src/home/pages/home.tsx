@@ -22,6 +22,7 @@ import LeaderDashboard from "../components/leaderDashboard";
 import AuthorDashboard from "../components/authorDashboard";
 import ValidatorDashboard from "../components/validatorDashboard";
 
+/** Enruta al dashboard según el rol activo del usuario. */
 function Home() {
   const { user, currentRole } = useAuth();
   const { courses, metrics, loading: coursesLoading, loadCourses } = useCourses(

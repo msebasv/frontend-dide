@@ -10,8 +10,10 @@ import {
 
 import { PROCESS_PHASES } from "../constants/domainConstants";
 
+/** Pestaña de filtro por estado del proceso o curso. */
 export type ProcessStatusFilterTab = "all" | "inProgress" | "completed";
 
+/** Definición de pestañas Todos / En curso / Finalizados. */
 export const PROCESS_STATUS_FILTER_TABS: Array<{
   id: ProcessStatusFilterTab;
   label: string;
@@ -22,9 +24,11 @@ export const PROCESS_STATUS_FILTER_TABS: Array<{
   { id: "completed", label: "Finalizados", icon: IoCheckmarkDoneOutline },
 ];
 
+/** Indica si el estado corresponde a proceso finalizado. */
 export const isCompletedProcessStatus = (status: string): boolean =>
   status === PROCESS_PHASES.COMPLETED;
 
+/** Filtra una lista según la pestaña de estado activa. */
 export const filterByProcessStatusTab = <T,>(
   items: T[],
   tab: ProcessStatusFilterTab,
@@ -39,6 +43,7 @@ export const filterByProcessStatusTab = <T,>(
   return items;
 };
 
+/** Cuenta ítems por pestaña (todos, en curso, finalizados). */
 export const countByProcessStatusTab = <T,>(
   items: T[],
   getStatus: (item: T) => string,
@@ -53,6 +58,7 @@ export const countByProcessStatusTab = <T,>(
   };
 };
 
+/** Título de listado según pestaña y etiqueta de entidad. */
 export const processStatusTabTitle = (
   tab: ProcessStatusFilterTab,
   entityLabel = "procesos",
@@ -71,6 +77,7 @@ interface ProcessStatusFilterTabsProps {
   onChange: (tab: ProcessStatusFilterTab) => void;
 }
 
+/** Pestañas para filtrar procesos por estado agregado. */
 function ProcessStatusFilterTabs({
   activeTab,
   counts,
@@ -113,4 +120,5 @@ function ProcessStatusFilterTabs({
   );
 }
 
+/** Pestañas de filtro por estado con contadores. */
 export default ProcessStatusFilterTabs;

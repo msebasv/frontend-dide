@@ -21,6 +21,7 @@ export interface ProcessEditData {
   isFinalized: boolean;
 }
 
+/** Proceso de virtualización listo para tablas y acciones del líder. */
 export interface VirtualizationProcess {
   processId: string;
   processName: string;

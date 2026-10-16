@@ -1,3 +1,6 @@
+/**
+ * Panel del líder de virtualización con métricas y accesos de gestión.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -46,6 +49,7 @@ interface LeaderDashboardProps {
   canManageProcesses?: boolean;
 }
 
+/** Dashboard del líder: métricas globales y gestión de procesos. */
 function LeaderDashboard({
   metrics,
   userName,

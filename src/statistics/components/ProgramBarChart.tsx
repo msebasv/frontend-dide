@@ -1,3 +1,6 @@
+/**
+ * Gráfico de barras de procesos por programa académico.
+ */
 import {
   BarChart,
   Bar,
@@ -55,6 +58,7 @@ const CustomTooltip = ({
   );
 };
 
+/** Barras horizontales de procesos por programa. */
 function ProgramBarChart({
   data,
   title = "Top programas",

@@ -1,5 +1,8 @@
 /**
- * Construye el tablero de seguimiento a partir de datos Dataverse.
+ * Mappers del módulo de seguimiento (tracking).
+ *
+ * Transforma procesos, entregables, fases y actividades en filas del tablero
+ * con avance por actor (autor, validador, asesor, DIDE, líder) y días hábiles.
  */
 import type { Dev_tableassignroles } from "../../generated/models/Dev_tableassignrolesModel";
 import type { Dev_tablevirtualizationprocesses } from "../../generated/models/Dev_tablevirtualizationprocessesModel";
@@ -705,6 +708,12 @@ const buildDeliverableTracking = (params: {
   };
 };
 
+// --- Filas y resumen del tablero ---
+
+/**
+ * Filas del tablero de seguimiento por entregable, con avance por actor
+ * y días hábiles según el rol del usuario.
+ */
 export const buildProcessTrackingRows = (params: {
   processes: Dev_tablevirtualizationprocesses[];
   courses: Dev_tablecourseinstances[];
@@ -1015,6 +1024,7 @@ export const buildProcessTrackingRows = (params: {
     );
 };
 
+/** Contadores agregados del tablero a partir de las filas ya construidas. */
 export const buildTrackingSummary = (
   rows: ProcessTrackingRow[],
 ): ProcessTrackingSummary => ({

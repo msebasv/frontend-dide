@@ -1,3 +1,6 @@
+/**
+ * Modales de aprobación y devolución de material en validación.
+ */
 import { useEffect, useState } from "react";
 import {
   IoCheckmarkCircleOutline,
@@ -33,6 +36,7 @@ interface ValidationModalsProps {
   loading?: boolean;
 }
 
+/** Modales de aprobación (con adjuntos opcionales) y devolución de material. */
 function ValidationModals({
   showApprove,
   showReturn,

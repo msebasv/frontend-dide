@@ -1,7 +1,11 @@
+﻿/**
+ * Lista de elementos recientes con enlace al detalle.
+ */
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import { IoChevronForward } from "react-icons/io5";
 
+/** Elemento reciente con título, metadatos y enlace al detalle. */
 export interface RecentItem {
   id: string;
   title: string;
@@ -20,6 +24,7 @@ interface RecentListProps {
   viewAllLabel?: string;
 }
 
+/** Lista de ítems recientes con enlace «ver todo». */
 function RecentList({
   title,
   items,
@@ -98,4 +103,5 @@ function RecentList({
   );
 }
 
+/** Lista de elementos recientes con enlace al detalle. */
 export default RecentList;

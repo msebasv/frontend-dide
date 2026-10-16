@@ -1,3 +1,11 @@
+/**
+ * Vista principal del detalle de curso y flujo de entregables.
+ *
+ * Composición: `useCourseDetailView` (estado/reglas) + paneles
+ * (`CourseDetailDeliverablesPanel`, pestañas Actual/Correcciones/Historial,
+ * `CourseDetailFinalDocuments`, acciones y archivos SharePoint).
+ * Las props de validación/cargue se delegan al hook salvo callbacks del padre.
+ */
 import {
   IoCheckmarkCircle,
   IoChevronDownOutline,
@@ -58,6 +66,7 @@ import { useCourseDetailView } from "./useCourseDetailView";
 
 export type { MaterialValidationContext } from "./courseDetailViewHelpers";
 
+/** Props del contenedor; permisos finos los calcula el hook según entregable. */
 interface CourseDetailViewProps {
   detail: CourseDetail;
   isValidationMode?: boolean;
@@ -85,6 +94,7 @@ interface CourseDetailViewProps {
   onConfirmClassroomRequest?: () => void;
 }
 
+/** Contenedor principal del detalle: entregables, historial y acciones por rol. */
 function CourseDetailView({
   detail,
   isValidationMode = false,
@@ -146,6 +156,10 @@ function CourseDetailView({
     onSelectedMaterialChange,
   });
 
+  /**
+   * Tarjeta de una actividad/material: estado, actor, comentarios o enlaces DIDE,
+   * y botones Aprobar/Devolver cuando `showValidationActions` y `showActions`.
+   */
   const renderMaterialDetail = (
     material: CourseMaterial,
     options?: { showActions?: boolean },

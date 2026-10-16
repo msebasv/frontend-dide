@@ -1,3 +1,6 @@
+﻿/**
+ * Botón base con variantes y tamaños de la interfaz.
+ */
 import { Button as HeadlessButton } from "@headlessui/react";
 
 import clsx from "clsx";
@@ -22,6 +25,7 @@ interface ButtonProps {
   title?: string;
 }
 
+/** Botón reutilizable con variantes y tamaños. */
 function Button({
   children,
 
@@ -64,4 +68,5 @@ function Button({
   );
 }
 
+/** Botón base con variantes y tamaños de la interfaz. */
 export default Button;

@@ -15,6 +15,8 @@ import {
 } from "../../global/constants/domainConstants";
 import { isActivityProcessingStatus } from "./processRules";
 import type { CourseMaterial, ProcessFile } from "../types/course.types";
+
+/** Entregable del proceso (categoría × crédito) con estado y rutas. */
 export interface ProcessDeliverableItem {
   id: string;
   /** name-deliverable (dev_namedeliverable). */
@@ -33,12 +35,14 @@ export interface ProcessDeliverableItem {
   modifiedOn: string;
 }
 
+/** Clasificación del estado de carga de un entregable para la UI. */
 export type DeliverableUploadStatusKind =
   | "pending" // Sin cargar aún: disponible para entrega inicial
   | "returned" // Devuelto con correcciones: disponible para re-entrega
   | "in_review" // Cargado y en revisión: bloqueado para evitar duplicados
   | "approved"; // Aprobado: bloqueado
 
+/** Estado de carga, badges y mensajes para el selector de entregables. */
 export interface DeliverableUploadStatusInfo {
   kind: DeliverableUploadStatusKind;
   /** Indica si se puede subir un archivo para este entregable. */
@@ -92,6 +96,7 @@ export const formatDeliverableState = (raw: unknown): string => {
   return formatDomainLabel(value);
 };
 
+/** Entregables agrupados por unidad (General = crédito 0). */
 export interface ProcessDeliverableGroup {
   /** 0 = General; >0 = unidad. */
   creditNumber: number;
@@ -221,6 +226,10 @@ const processingUploadStatus = (
   latestMaterial: latest,
 });
 
+/**
+ * Decide si el entregable admite carga y qué badge mostrar,
+ * según actividades ligadas y fase del proceso (p. ej. espera de syllabus).
+ */
 export const getDeliverableUploadStatus = (
   deliverable: ProcessDeliverableItem,
   materials: CourseMaterial[] = [],
@@ -510,6 +519,7 @@ export const parseActivityVersionFolder = (
   };
 };
 
+/** true si el segmento de ruta coincide con el patrón vNN- estado - id. */
 export const isActivityVersionFolderSegment = (segment: string): boolean =>
   parseActivityVersionFolder(segment) != null;
 

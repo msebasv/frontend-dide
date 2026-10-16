@@ -1,3 +1,6 @@
+﻿/**
+ * Barra lateral con logotipos y contenedor de navegación.
+ */
 import clsx from "clsx";
 import { FaChevronLeft, FaTimes } from "react-icons/fa";
 
@@ -116,4 +119,5 @@ const Sidebar = ({
   );
 };
 
+/** Barra lateral con logotipos y contenedor de navegación. */
 export default Sidebar;

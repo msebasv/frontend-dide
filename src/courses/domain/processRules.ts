@@ -24,13 +24,21 @@ import {
   isValidatorRole,
 } from "./rolePolicies";
 
+/** Etiqueta canónica: líder carga el syllabus inicial. */
 export const LEADER_SYLLABUS_STATUS = PROCESS_PHASES.LEADER_SYLLABUS;
+/** Etiqueta canónica: cargue de documentos por el autor. */
 export const AUTHOR_UPLOAD_STATUS = PROCESS_PHASES.AUTHOR_UPLOAD;
+/** Etiqueta canónica: revisión del validador disciplinar. */
 export const VALIDATOR_STATUS = PROCESS_PHASES.VALIDATOR_REVIEW;
+/** Etiqueta canónica: revisión del asesor pedagógico (1/3). */
 export const ADVISOR_STATUS = PROCESS_PHASES.ADVISOR_REVIEW;
+/** Etiqueta canónica: asesor carga guión instruccional (2/3). */
 export const ADVISOR_GUIDE_UPLOAD_STATUS = PROCESS_PHASES.ADVISOR_GUIDE_UPLOAD;
+/** Etiqueta canónica: diseñador DIDE registra enlaces audiovisuales. */
 export const DIDE_STATUS = PROCESS_PHASES.DIDE_REVIEW;
+/** Etiqueta canónica: asesor aprueba material audiovisual DIDE (3/3). */
 export const ADVISOR_AV_APPROVAL_STATUS = PROCESS_PHASES.ADVISOR_AV_APPROVAL;
+/** Etiqueta canónica: líder confirma cargue en el aula virtual. */
 export const LEADER_CLASSROOM_CONFIRM_STATUS =
   PROCESS_PHASES.LEADER_CLASSROOM_CONFIRM;
 
@@ -275,6 +283,7 @@ export const canRoleValidateDeliverable = (
   return { canApprove: false, canReturn: false, isValidationPhase: false };
 };
 
+/** Fase del diseñador DIDE: registrar enlaces audiovisuales (no la aprobación del asesor). */
 export const isDideConfirmationStatus = (status: string): boolean => {
   const normalized = normalizeActivityLabel(status);
   if (!normalized) return false;

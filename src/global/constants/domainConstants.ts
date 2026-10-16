@@ -105,12 +105,15 @@ export const MANAGEMENT_ROLES = [
   USER_ROLES.ADMIN,
 ] as const;
 
+/** Indica si el rol es Administrador. */
 export const isAdminRole = (role: string): boolean =>
   canonicalizeUserRole(role) === USER_ROLES.ADMIN;
 
+/** Indica si el rol es Coordinador DIDE. */
 export const isDideCoordinatorRole = (role: string): boolean =>
   canonicalizeUserRole(role) === USER_ROLES.DIDE_COORDINATOR;
 
+/** Indica si el rol es Coordinador Diseñador. */
 export const isDesignerCoordinatorRole = (role: string): boolean =>
   canonicalizeUserRole(role) === USER_ROLES.DESIGNER_COORDINATOR;
 

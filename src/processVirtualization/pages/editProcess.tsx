@@ -1,3 +1,6 @@
+/**
+ * Página de edición de datos y participantes del proceso.
+ */
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -39,6 +42,7 @@ import {
 } from "../../courses/services/courseService";
 import { resolveProcessRoleIds } from "../../courses/utils/roleUtils";
 
+/** Edición de metadatos y roles de un proceso existente. */
 function EditProcess() {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();

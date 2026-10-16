@@ -1,3 +1,6 @@
+﻿/**
+ * Enlace de navegación dentro de la barra lateral.
+ */
 import { type ReactNode } from "react";
 import { useSidebar } from "../context/sidebarContext";
 import { NavLink } from "react-router-dom";
@@ -86,4 +89,5 @@ const SidebarItem = ({ icon, text, path }: SidebarItemProps) => {
   );
 };
 
+/** Enlace de navegación dentro de la barra lateral. */
 export default SidebarItem;

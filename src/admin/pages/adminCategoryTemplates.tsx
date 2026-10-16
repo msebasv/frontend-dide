@@ -58,6 +58,7 @@ const resolveGranularityOption = (code: number | null): SelectOption => {
   return GRANULARITY_OPTIONS[0];
 };
 
+/** Página de administración de plantillas de categoría y vínculos a fases. */
 function AdminCategoryTemplatesPage() {
   const { currentRole } = useAuth();
   const { runAction } = useActionFeedback();

@@ -1,3 +1,6 @@
+/**
+ * Modal con tabla de procesos filtrados desde estadísticas o el panel.
+ */
 import { IoEyeOutline, IoListOutline } from "react-icons/io5";
 
 import ActionButton from "../../global/components/actionButton";
@@ -17,6 +20,7 @@ interface StatisticsProcessesModalProps {
   detailBasePath?: "process" | "course";
 }
 
+/** Modal con listado filtrado de procesos para drill-down. */
 function StatisticsProcessesModal({
   isOpen,
   onClose,

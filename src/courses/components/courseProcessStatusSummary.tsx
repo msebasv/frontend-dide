@@ -31,6 +31,7 @@ const badgeClass = (phase: string): string =>
     processStatusStyles[phase] ?? NEUTRAL_BADGE
   }`;
 
+/** Resumen de fases del proceso en celdas de tablas de cursos. */
 function CourseProcessStatusSummary({
   breakdown,
   viewerRole,

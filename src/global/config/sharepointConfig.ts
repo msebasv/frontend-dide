@@ -1,4 +1,7 @@
-/** Sitio y biblioteca SharePoint inyectados por Vite (ver `.env.example`). */
+/**
+ * Sitio y biblioteca SharePoint inyectados por Vite (ver `.env.example`).
+ */
+/** Configuración de sitio, biblioteca y carpeta de formatos. */
 export const sharepointConfig = {
   siteUrl: (import.meta.env.VITE_SHAREPOINT_SITE_URL ?? "").replace(/\/+$/, ""),
   defaultLibrary:
@@ -7,6 +10,7 @@ export const sharepointConfig = {
   formatsFolder: import.meta.env.VITE_SHAREPOINT_FORMATS_FOLDER ?? "Formats",
 };
 
+/** Ubicación resuelta de carpeta en SharePoint (sitio, biblioteca, ruta). */
 export interface SharePointFolderLocation {
   siteUrl: string;
   library: string;
@@ -27,6 +31,7 @@ const matchesKnownLibrary = (value: string): boolean =>
       value.startsWith(`/${library}/`),
   );
 
+/** Interpreta una ruta o URL de SharePoint en sitio, biblioteca y carpeta. */
 export const resolveSharePointFolder = (
   folderBase: string,
 ): SharePointFolderLocation => {
@@ -111,6 +116,7 @@ export const buildSharePointFormatsFolderUrl = (): string | null => {
   }
 };
 
+/** Ruta server-relative para API de SharePoint a partir del sitio. */
 export const buildServerRelativePath = (
   siteUrl: string,
   library: string,

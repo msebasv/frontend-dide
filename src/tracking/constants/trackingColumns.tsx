@@ -1,3 +1,6 @@
+/**
+ * Columnas de la tabla de seguimiento de procesos por actor.
+ */
 import { Link } from "react-router-dom";
 import clsx from "clsx";
 
@@ -35,6 +38,7 @@ const ProgressChip = ({
   </span>
 );
 
+/** Definición de columnas de la tabla resumida de seguimiento. */
 export const getTrackingColumns = (): Column<ProcessTrackingRow>[] => [
   {
     key: "processName",

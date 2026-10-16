@@ -1,3 +1,6 @@
+﻿/**
+ * Visor embebido de imágenes y PDF con zoom.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   IoAddOutline,
@@ -25,6 +28,7 @@ const isPdfFile = (fileName: string, mimeType?: string): boolean => {
   return fileName.toLowerCase().endsWith(".pdf");
 };
 
+/** Previsualiza PDF, imagen o video en modal o inline. */
 function MediaPreviewViewer({
   url,
   fileName,
@@ -138,4 +142,5 @@ function MediaPreviewViewer({
   );
 }
 
+/** Visor embebido de imágenes y PDF con zoom. */
 export default MediaPreviewViewer;

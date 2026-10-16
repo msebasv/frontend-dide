@@ -1,3 +1,6 @@
+/**
+ * Contenedor con título para gráficos de estadísticas.
+ */
 import type { ReactNode } from "react";
 import clsx from "clsx";
 
@@ -10,6 +13,7 @@ interface ChartCardProps {
   className?: string;
 }
 
+/** Envuelve un gráfico con título y subtítulo opcional. */
 function ChartCard({ title, subtitle, children, className }: ChartCardProps) {
   return (
     <Card className={clsx("flex h-full flex-col overflow-hidden", className)} padding="none">

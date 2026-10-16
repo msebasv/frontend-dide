@@ -1,3 +1,6 @@
+/**
+ * Panel de entregables agrupados por créditos en el detalle del curso.
+ */
 import { IoCheckmarkCircle, IoChevronDownOutline } from "react-icons/io5";
 import clsx from "clsx";
 
@@ -14,6 +17,7 @@ import {
 } from "../services/deliverableService";
 import type { CourseMaterial } from "../types/course.types";
 
+/** Props del acordeón de entregables agrupados por crédito. */
 export interface CourseDetailDeliverablesPanelProps {
   groups: ProcessDeliverableGroup[];
   materials: CourseMaterial[];
@@ -27,6 +31,7 @@ export interface CourseDetailDeliverablesPanelProps {
   onSelectDeliverable: (deliverableId: string) => void;
 }
 
+/** Panel izquierdo: grupos General/Unidad con selección de entregable. */
 export function CourseDetailDeliverablesPanel({
   groups,
   materials,

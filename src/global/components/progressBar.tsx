@@ -1,3 +1,6 @@
+﻿/**
+ * Barra de progreso porcentual reutilizable.
+ */
 import clsx from "clsx";
 
 interface ProgressBarProps {
@@ -43,4 +46,5 @@ function ProgressBar({
   );
 }
 
+/** Barra de progreso porcentual reutilizable. */
 export default ProgressBar;

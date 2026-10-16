@@ -38,6 +38,7 @@ import {
 type SelectOption = { label: string; value: string };
 type CatalogTab = "programs" | "faculties";
 
+/** Página de catálogo de facultades y programas académicos. */
 function AdminProgramsPage() {
   const { currentRole } = useAuth();
   const { runAction } = useActionFeedback();

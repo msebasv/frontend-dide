@@ -1,3 +1,6 @@
+﻿/**
+ * Ventana modal genérica con portal y tamaños configurables.
+ */
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { IoClose } from "react-icons/io5";
@@ -83,4 +86,5 @@ const Modal = ({
   );
 };
 
+/** Ventana modal genérica con portal y tamaños configurables. */
 export default Modal;

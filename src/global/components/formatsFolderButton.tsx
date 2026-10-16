@@ -1,3 +1,6 @@
+﻿/**
+ * Botón que abre la carpeta de formatos en SharePoint.
+ */
 import { IoFolderOpenOutline } from "react-icons/io5";
 
 import Button from "./button";
@@ -31,4 +34,5 @@ function FormatsFolderButton({
   );
 }
 
+/** Botón que abre la carpeta de formatos en SharePoint. */
 export default FormatsFolderButton;

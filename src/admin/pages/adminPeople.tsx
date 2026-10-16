@@ -28,6 +28,7 @@ type SelectOption = { label: string; value: string };
 
 const ALL_OPTION: SelectOption = { label: "Todos", value: "all" };
 
+/** Tarjeta expandible con roles globales y por proceso de una persona. */
 function PersonCard({ person }: { person: PersonDirectoryEntry }) {
   const [expanded, setExpanded] = useState(false);
   const title = person.displayName || person.email;
@@ -144,6 +145,7 @@ function PersonCard({ person }: { person: PersonDirectoryEntry }) {
   );
 }
 
+/** Directorio de personas con filtros por rol, facultad y proceso. */
 function AdminPeoplePage() {
   const { currentRole } = useAuth();
   const [loading, setLoading] = useState(true);

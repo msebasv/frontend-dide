@@ -50,6 +50,7 @@ export class FlowRunFailedError extends Error {
   }
 }
 
+/** Type guard para errores de flujo terminado en Failed. */
 export const isFlowRunFailedError = (
   error: unknown,
 ): error is FlowRunFailedError =>
@@ -78,6 +79,7 @@ export class FlowConfirmationTimeoutError extends Error {
   }
 }
 
+/** Type guard para soft-timeout de confirmación en Dataverse. */
 export const isFlowConfirmationTimeoutError = (
   error: unknown,
 ): error is FlowConfirmationTimeoutError =>
@@ -154,6 +156,7 @@ export const flowPayloadFailureMessage = (
   return null;
 };
 
+/** Convierte errores del conector/flujo en mensajes para el usuario. */
 export const toFriendlyFlowError = (
   error: unknown,
   fallback = "No se pudo completar la operación. Intente nuevamente.",
@@ -271,6 +274,7 @@ export const assertFlowResult = <T>(
   return result.data;
 };
 
+/** Indica si la respuesta del flujo sigue en estado en ejecución. */
 export const isFlowStillRunning = (
   result: FlowOperationResult,
 ): boolean => {
@@ -323,6 +327,7 @@ export const waitUntil = async (
   throw new Error(message);
 };
 
+/** Resultado final del poll de confirmación en background. */
 export type FlowConfirmOutcome = "confirmed" | "failed";
 
 /**

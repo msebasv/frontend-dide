@@ -8,6 +8,7 @@
  */
 import { PROCESS_PHASES } from "../../global/constants/domainConstants";
 
+/** Clases Tailwind por fase canónica (badges en tablas y detalle). */
 export const processStatusStyles: Record<string, string> = {
   /** Naranja — syllabus */
   [PROCESS_PHASES.LEADER_SYLLABUS]:

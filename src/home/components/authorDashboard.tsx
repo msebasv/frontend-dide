@@ -1,3 +1,6 @@
+/**
+ * Panel del autor con métricas, fases y cursos recientes.
+ */
 import { Link } from "react-router-dom";
 import {
   IoBookOutline,
@@ -24,6 +27,7 @@ interface AuthorDashboardProps {
   courses: Course[];
 }
 
+/** Dashboard del autor: KPIs, fases y accesos a cursos. */
 function AuthorDashboard({ metrics, userName, courses }: AuthorDashboardProps) {
   const pendingUpload = courses.filter((c) => c.canUpload);
   const completionRate =

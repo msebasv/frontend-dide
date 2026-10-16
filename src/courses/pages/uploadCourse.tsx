@@ -1,3 +1,9 @@
+/**
+ * Página de cargue de material (autor, asesor guión, líder syllabus).
+ *
+ * Carga detalle del proceso y entregables filtrados por rol; el envío valida
+ * formulario y delega en `uploadCourseMaterial` con confirmación asíncrona.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import clsx from "clsx";
@@ -57,6 +63,7 @@ import {
 
 type ScopeType = "general" | "credit";
 
+/** Formulario de cargue de material por entregable y rol. */
 const UploadCourse = () => {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();
@@ -413,6 +420,7 @@ const UploadCourse = () => {
     }
   };
 
+  /** Sincroniza entregable seleccionado con el nombre del recurso. */
   const handleSelectDeliverable = (option: SelectOption | null) => {
     const nextId = option?.value ?? "";
     setSelectedDeliverableId(nextId);
@@ -423,6 +431,7 @@ const UploadCourse = () => {
     }
   };
 
+  /** Envía archivos vía `uploadCourseMaterial` y navega al detalle con refresh. */
   const handleSubmit = async () => {
     if (
       !formIsValid ||

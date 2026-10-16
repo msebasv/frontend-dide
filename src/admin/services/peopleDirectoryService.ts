@@ -11,6 +11,7 @@ import { Dev_table_facultiesService } from "../../generated/services/Dev_table_f
 import type { Dev_tableassignroles } from "../../generated/models/Dev_tableassignrolesModel";
 import { canonicalizeUserRole } from "../../global/constants/domainConstants";
 
+/** Rol global de una persona (tabla Leaders Users). */
 export interface PersonGlobalRole {
   roleName: string;
   facultyId: string;
@@ -18,6 +19,7 @@ export interface PersonGlobalRole {
   leaderUserId: string;
 }
 
+/** Rol asignado a una persona en un proceso de virtualización concreto. */
 export interface PersonProcessRole {
   roleName: string;
   processId: string;
@@ -28,6 +30,7 @@ export interface PersonProcessRole {
   assignRoleId: string;
 }
 
+/** Entrada del directorio: correo, nombre y roles globales y por proceso. */
 export interface PersonDirectoryEntry {
   email: string;
   displayName: string;
@@ -55,6 +58,7 @@ const resolveDisplayName = (
   return "";
 };
 
+/** Agrega personas desde Leaders Users y assign-roles con metadatos de proceso. */
 export const getPeopleDirectory = async (): Promise<PersonDirectoryEntry[]> => {
   const [
     leaderUsersResult,
@@ -231,6 +235,7 @@ export const getPeopleDirectory = async (): Promise<PersonDirectoryEntry[]> => {
     });
 };
 
+/** Opciones únicas de rol, facultad y proceso para filtros del directorio. */
 export const collectPeopleFilterOptions = (
   people: PersonDirectoryEntry[],
 ): {

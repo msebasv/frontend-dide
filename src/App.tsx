@@ -31,6 +31,7 @@ import AdminLeaderUsersPage from "./admin/pages/adminLeaderUsers";
 import AdminPeoplePage from "./admin/pages/adminPeople";
 import AdminCategoryTemplatesPage from "./admin/pages/adminCategoryTemplates";
 
+/** Árbol de rutas de AcademicPlus dentro del layout compartido. */
 function App() {
   return (
     <Routes>

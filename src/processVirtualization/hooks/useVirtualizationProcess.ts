@@ -16,6 +16,7 @@ const isAssignedVirtualizationLeader = (
 ): boolean =>
   process.leaderEmail.trim().toLowerCase() === userEmail.trim().toLowerCase();
 
+/** Lista procesos visibles según rol (líder: solo asignados). */
 export const useVirtualizationProcesses = (
   userEmail = "",
   userRole = "",

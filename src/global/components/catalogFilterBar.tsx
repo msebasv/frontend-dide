@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Botón que abre facultad, programa, año, semestre y fecha de creación.
  */
 import { useEffect, useId, useMemo, useState } from "react";
@@ -32,6 +32,7 @@ const activeFilterCount = (filter: CatalogFilter): number =>
 
 const getSemesterYear = (semester: string): string => semester.slice(0, 4);
 
+/** Select etiquetado para un criterio del catálogo. */
 function FilterSelect({
   id,
   label,
@@ -69,6 +70,7 @@ function FilterSelect({
   );
 }
 
+/** Filtros por facultad, programa, año y semestre. */
 function CatalogFilterBar({ records, value, onChange }: CatalogFilterBarProps) {
   const fieldId = useId();
   const [isOpen, setIsOpen] = useState(false);
@@ -234,4 +236,5 @@ function CatalogFilterBar({ records, value, onChange }: CatalogFilterBarProps) {
   );
 }
 
+/** Botón que abre facultad, programa, año, semestre y fecha de creación. */
 export default CatalogFilterBar;

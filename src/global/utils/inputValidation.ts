@@ -4,6 +4,7 @@
  * bloquea scripts, HTML y caracteres de control.
  */
 
+/** Límites de longitud, cantidad y tamaño para campos y archivos. */
 export const FIELD_LIMITS = {
   title: 200,
   description: 2000,
@@ -16,19 +17,23 @@ export const FIELD_LIMITS = {
 /** Nombre oficial del proceso, incluido semestre y código. */
 export const PROCESS_NAME_MAX_LENGTH = 200;
 
+/** Créditos mínimos permitidos al crear o editar un proceso. */
 export const PROCESS_CREDITS_MIN = 1;
 
+/** Extensiones aceptadas en cargues generales de archivos. */
 export const ACCEPTED_FILE_TYPES =
   ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt";
 
 /** Word únicamente (histórico). Preferir GUIDE_FILE_* para guión. */
 export const WORD_FILE_TYPES = ".doc,.docx";
 
+/** Extensiones Word permitidas (conjunto para validación). */
 export const WORD_FILE_EXTENSIONS = new Set([".doc", ".docx"]);
 
 /** Guión instruccional: Word o PDF. */
 export const GUIDE_FILE_TYPES = ".doc,.docx,.pdf";
 
+/** Extensiones válidas para guión instruccional (Word o PDF). */
 export const GUIDE_FILE_EXTENSIONS = new Set([".doc", ".docx", ".pdf"]);
 
 const ALLOWED_FILE_EXTENSIONS = new Set([
@@ -88,12 +93,14 @@ const normalizePlainMultiline = (value: string): string =>
     .replace(WEIRD_SPACES, " ")
     .replace(/[\u2013\u2014\u2212]/g, "-");
 
+/** Resultado de validación de un campo de texto. */
 export interface ValidationResult {
   ok: boolean;
   message?: string;
   value: string;
 }
 
+/** Resultado de validación de una lista de archivos. */
 export interface FilesValidationResult {
   ok: boolean;
   message?: string;
@@ -104,6 +111,7 @@ export interface FilesValidationResult {
 export const escapeODataString = (value: string): string =>
   value.replace(/'/g, "''");
 
+/** Normaliza texto: quita control, espacios raros y caracteres no permitidos. */
 export const normalizeInput = (
   value: string,
   options?: { multiline?: boolean },
@@ -120,6 +128,7 @@ export const normalizeInput = (
   return next;
 };
 
+/** Detecta patrones HTML, scripts o caracteres peligrosos. */
 export const containsDangerousContent = (value: string): boolean =>
   DANGEROUS_PATTERNS.some((pattern) => pattern.test(value)) ||
   DANGEROUS_CHARS.test(value) ||
@@ -136,6 +145,7 @@ const collapseMultiline = (value: string): string =>
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
+/** Valida título o nombre corto con reglas de puntuación académica. */
 export const validateTitle = (
   raw: string,
   options?: { required?: boolean; label?: string; maxLength?: number },
@@ -208,6 +218,7 @@ export const validateProcessName = (
   return { ok: true, value };
 };
 
+/** Valida el nombre del proceso o lanza error. */
 export const assertProcessName = (
   raw: string,
   maxLength = PROCESS_NAME_MAX_LENGTH,
@@ -217,6 +228,7 @@ export const assertProcessName = (
   return result.value;
 };
 
+/** Valida créditos enteros mínimos o lanza error. */
 export const assertProcessCredits = (raw: number): number => {
   const credits = Number(raw);
   if (!Number.isInteger(credits) || credits < PROCESS_CREDITS_MIN) {
@@ -227,6 +239,7 @@ export const assertProcessCredits = (raw: number): number => {
   return credits;
 };
 
+/** Valida descripción u observaciones multilínea. */
 export const validateDescription = (
   raw: string,
   options?: {
@@ -284,6 +297,7 @@ export const validateDescription = (
   return { ok: true, value };
 };
 
+/** Valida correo institucional @unbosque.edu.co. */
 export const validateOrganizationEmail = (raw: string): ValidationResult => {
   const value = normalizeInput(raw).trim().toLowerCase();
 
@@ -336,6 +350,7 @@ export const sanitizeFileName = (fileName: string): string => {
   return cleaned.slice(0, FIELD_LIMITS.fileName);
 };
 
+/** Valida tipo, tamaño y cantidad de archivos seleccionados. */
 export const validateFiles = (
   files: File[],
   options?: {
@@ -433,6 +448,7 @@ export const assertSafeTitle = (
   return result.value;
 };
 
+/** Valida descripción segura o lanza error. */
 export const assertSafeDescription = (
   raw: string,
   options?: { required?: boolean; label?: string; allowUrls?: boolean },
@@ -446,6 +462,7 @@ export const assertSafeDescription = (
   return result.value;
 };
 
+/** Valida archivos seguros o lanza error. */
 export const assertSafeFiles = (
   files: File[],
   options?: {

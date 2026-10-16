@@ -1,3 +1,6 @@
+/**
+ * Página para asignar diseñador DIDE a un proceso.
+ */
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -20,6 +23,7 @@ import {
   getProcessForEdit,
 } from "../../courses/services/courseService";
 
+/** Asignación o cambio del diseñador DIDE del proceso. */
 function AssignDideDesigner() {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();

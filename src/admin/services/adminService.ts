@@ -17,6 +17,7 @@ import { canonicalizeUserRole, USER_ROLES } from "../../global/constants/domainC
 import { findRoleId } from "../../courses/utils/roleUtils";
 import { assertDirectoryEmails } from "../../courses/services/userService";
 
+/** Opciones del nivel académico (option set dev_level en programas). */
 export const PROGRAM_LEVEL_OPTIONS = [
   { value: 775730000, label: "Carrera universitaria" },
   { value: 775730001, label: "Especialización" },
@@ -28,6 +29,7 @@ export const PROGRAM_LEVEL_OPTIONS = [
   { value: 775730007, label: "Educación continua" },
 ] as const;
 
+/** Código numérico del nivel de programa en Dataverse. */
 export type ProgramLevelValue =
   (typeof PROGRAM_LEVEL_OPTIONS)[number]["value"];
 
@@ -38,6 +40,7 @@ export const LEADER_USERS_MANAGEABLE_ROLES = [
   USER_ROLES.ADMIN,
 ] as const;
 
+/** Fila de programa para tablas de administración. */
 export interface AdminProgramRow {
   id: string;
   name: string;
@@ -47,6 +50,7 @@ export interface AdminProgramRow {
   levelLabel: string;
 }
 
+/** Fila de facultad con estado activo/inactivo. */
 export interface AdminFacultyRow {
   id: string;
   name: string;
@@ -60,6 +64,7 @@ const isRecordActive = (statecode: unknown): boolean => {
   return Number(statecode) === 0;
 };
 
+/** Usuario con rol global en Leaders Users. */
 export interface LeaderUserRow {
   id: string;
   email: string;
@@ -110,6 +115,7 @@ const assertCreateSuccess = (
   }
 };
 
+/** Lista programas con facultad y etiqueta de nivel, ordenados por nombre. */
 export const listAdminPrograms = async (): Promise<AdminProgramRow[]> => {
   const [programsResult, facultiesResult] = await Promise.all([
     Dev_table_programsService.getAll(),
@@ -142,6 +148,7 @@ export const listAdminPrograms = async (): Promise<AdminProgramRow[]> => {
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 };
 
+/** Crea un programa académico vinculado a facultad y nivel. */
 export const createProgram = async (params: {
   name: string;
   facultyId: string;
@@ -162,6 +169,7 @@ export const createProgram = async (params: {
   assertCreateSuccess(result, "No se pudo crear el programa.");
 };
 
+/** Actualiza nombre, facultad y nivel de un programa existente. */
 export const updateProgram = async (params: {
   id: string;
   name: string;
@@ -186,6 +194,7 @@ export const updateProgram = async (params: {
   assertCreateSuccess(result, "No se pudo actualizar el programa.");
 };
 
+/** Lista facultades activas e inactivas para el catálogo académico. */
 export const listAdminFaculties = async (): Promise<AdminFacultyRow[]> => {
   const result = await Dev_table_facultiesService.getAll();
 
@@ -201,6 +210,7 @@ export const listAdminFaculties = async (): Promise<AdminFacultyRow[]> => {
     });
 };
 
+/** Crea una facultad activa si no hay otra con el mismo nombre. */
 export const createFaculty = async (name: string): Promise<void> => {
   const trimmed = assertSafeTitle(name, "El nombre de la facultad");
 
@@ -223,6 +233,7 @@ export const createFaculty = async (name: string): Promise<void> => {
   assertCreateSuccess(result, "No se pudo crear la facultad.");
 };
 
+/** Renombra una facultad evitando duplicados activos. */
 export const updateFaculty = async (params: {
   id: string;
   name: string;
@@ -250,6 +261,7 @@ export const updateFaculty = async (params: {
   assertCreateSuccess(result, "No se pudo actualizar la facultad.");
 };
 
+/** Lista usuarios líderes con rol y estado activo/inactivo. */
 export const listLeaderUsers = async (): Promise<LeaderUserRow[]> => {
   const [usersResult, rolesResult] = await Promise.all([
     Dev_tableleaderusersesService.getAll(),
@@ -282,6 +294,7 @@ export const listLeaderUsers = async (): Promise<LeaderUserRow[]> => {
     });
 };
 
+/** Registra o reactiva un rol global en Leaders Users tras validar el correo. */
 export const createLeaderUser = async (params: {
   email: string;
   roleName: string;

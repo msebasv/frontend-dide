@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Layout principal de la aplicación.
  *
  * Desktop: sidebar colapsable.
@@ -18,6 +18,7 @@ import SidebarItem from "../components/sidebarItem";
 import { sidebarConfig } from "../config/sidebarConfig";
 import { SidebarContext } from "../context/sidebarContext";
 
+/** Layout principal con sidebar, navbar y outlet de rutas. */
 function Layout() {
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -139,4 +140,5 @@ function Layout() {
   );
 }
 
+/** Layout principal de la aplicación. Desktop: sidebar colapsable. Móvil: drawer overlay con menú hamburguesa. El shell usa altura fija (h-dvh) y solo el main hace scroll, para que abrir selects/menus no desplace sidebar ni deje huecos. */
 export default Layout;

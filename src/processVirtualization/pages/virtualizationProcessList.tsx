@@ -1,3 +1,6 @@
+/**
+ * Listado de procesos de virtualización con filtros por estado.
+ */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { IoAddCircleOutline } from "react-icons/io5";
@@ -27,6 +30,7 @@ import { getVirtualizationProcesses } from "../services/processService";
 import DeleteProcessModal from "../components/deleteProcessModal";
 import type { VirtualizationProcess } from "../types/process.types";
 
+/** Listado global de procesos con filtros y acciones rápidas. */
 const VirtualizationProcessList = () => {
   const location = useLocation();
   const { user, currentRole, refreshRoles } = useAuth();

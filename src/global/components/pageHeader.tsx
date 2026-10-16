@@ -1,3 +1,6 @@
+﻿/**
+ * Encabezado de página con título, descripción y acciones.
+ */
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
@@ -81,4 +84,5 @@ function PageHeader({
   );
 }
 
+/** Encabezado de página con título, descripción y acciones. */
 export default PageHeader;

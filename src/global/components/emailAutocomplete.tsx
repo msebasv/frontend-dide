@@ -1,3 +1,6 @@
+﻿/**
+ * Campo de correo con autocompletado del directorio institucional.
+ */
 import { useEffect, useId, useRef, useState } from "react";
 import clsx from "clsx";
 
@@ -239,6 +242,7 @@ function EmailAutocomplete({
   );
 }
 
+/** Indica si el directorio de correos institucionales ya está listo. */
 export const useDirectoryEmailReady = () => {
   const readyRef = useRef<Record<string, boolean>>({});
   const callbacksRef = useRef<Record<string, (ready: boolean) => void>>({});
@@ -261,4 +265,5 @@ export const useDirectoryEmailReady = () => {
   return { bind, allReady };
 };
 
+/** Campo de correo con autocompletado del directorio institucional. */
 export default EmailAutocomplete;

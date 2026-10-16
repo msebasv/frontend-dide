@@ -26,23 +26,28 @@ export const CATEGORY_GRANULARITY = {
   POR_CREDITO: 775730002,
 } as const;
 
+/** Código numérico del option set dev_granularity. */
 export type CategoryGranularityCode =
   (typeof CATEGORY_GRANULARITY)[keyof typeof CATEGORY_GRANULARITY];
 
+/** Etiqueta de UI para la granularidad del entregable. */
 export type CategoryGranularityLabel = "General" | "Por unidad";
 
+/** Opción de plantilla de fase para selectores de administración. */
 export interface PhaseTemplateOption {
   id: string;
   name: string;
   order: number;
 }
 
+/** Vínculo activo entre plantilla de categoría y plantilla de fase. */
 export interface CategoryPhaseLink {
   linkId: string;
   phaseTemplateId: string;
   phaseTemplateName: string;
 }
 
+/** Fila del catálogo de plantillas de categoría (entregables). */
 export interface CategoryTemplateRow {
   id: string;
   name: string;
@@ -56,6 +61,7 @@ export interface CategoryTemplateRow {
   phaseTemplateName: string;
 }
 
+/** Datos para crear una plantilla de categoría y vincularla a fases. */
 export interface CreateCategoryTemplateInput {
   name: string;
   description: string;
@@ -64,10 +70,12 @@ export interface CreateCategoryTemplateInput {
   phaseTemplateIds: string[];
 }
 
+/** Datos para editar plantilla existente (incluye id). */
 export type UpdateCategoryTemplateInput = CreateCategoryTemplateInput & {
   id: string;
 };
 
+/** Convierte código o nombre OData de granularidad a etiqueta de UI. */
 export const formatCategoryGranularity = (
   code: unknown,
   formattedName?: string,
@@ -397,6 +405,7 @@ export const listPhaseTemplateOptions = async (): Promise<
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "es"));
 };
 
+/** Lista plantillas activas con fases vinculadas y metadatos de granularidad. */
 export const listCategoryTemplates = async (): Promise<
   CategoryTemplateRow[]
 > => {

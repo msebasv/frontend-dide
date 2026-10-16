@@ -57,6 +57,7 @@ const PERIOD_OPTIONS: { type: PeriodFilterType; label: string }[] = [
   { type: "semester", label: "Por semestre" },
 ];
 
+/** Cuenta filtros de periodo y dimensiones activos. */
 function countActiveFilters(
   period: PeriodFilter,
   dimensions: StatisticsDimensionFilters,
@@ -71,6 +72,7 @@ function countActiveFilters(
   return count;
 }
 
+/** Devuelve la etiqueta visible de una opción por valor. */
 function findLabel(
   options: { value: string; label: string }[],
   value: string,
@@ -78,6 +80,7 @@ function findLabel(
   return options.find((item) => item.value === value)?.label ?? value;
 }
 
+/** Barra y modal de filtros de periodo y dimensiones. */
 function StatisticsFiltersBar({
   periodFilter,
   years,

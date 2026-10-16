@@ -4,8 +4,10 @@
 
 import type { PeriodFilter } from "../../global/utils/semesterUtils";
 
+/** Vista agregada por proceso o por entregable. */
 export type StatisticsViewMode = "process" | "deliverable";
 
+/** KPIs principales del tablero (conteos y tasas a nivel proceso). */
 export interface StatisticsMetrics {
   totalProcesses: number;
   inProgress: number;
@@ -28,6 +30,7 @@ export interface DeliverableStatisticsMetrics {
   completionRate: number;
 }
 
+/** Celda de distribución por fase para gráficos. */
 export interface PhaseStat {
   name: string;
   shortName: string;
@@ -57,6 +60,7 @@ export interface PhaseElapsedStat {
   color: string;
 }
 
+/** Totales por facultad (en progreso y completados). */
 export interface FacultyStat {
   name: string;
   total: number;
@@ -64,11 +68,13 @@ export interface FacultyStat {
   inProgress: number;
 }
 
+/** Conteo de procesos por programa académico. */
 export interface ProgramStat {
   name: string;
   value: number;
 }
 
+/** Serie mensual de procesos y actividades creadas. */
 export interface MonthlyTrend {
   month: string;
   /** YYYY-MM, para abrir el detalle de ese mes. */
@@ -77,6 +83,7 @@ export interface MonthlyTrend {
   processes: number;
 }
 
+/** Actividades agrupadas por rol asignado en el flujo. */
 export interface ActivityRoleStat {
   role: string;
   count: number;
@@ -132,11 +139,13 @@ export interface UserWorkloadStat {
 /** Alcance de datos según el rol del usuario. */
 export type StatisticsScopeMode = "global" | "leader" | "advisor";
 
+/** Correo y modo de alcance para filtrar la fuente de datos. */
 export interface StatisticsScope {
   mode: StatisticsScopeMode;
   email: string;
 }
 
+/** Operador del filtro por días hábiles transcurridos. */
 export type ElapsedDaysFilterMode = "all" | "more" | "less" | "between";
 
 /** Días hábiles: más de, menos de, o entre dos valores. */
@@ -146,6 +155,7 @@ export interface ElapsedDaysFilter {
   to: number;
 }
 
+/** Valores por defecto del filtro de días (sin restricción activa). */
 export const EMPTY_ELAPSED_DAYS_FILTER: ElapsedDaysFilter = {
   mode: "all",
   from: 5,
@@ -163,8 +173,10 @@ export interface StatisticsDimensionFilters {
   elapsedDays: ElapsedDaysFilter;
 }
 
+/** Valor sentinela «todos» en selects de dimensión. */
 export const ALL_DIMENSION_VALUE = "all";
 
+/** Filtros dimensionales iniciales (sin recorte). */
 export const EMPTY_DIMENSION_FILTERS: StatisticsDimensionFilters = {
   facultyName: ALL_DIMENSION_VALUE,
   programName: ALL_DIMENSION_VALUE,
@@ -174,16 +186,19 @@ export const EMPTY_DIMENSION_FILTERS: StatisticsDimensionFilters = {
   elapsedDays: EMPTY_ELAPSED_DAYS_FILTER,
 };
 
+/** Periodo académico más dimensiones activas en la UI. */
 export interface StatisticsFilterState {
   period: PeriodFilter;
   dimensions: StatisticsDimensionFilters;
 }
 
+/** Par valor/etiqueta para un control de filtro. */
 export interface StatisticsFilterOption {
   value: string;
   label: string;
 }
 
+/** Opciones disponibles para cada dimensión del filtro. */
 export interface StatisticsFilterOptions {
   faculties: StatisticsFilterOption[];
   programs: StatisticsFilterOption[];

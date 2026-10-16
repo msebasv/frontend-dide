@@ -1,3 +1,6 @@
+/**
+ * Insignia que muestra días hábiles transcurridos.
+ */
 import { formatElapsedDays } from "../utils/colombiaBusinessDays";
 
 /** Insignia «N días transcurridos». `prefix` distingue entregable y proceso. */

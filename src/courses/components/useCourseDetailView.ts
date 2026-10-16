@@ -1,3 +1,10 @@
+/**
+ * Hook de estado y reglas de negocio para la vista de detalle de curso.
+ *
+ * Carga grupos de entregables, selección entregable/actividad, pestañas
+ * (Actual, Correcciones, Historial, Versión final), permisos de cargue,
+ * aprobar/devolver y avisos (validador, diseñador DIDE, aula).
+ */
 import { useEffect, useMemo, useState } from "react";
 import {
   IoDocumentTextOutline,
@@ -45,14 +52,22 @@ import {
   type MaterialValidationContext,
 } from "./courseDetailViewHelpers";
 
+/** Parámetros del hook (detalle del proceso y props de validación opcionales). */
 export interface UseCourseDetailViewParams {
   detail: CourseDetail;
+  /** Fallback cuando no hay entregables agrupados (modo legacy). */
   canApprove?: boolean;
   canReturn?: boolean;
+  /** Control externo de la actividad seleccionada (p. ej. validación). */
   selectedMaterialId?: string;
   onSelectedMaterialChange?: (activityId: string) => void;
 }
 
+/**
+ * Orquesta datos y flags para `CourseDetailView`.
+ * Devuelve grupos, selección, pestañas, materiales filtrados por entregable,
+ * targets de validación/cargue y metadatos del proceso para InfoCard.
+ */
 export function useCourseDetailView({
   detail,
   canApprove = false,

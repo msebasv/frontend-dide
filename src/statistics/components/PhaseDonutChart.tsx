@@ -1,3 +1,6 @@
+/**
+ * Gráfico de anillo con distribución de procesos por fase.
+ */
 import {
   PieChart,
   Pie,
@@ -44,6 +47,7 @@ const CustomTooltip = ({
   );
 };
 
+/** Dona interactiva de distribución por fase. */
 function PhaseDonutChart({
   data,
   onPhaseClick,

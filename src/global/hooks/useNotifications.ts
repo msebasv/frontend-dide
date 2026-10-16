@@ -18,6 +18,7 @@ import {
 } from "../utils/notificationUtils";
 import { usePollingRefresh } from "./usePollingRefresh";
 
+/** Carga y actualiza notificaciones según rol y correo del usuario. */
 export const useNotifications = (userEmail: string, role: string) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);

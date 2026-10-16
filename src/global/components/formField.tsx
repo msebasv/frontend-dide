@@ -1,3 +1,6 @@
+﻿/**
+ * Etiqueta, ayuda y mensaje de error para campos de formulario.
+ */
 import type { ReactNode } from "react";
 import { IoInformationCircleOutline } from "react-icons/io5";
 
@@ -58,4 +61,5 @@ function FormField({
   );
 }
 
+/** Etiqueta, ayuda y mensaje de error para campos de formulario. */
 export default FormField;

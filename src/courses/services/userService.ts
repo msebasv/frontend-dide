@@ -1,7 +1,13 @@
+/**
+ * Directorio organizacional (Office 365): búsqueda y validación de correos
+ * @unbosque.edu.co usados en asignación de roles y autocompletado.
+ */
 import { Office365UsersService } from "../../generated/services/Office365UsersService";
 
+/** Dominio institucional permitido para participantes. */
 export const ORGANIZATION_EMAIL_DOMAIN = "unbosque.edu.co";
 
+/** Persona del directorio (correo + nombre para mostrar). */
 export interface OrganizationUser {
   email: string;
   name: string;
@@ -10,6 +16,7 @@ export interface OrganizationUser {
 const matchesOrganizationDomain = (email: string | undefined): boolean =>
   Boolean(email?.toLowerCase().endsWith(`@${ORGANIZATION_EMAIL_DOMAIN}`));
 
+/** Formato @unbosque.edu.co (sin consultar directorio). */
 export const isOrganizationEmail = (email: string): boolean =>
   /^[a-z0-9._%+-]+@unbosque\.edu\.co$/i.test(email.trim());
 
@@ -45,6 +52,7 @@ export const organizationUserExists = async (email: string): Promise<boolean> =>
   }
 };
 
+/** Valida que cada correo exista en el directorio antes de asignar roles. */
 export const assertDirectoryEmails = async (emails: string[]): Promise<void> => {
   const unique = [
     ...new Set(
@@ -106,6 +114,7 @@ export const lookupOrganizationDisplayNames = async (
   );
 };
 
+/** Autocompletado: búsqueda en Office 365 (mín. 2 caracteres). */
 export const searchOrganizationUsers = async (
   query: string,
 ): Promise<OrganizationUser[]> => {

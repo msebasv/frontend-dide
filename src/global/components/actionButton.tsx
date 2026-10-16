@@ -1,3 +1,6 @@
+﻿/**
+ * Enlace estilizado como botón de acción en tablas y listados.
+ */
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import clsx from "clsx";
@@ -21,6 +24,7 @@ interface ActionButtonProps {
   variant?: ActionVariant;
 }
 
+/** Enlace con icono para acciones rápidas del panel. */
 function ActionButton({
   to,
   icon,
@@ -45,4 +49,5 @@ function ActionButton({
   );
 }
 
+/** Enlace estilizado como botón de acción en tablas y listados. */
 export default ActionButton;

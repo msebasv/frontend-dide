@@ -1,3 +1,6 @@
+﻿/**
+ * Botón que abre la carpeta de videotutoriales en SharePoint.
+ */
 import { IoPlayCircleOutline } from "react-icons/io5";
 
 import Button from "./button";
@@ -31,4 +34,5 @@ function VideoTutorialsButton({
   );
 }
 
+/** Botón que abre la carpeta de videotutoriales en SharePoint. */
 export default VideoTutorialsButton;

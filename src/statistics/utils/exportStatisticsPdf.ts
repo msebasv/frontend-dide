@@ -18,6 +18,7 @@ const formatStamp = () => {
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
 };
 
+/** Descarga un PDF con KPIs y tablas del snapshot de estadísticas. */
 export const exportStatisticsPdf = ({
   statistics,
   periodLabel,

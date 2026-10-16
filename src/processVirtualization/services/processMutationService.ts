@@ -65,6 +65,7 @@ const courseNameKey = (course: {
   return normalizeComparableText(course.dev_namecourse ?? "");
 };
 
+/** Crea instancia de curso vía flujo; valida duplicados por nombre y programa. */
 export const createCourseInstance = async (
   courseName: string,
   programId: string,
@@ -122,6 +123,10 @@ export const createCourseInstance = async (
   );
 };
 
+/**
+ * Crea proceso con nombre único, roles asignados y bloqueo ante doble envío.
+ * Devuelve el GUID cuando Dataverse confirma la operación.
+ */
 export const createVirtualizationProcess = async (params: {
   /** Nombre base escrito por el usuario (sin semestre ni código). */
   processName: string;
@@ -344,7 +349,7 @@ export const createProcessWatcher = (
   };
 };
 
-/** Carga nombre, curso y correos de roles para editar un proceso existente. */
+/** Actualiza nombre, curso, créditos y asignación de roles vía flujo CU. */
 export const updateVirtualizationProcess = async (params: {
   processId: string;
   /** Nombre completo final del proceso (incluye semestre y código). */

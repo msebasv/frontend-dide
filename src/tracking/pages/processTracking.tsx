@@ -36,6 +36,7 @@ import { OPERATION_SETTLED_EVENT } from "../../global/utils/operationSettled";
 import { useProcessTracking } from "../hooks/useProcessTracking";
 import ProcessTrackingBoard from "../components/processTrackingBoard";
 
+/** Página de seguimiento con resumen y tablero expandible. */
 function ProcessTrackingPage() {
   const location = useLocation();
   const { user, currentRole } = useAuth();

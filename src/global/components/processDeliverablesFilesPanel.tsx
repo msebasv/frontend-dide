@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Archivos de un entregable (categoría × crédito) o, sin entregables,
  * la carpeta general del proceso/actividad.
  */
@@ -59,6 +59,7 @@ interface ProcessDeliverablesFilesPanelProps {
   audiovisualNotes?: string;
 }
 
+/** Panel de archivos por entregable, guión o enlaces audiovisuales. */
 function ProcessDeliverablesFilesPanel({
   processId,
   folderBase,
@@ -572,4 +573,5 @@ function ProcessDeliverablesFilesPanel({
   );
 }
 
+/** Archivos de un entregable (categoría × crédito) o, sin entregables, la carpeta general del proceso/actividad. */
 export default ProcessDeliverablesFilesPanel;

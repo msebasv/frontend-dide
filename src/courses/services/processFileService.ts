@@ -1,3 +1,14 @@
+/**
+ * Acceso a archivos de un proceso en SharePoint (listado, URL y descarga).
+ *
+ * Listado (`listProcessFiles`): cadena de estrategias hasta obtener ítems —
+ *   1) conector Documentos (lista global filtrada por carpeta proceso-*)
+ *   2) GetFolderMetadataByPath + recorrido ListFolder (walk)
+ *   3) GetFileItems (Default / Recursive)
+ *   4) GetFileItems RecursiveAll filtrado por token de carpeta
+ * Descarga (`getProcessFileBlob`): GetFileContent por Identifier → GetFileContentByPath
+ *   → relistar carpeta y reintentar con Id/ruta real.
+ */
 import { DocumentosService } from "../../generated/services/DocumentosService";
 import type { DocumentosRead } from "../../generated/models/DocumentosModel";
 import { SharePointOnlineService } from "../../generated/services/SharePointOnlineService";
@@ -26,6 +37,9 @@ const LIBRARY_CANDIDATES = [
   "691335fc-2161-4ee3-b307-6f51481425dc",
 ];
 
+// --- Utilidades de ítems SharePoint ---
+
+/** Detecta carpeta según flags del conector (IsFolder, FSObjType, ContentType). */
 const isFolderItem = (item: SharePointBlobItem): boolean => {
   if (item.IsFolder === true || item["{IsFolder}"] === true) return true;
   if (item.FSObjType === 1) return true;
@@ -134,6 +148,7 @@ const encodePathSegments = (path: string): string =>
     .map((segment) => (segment ? encodeURIComponent(segment) : ""))
     .join("/");
 
+/** Segmento proceso-{id} o último segmento de folderBase para filtrar rutas. */
 const getFolderToken = (folderBase: string, processId?: string): string => {
   const trimmed = folderBase.trim();
   const lastSegment = trimmed.split("/").filter(Boolean).pop() ?? trimmed;
@@ -187,6 +202,7 @@ const buildMetadataPaths = (
   ]);
 };
 
+/** Enriquece ProcessFile con versión/estado parseados de carpetas vNN-… */
 const enrichProcessFileVersionMeta = (file: ProcessFile): ProcessFile => {
   const meta = extractActivityVersionMetaFromPath(
     file.connectorPath || file.path || file.previewUrl || "",
@@ -202,6 +218,7 @@ const enrichProcessFileVersionMeta = (file: ProcessFile): ProcessFile => {
   };
 };
 
+/** Convierte ítems del conector en ProcessFile (rutas server, connector y preview). */
 const mapSharePointItems = (
   items: SharePointBlobItem[],
   siteUrl: string,
@@ -573,6 +590,7 @@ const extractFileContentPayload = (content: unknown): FileContentPayload | null 
   return null;
 };
 
+/** Clave estable para listas React (fileId o ruta + nombre). */
 export const getProcessFileKey = (file: ProcessFile): string =>
   file.fileId?.trim() || `${file.path}::${file.name}`;
 
@@ -611,6 +629,9 @@ export const resolveProcessFileSharePointUrl = (file: ProcessFile): string => {
   }
 };
 
+// --- Listado: biblioteca Documentos ---
+
+/** Mapea un registro de DocumentosService.getAll a ProcessFile. */
 const mapDocumentLibraryItem = (
   item: DocumentosRead,
   siteUrl: string,
@@ -653,6 +674,7 @@ const mapDocumentLibraryItem = (
   });
 };
 
+/** Lista vía conector Documentos y filtra por token proceso-{id} en FullPath/Path. */
 const listProcessFilesFromDocumentsLibrary = async (
   folderToken: string,
   siteUrl: string,
@@ -708,6 +730,8 @@ const assertSharePointResult = (
   const message = getOperationErrorMessage(result, operation);
   if (message) throw new Error(message);
 };
+
+// --- Listado: metadatos de carpeta + walk ---
 
 const MAX_FOLDER_WALK_DEPTH = 8;
 
@@ -767,6 +791,7 @@ const walkFolderFiles = async (
   return files;
 };
 
+/** Obtiene Id de carpeta por ruta y delega en walkFolderFiles. */
 const listFilesFromFolderMetadata = async (
   siteUrl: string,
   metadataPath: string,
@@ -784,6 +809,9 @@ const listFilesFromFolderMetadata = async (
   return walkFolderFiles(siteUrl, folderId, metadataPath, 0, new Set());
 };
 
+// --- Listado: GetFileItems ---
+
+/** GetFileItems en carpeta concreta o recursivo si no hay folderPath. */
 const listFilesFromGetFileItems = async (
   siteUrl: string,
   library: string,
@@ -812,6 +840,7 @@ const listFilesFromGetFileItems = async (
   return [];
 };
 
+/** GetFileItems RecursiveAll acotado por token de carpeta del proceso. */
 const listFilesRecursively = async (
   siteUrl: string,
   library: string,
@@ -832,6 +861,12 @@ const listFilesRecursively = async (
   );
 };
 
+/**
+ * Lista archivos del proceso en SharePoint.
+ * @param folderBase Ruta o nombre base (p. ej. carpeta devuelta por Dataverse).
+ * @param processId Usado para token proceso-{id} si folderBase está vacío.
+ * @param activityId Si se indica, filtra rutas que pertenecen a esa actividad.
+ */
 export const listProcessFiles = async (
   folderBase: string,
   processId?: string,
@@ -1009,6 +1044,8 @@ export const listProcessFiles = async (
   return [];
 };
 
+// --- Descarga de contenido ---
+
 const base64ToBlob = (base64: string, mimeType: string): Blob => {
   const normalized = base64.replace(/\s/g, "");
 
@@ -1062,6 +1099,7 @@ const contentToBlob = (content: unknown, mimeType: string): Blob => {
   throw new Error("Formato de archivo no soportado.");
 };
 
+/** Inferencia por extensión cuando SharePoint no envía Content-Type. */
 export const guessMimeType = (fileName: string): string => {
   const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
 
@@ -1094,6 +1132,7 @@ export const guessMimeType = (fileName: string): string => {
   }
 };
 
+/** Fallback: relista la carpeta padre vía GetFileItems y descarga por Id o path. */
 const loadFileContentViaList = async (
   file: ProcessFile,
   siteUrl: string,
@@ -1187,6 +1226,7 @@ const loadFileContentViaList = async (
   return null;
 };
 
+/** GetFileContentByPath; null si falla o respuesta vacía. */
 const tryGetFileContentByPath = async (
   siteUrl: string,
   path: string,
@@ -1213,6 +1253,7 @@ const tryGetFileContentByPath = async (
   }
 };
 
+/** GetFileContent por Identifier de SharePoint (no ids inventados). */
 const tryGetFileContentById = async (
   siteUrl: string,
   fileId: string,
@@ -1240,6 +1281,7 @@ const tryGetFileContentById = async (
   }
 };
 
+/** Orquesta Id → path candidatos → relistado; lanza si ninguna vía responde. */
 const loadFileContent = async (
   file: ProcessFile,
   siteUrl: string,
@@ -1265,6 +1307,7 @@ const loadFileContent = async (
   throw new Error(`No se pudo obtener el contenido de "${file.name}".`);
 };
 
+/** Descarga el binario desde SharePoint para vista previa o descarga local. */
 export const getProcessFileBlob = async (
   file: ProcessFile,
 ): Promise<{ blob: Blob; fileName: string; mimeType: string }> => {
@@ -1286,6 +1329,7 @@ export const getProcessFileBlob = async (
   };
 };
 
+/** true si el visor embebido soporta PDF o imagen. */
 export const canPreviewFile = (fileName: string, mimeType?: string): boolean => {
   const type = mimeType ?? guessMimeType(fileName);
   return (

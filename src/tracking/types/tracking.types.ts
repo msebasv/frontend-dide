@@ -3,6 +3,7 @@
  * Asesor: solo asignados. Líder / Coordinador / Admin: todos.
  */
 
+/** Código de avance de un actor en una macrofase del entregable. */
 export type ActorProgressCode =
   | "pending"
   | "done"
@@ -42,6 +43,7 @@ export interface DeliverableTrackingItem {
   elapsedLabel: string;
 }
 
+/** Fila del tablero: proceso, actores, chips de avance y entregables anidados. */
 export interface ProcessTrackingRow {
   processId: string;
   processName: string;
@@ -93,6 +95,7 @@ export interface ProcessTrackingRow {
   elapsedLabel: string;
 }
 
+/** Tarjetas resumen de pendientes y completados del tablero. */
 export interface ProcessTrackingSummary {
   total: number;
   authorPending: number;

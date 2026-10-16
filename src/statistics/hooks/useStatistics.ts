@@ -55,6 +55,7 @@ const resolveStatisticsScope = (
   return { mode: "global", email: normalizedEmail };
 };
 
+/** Carga fuente Dataverse, aplica alcance/filtros y expone métricas derivadas. */
 export const useStatistics = (
   userEmail = "",
   userRole = "",

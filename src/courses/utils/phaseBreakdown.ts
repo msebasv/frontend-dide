@@ -20,6 +20,7 @@ import type {
 import type { Dev_tabledeliverables } from "../../generated/models/Dev_tabledeliverablesModel";
 import type { Dev_tablephases } from "../../generated/models/Dev_tablephasesModel";
 
+/** Entrada mínima de entregable para calcular fase en el desglose del listado. */
 export interface DeliverableStateInput {
   stateLabel: string;
   name?: string;

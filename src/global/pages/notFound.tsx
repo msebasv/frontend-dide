@@ -1,3 +1,6 @@
+﻿/**
+ * Página mostrada ante rutas no registradas (404).
+ */
 import { Link } from "react-router-dom";
 import { IoHomeOutline } from "react-icons/io5";
 import Button from "../components/button";
@@ -32,4 +35,5 @@ function NotFoundPage() {
   );
 }
 
+/** Página mostrada ante rutas no registradas (404). */
 export default NotFoundPage;

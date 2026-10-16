@@ -1,3 +1,11 @@
+/**
+ * Clases Tailwind por variante de botón (primary, secondary, outline, etc.).
+ * Consumidas por `Button` y controles con el mismo lenguaje visual.
+ */
+/**
+ * Clases Tailwind para variantes y tamaños de botones.
+ */
+/** Mapa de variantes visuales (primary, outline, danger, etc.). */
 export const buttonVariants = {
   /** Buttons · Color Base Acacia */
   primary: `
@@ -82,6 +90,7 @@ export const buttonVariants = {
   `,
 };
 
+/** Tamaños predefinidos (sm, md, lg) con padding y tipografía. */
 export const buttonSizes = {
   sm: `
     px-3.5

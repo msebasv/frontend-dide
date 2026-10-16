@@ -9,6 +9,7 @@ const STORAGE_KEY = "ap:pending-operation";
 /** Tope de la espera recuperada. Los flujos largos siguen dentro de este margen. */
 export const PENDING_OPERATION_TTL_MS = 2 * 60 * 60 * 1000;
 
+/** Snapshot de una fase mientras se confirma una operación. */
 export type PendingPhase = {
   id: string;
   deliverableId: string;
@@ -16,6 +17,7 @@ export type PendingPhase = {
   modifiedAt: number;
 };
 
+/** Seguimiento pendiente sobre actividades y fases de un proceso. */
 export type PendingActivityWatch = {
   kind: "activity";
   processId: string;
@@ -30,6 +32,7 @@ export type PendingActivityWatch = {
   beforeDeliverableState: string | null;
 };
 
+/** Seguimiento pendiente tras crear un proceso nuevo. */
 export type PendingCreateWatch = {
   kind: "create-process";
   processName: string;
@@ -39,6 +42,7 @@ export type PendingCreateWatch = {
   actionLabel: string;
 };
 
+/** Registro persistido en sessionStorage de una operación en curso. */
 export type PendingOperation = {
   startedAt: number;
   /** request-id de table-operation, si esta acción ya lo envía. */
@@ -104,6 +108,7 @@ const feedbackForLabel = (actionLabel: string): FeedbackCopy => {
   };
 };
 
+/** Guarda la operación pendiente y textos de feedback asociados. */
 export const savePendingOperation = (
   watch: PendingActivityWatch | PendingCreateWatch,
   requestId?: string,
@@ -122,6 +127,7 @@ export const savePendingOperation = (
   }
 };
 
+/** Lee la operación pendiente si existe y no expiró. */
 export const readPendingOperation = (): PendingOperation | null => {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -141,6 +147,7 @@ export const readPendingOperation = (): PendingOperation | null => {
   }
 };
 
+/** Elimina la operación pendiente de sessionStorage. */
 export const clearPendingOperation = (): void => {
   try {
     sessionStorage.removeItem(STORAGE_KEY);

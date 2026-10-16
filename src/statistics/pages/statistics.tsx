@@ -177,6 +177,7 @@ const filterDeliverablesByDrill = (
   }
 };
 
+/** Página de KPIs, gráficas y exportación PDF según rol. */
 const Statistics = () => {
   const { user, currentRole } = useAuth();
   const canAccess =

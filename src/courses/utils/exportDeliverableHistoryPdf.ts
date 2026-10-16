@@ -61,6 +61,7 @@ const movementLabel = (material: CourseMaterial): string => {
   return statusLabel;
 };
 
+/** Genera y descarga un PDF con el historial de actividades del entregable. */
 export const exportDeliverableHistoryPdf = ({
   detail,
   deliverable,

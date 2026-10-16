@@ -129,16 +129,19 @@ export const getCourseDetail = async (
   });
 };
 
+/** Catálogo de facultades activas en Dataverse. */
 export const getFaculties = async () => {
   const result = await Dev_table_facultiesService.getAll();
   return result.data ?? [];
 };
 
+/** Catálogo de programas académicos. */
 export const getPrograms = async () => {
   const result = await Dev_table_programsService.getAll();
   return result.data ?? [];
 };
 
+/** Cursos sin proceso activo asociado (elegibles al crear un proceso). */
 export const getAvailableCourses = async () => {
   const [coursesResult, processesResult] = await Promise.all([
     Dev_tablecourseinstancesService.getAll(),
@@ -167,16 +170,19 @@ export const getProcessNames = async (): Promise<string[]> => {
     .filter(Boolean);
 };
 
+/** Roles del sistema (GUID para asignación en flujos CU). */
 export const getRoles = async () => {
   const result = await Dev_tablerolesService.getAll();
   return result.data ?? [];
 };
 
+/** Todas las filas de asignación persona–rol–proceso. */
 export const getAssignRolesUsers = async () => {
   const result = await Dev_tableassignrolesService.getAll();
   return result.data ?? [];
 };
 
+/** Datos del formulario de edición: nombre, curso, créditos y correos por rol. */
 export const getProcessForEdit = async (
   processId: string,
 ): Promise<ProcessEditData | null> => {
@@ -239,5 +245,3 @@ export const getProcessForEdit = async (
     ),
   };
 };
-
-/** Actualiza nombre y asignación de roles de un proceso (flujo create/update). */

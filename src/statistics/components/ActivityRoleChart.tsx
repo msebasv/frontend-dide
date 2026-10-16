@@ -1,3 +1,6 @@
+/**
+ * Gráfico de barras de actividades por rol participante.
+ */
 import {
   BarChart,
   Bar,
@@ -37,6 +40,7 @@ const CustomTooltip = ({
   );
 };
 
+/** Barras de actividades agrupadas por rol. */
 function ActivityRoleChart({ data, onSelect }: ActivityRoleChartProps) {
   return (
     <ChartCard

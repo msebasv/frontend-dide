@@ -75,6 +75,7 @@ const closedToast: ToastState = {
   message: "",
 };
 
+/** Opciones de feedback al ejecutar una acción con flujo asíncrono. */
 export type RunActionOptions = {
   successTitle: string;
   successMessage: string;
@@ -153,6 +154,7 @@ type PendingSoft = {
   release: () => void;
 };
 
+/** Provee modales, toasts y confirmación en background para acciones. */
 export function ActionFeedbackProvider({
   children,
 }: ActionFeedbackProviderProps) {
@@ -548,6 +550,7 @@ export function ActionFeedbackProvider({
   );
 }
 
+/** Hook de feedback global; requiere ActionFeedbackProvider. */
 export function useActionFeedback(): ActionFeedbackContextValue {
   const context = useContext(ActionFeedbackContext);
   if (!context) {

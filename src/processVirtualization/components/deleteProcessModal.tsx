@@ -14,6 +14,7 @@ interface DeleteProcessModalProps {
   loading?: boolean;
 }
 
+/** Diálogo de confirmación antes de inactivar un proceso. */
 function DeleteProcessModal({
   isOpen,
   processName,

@@ -1,3 +1,6 @@
+﻿/**
+ * Lista desplegable con opciones, badges y acciones.
+ */
 import {
   Listbox,
   ListboxButton,
@@ -10,6 +13,7 @@ import { FaCheck } from "react-icons/fa6";
 
 import clsx from "clsx";
 
+/** Opción del select con valor, etiqueta y metadatos opcionales. */
 export interface SelectOption {
   label: string;
   value: string;
@@ -23,6 +27,7 @@ export interface SelectOption {
   };
 }
 
+/** Alias de opción para compatibilidad con listas simples. */
 export type Option = SelectOption;
 
 interface SelectProps {
@@ -36,6 +41,7 @@ interface SelectProps {
   disabled?: boolean;
 }
 
+/** Select con opciones etiqueta-valor y placeholder. */
 function Select({
   options,
   value,
@@ -142,4 +148,5 @@ function Select({
   );
 }
 
+/** Lista desplegable con opciones, badges y acciones. */
 export default Select;

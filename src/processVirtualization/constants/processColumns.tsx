@@ -1,3 +1,6 @@
+/**
+ * Columnas del listado global de procesos de virtualización.
+ */
 import {
   IoCheckmarkCircleOutline,
   IoCloudUploadOutline,

@@ -24,6 +24,7 @@ import {
   type CatalogRecord,
 } from "../utils/catalogFilters";
 
+/** Definición de columna: clave, encabezado y renderizado de celda. */
 export interface Column<T> {
   key: keyof T;
   header: string;
@@ -413,4 +414,5 @@ function DataTable<T>({
   );
 }
 
+/** Tabla con búsqueda, paginación y vista responsive (tabla o cards). */
 export default DataTable;

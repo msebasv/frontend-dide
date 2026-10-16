@@ -110,7 +110,11 @@ export {
 
 export { computeMetrics, computeLeaderMetrics } from "../metrics/courseMetrics";
 
+// --- Estado del proceso y listado de cursos ---
+
 const COMPLETED_STATUS = PROCESS_PHASES.COMPLETED;
+
+// --- Fases y estado visible ---
 
 /** Solo casing/espacios; no quita acentos (distinto de normalizeRoleKey). */
 const normalizeRole = (role: string): string => role.trim().toLowerCase();
@@ -122,6 +126,7 @@ type AssignRoleWithFormatted = Dev_tableassignroles & {
   "dev_user@OData.Community.Display.V1.FormattedValue"?: string;
 };
 
+/** Fase con valor formateado OData de la plantilla de actividad esperada. */
 export type PhaseWithFormatted = Dev_tablephases & {
   "_dev_expectedactivitytemplate_value@OData.Community.Display.V1.FormattedValue"?: string;
 };
@@ -754,6 +759,9 @@ const isAuthorUploadActivity = (
   return !isReviewTemplateName(templateName);
 };
 
+// --- Detalle de curso (CourseDetail) ---
+
+/** Vista detalle: metadatos, materiales, permisos por rol y entregables agrupados. */
 export const mapCourseDetail = ({
   process,
   course,

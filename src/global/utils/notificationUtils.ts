@@ -6,6 +6,7 @@ import type { Course } from "../../courses/types/course.types";
 import type { VirtualizationProcess } from "../../processVirtualization/types/process.types";
 import type { AppNotification } from "../types/notification.types";
 
+/** Acciones pendientes del participante según canUpload / canValidate del listado. */
 export const buildCourseNotifications = (
   courses: Course[],
   role: string,
@@ -70,6 +71,7 @@ export const buildCourseNotifications = (
   return [];
 };
 
+/** Procesos del líder en fases que requieren su intervención (syllabus, aula, etc.). */
 export const buildLeaderNotifications = (
   processes: VirtualizationProcess[],
 ): AppNotification[] =>

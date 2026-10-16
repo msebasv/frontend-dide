@@ -1,3 +1,6 @@
+﻿/**
+ * Contenedor con borde y sombra para agrupar contenido.
+ */
 import type { ReactNode } from "react";
 import clsx from "clsx";
 
@@ -15,6 +18,7 @@ const paddingStyles = {
   lg: "p-6",
 };
 
+/** Contenedor con borde, sombra y padding configurable. */
 function Card({
   children,
   className = "",
@@ -35,4 +39,5 @@ function Card({
   );
 }
 
+/** Contenedor con borde y sombra para agrupar contenido. */
 export default Card;

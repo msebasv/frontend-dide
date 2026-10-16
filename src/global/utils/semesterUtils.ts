@@ -7,14 +7,17 @@
 
 const SEMESTER_PATTERN = /\b(20\d{2})\s*[-_/]\s*([12])\b/;
 
+/** Modo del filtro de periodo académico. */
 export type PeriodFilterType = "all" | "year" | "semester";
 
+/** Filtro de periodo (todo, año o semestre concreto). */
 export interface PeriodFilter {
   type: PeriodFilterType;
   /** Año ("2026") o semestre ("2026-1"). Vacío si type === "all". */
   value: string;
 }
 
+/** Valor por defecto: sin filtrar por periodo. */
 export const ALL_PERIOD_FILTER: PeriodFilter = { type: "all", value: "" };
 
 /** Extrae "2026-1" / "2026-2" desde un texto (p. ej. nombre del proceso). */
@@ -43,11 +46,13 @@ export const resolveProcessSemester = (
   semesterFromDate(createdOn ?? "") ??
   "Sin semestre";
 
+/** Extrae el año de un semestre con formato YYYY-1 o YYYY-2. */
 export const getYearFromSemester = (semester: string): string | null => {
   const match = semester.match(/^(20\d{2})-[12]$/);
   return match?.[1] ?? null;
 };
 
+/** Comprueba si un semestre cumple el filtro de periodo activo. */
 export const matchesPeriodFilter = (
   semester: string,
   filter: PeriodFilter,

@@ -10,6 +10,7 @@ import { computeMetrics } from "../mappers/courseMappers";
 
 import type { Course, DashboardMetrics } from "../types/course.types";
 
+/** Listado de cursos del usuario con métricas del dashboard. */
 export const useCourses = (userEmail: string, userRole: string) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics>({

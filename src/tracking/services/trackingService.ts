@@ -51,6 +51,7 @@ const loadAllPages = async <T>(
   return rows;
 };
 
+/** Datos del tablero: filas visibles por rol y resumen de pendientes. */
 export const getProcessTrackingBoard = async (
   userEmail: string,
   userRole: string,

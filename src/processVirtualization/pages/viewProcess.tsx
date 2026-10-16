@@ -1,3 +1,6 @@
+/**
+ * Detalle del proceso para líderes y acciones de gestión.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -40,6 +43,7 @@ import { OPERATION_SETTLED_EVENT } from "../../global/utils/operationSettled";
 import { deleteVirtualizationProcess } from "../services/processMutationService";
 import DeleteProcessModal from "../components/deleteProcessModal";
 
+/** Detalle del proceso con acciones de líder y coordinación. */
 const ViewProcess = () => {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();

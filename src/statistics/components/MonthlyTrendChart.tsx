@@ -1,3 +1,6 @@
+/**
+ * Gráfico de tendencia mensual de procesos creados y completados.
+ */
 import {
   AreaChart,
   Area,
@@ -42,6 +45,7 @@ const CustomTooltip = ({
   );
 };
 
+/** Líneas de tendencia mensual de procesos y actividades. */
 function MonthlyTrendChart({ data, onSelect }: MonthlyTrendChartProps) {
   return (
     <ChartCard

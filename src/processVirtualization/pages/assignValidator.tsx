@@ -1,3 +1,6 @@
+/**
+ * Página para asignar validador académico a un proceso.
+ */
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -20,6 +23,7 @@ import {
   getProcessForEdit,
 } from "../../courses/services/courseService";
 
+/** Asignación o cambio del validador disciplinar del proceso. */
 function AssignValidator() {
   const { processId } = useParams<{ processId: string }>();
   const navigate = useNavigate();

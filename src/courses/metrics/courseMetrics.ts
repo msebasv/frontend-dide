@@ -9,6 +9,7 @@ import type { Course, DashboardMetrics } from "../types/course.types";
 
 const COMPLETED_STATUS = PROCESS_PHASES.COMPLETED;
 
+/** Agrega totales, en curso, pendientes de aprobación y completados para el dashboard del autor. */
 export const computeMetrics = (courses: Course[]): DashboardMetrics => {
   const completed = courses.filter((c) => c.status === COMPLETED_STATUS).length;
   const pendingApproval = courses.filter((c) =>
@@ -28,6 +29,7 @@ export const computeMetrics = (courses: Course[]): DashboardMetrics => {
   };
 };
 
+/** Mismas métricas que `computeMetrics`, aplicadas a procesos del líder de virtualización. */
 export const computeLeaderMetrics = (
   processes: { status: string }[],
 ): DashboardMetrics => {

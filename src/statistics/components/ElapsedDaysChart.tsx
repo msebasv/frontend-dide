@@ -1,3 +1,6 @@
+/**
+ * Gráfico de barras de procesos por rango de días transcurridos.
+ */
 import {
   Bar,
   BarChart,
@@ -11,6 +14,7 @@ import {
 
 import ChartCard from "./ChartCard";
 
+/** Punto del gráfico: rango de días y conteo. */
 export interface ElapsedDaysBar {
   key: string;
   label: string;
@@ -50,6 +54,7 @@ const CustomTooltip = ({
   );
 };
 
+/** Barras de conteo por días hábiles transcurridos. */
 function ElapsedDaysChart({
   data,
   title = "Días transcurridos",

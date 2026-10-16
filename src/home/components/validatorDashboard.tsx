@@ -1,3 +1,6 @@
+/**
+ * Panel de validación con pendientes según rol asesor o DIDE.
+ */
 import { Link } from "react-router-dom";
 import {
   IoBookOutline,
@@ -28,6 +31,7 @@ interface ValidatorDashboardProps {
   mode?: "validate" | "finalize";
 }
 
+/** Dashboard del validador o diseñador DIDE según modo. */
 function ValidatorDashboard({
   metrics,
   userName,

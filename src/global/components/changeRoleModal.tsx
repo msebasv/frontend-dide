@@ -1,3 +1,6 @@
+﻿/**
+ * Modal para cambiar el rol activo de la sesión.
+ */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -82,4 +85,5 @@ const ChangeRoleModal = ({
   );
 };
 
+/** Modal para cambiar el rol activo de la sesión. */
 export default ChangeRoleModal;

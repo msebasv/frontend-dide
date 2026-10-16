@@ -1,3 +1,6 @@
+﻿/**
+ * Resumen visual de conteos por fase del proceso.
+ */
 interface PhaseItem {
   key?: string;
   label: string;
@@ -112,6 +115,7 @@ function PhaseDistribution({
   );
 }
 
+/** Pie opcional con avance parcial sobre el total de fases. */
 function FooterBody({ footer }: { footer: PhaseDistributionFooter }) {
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
@@ -123,4 +127,5 @@ function FooterBody({ footer }: { footer: PhaseDistributionFooter }) {
   );
 }
 
+/** Resumen visual de conteos por fase del proceso. */
 export default PhaseDistribution;

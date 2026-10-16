@@ -15,6 +15,7 @@ interface ClassroomConfirmModalProps {
   loading?: boolean;
 }
 
+/** Confirma que el material ya está cargado en el aula virtual. */
 function ClassroomConfirmModal({
   isOpen,
   processName,

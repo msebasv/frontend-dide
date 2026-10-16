@@ -58,6 +58,7 @@ const loadPagesOrEmpty = async <T>(
   }
 };
 
+/** Carga tablas relacionadas (paginadas) y devuelve procesos listos para la UI del líder. */
 export const getVirtualizationProcesses = async (options?: {
   recordState?: "active" | "inactive";
 }): Promise<VirtualizationProcess[]> => {

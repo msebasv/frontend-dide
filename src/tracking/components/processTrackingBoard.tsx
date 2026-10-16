@@ -110,6 +110,7 @@ interface ProcessTrackingBoardProps {
   emptyMessage?: string;
 }
 
+/** Tabla paginada con filas expandibles por entregable. */
 function ProcessTrackingBoard({
   rows,
   emptyMessage = "No hay procesos registrados para mostrar.",

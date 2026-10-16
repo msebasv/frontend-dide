@@ -37,6 +37,7 @@ const writeLock = (record: LockRecord): void => {
   }
 };
 
+/** Clave estable para candado (acción + ids relevantes). */
 export const buildOperationLockKey = (
   action: string,
   parts: Array<string | null | undefined>,
@@ -86,6 +87,7 @@ export const refreshOperationLock = (
   });
 };
 
+/** Libera el lock de sesión tras confirmar o abortar la operación. */
 export const releaseOperationLock = (key: string): void => {
   try {
     sessionStorage.removeItem(storageKey(key));
