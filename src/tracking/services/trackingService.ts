@@ -12,6 +12,10 @@ import { Dev_tabledeliverablesService } from "../../generated/services/Dev_table
 import { Dev_tableactivitytemplatesService } from "../../generated/services/Dev_tableactivitytemplatesService";
 
 import {
+  DATAVERSE_PAGE_SIZE,
+  MAX_DATAVERSE_PAGES,
+} from "../../global/constants/apiLimits";
+import {
   buildProcessTrackingRows,
   buildTrackingSummary,
 } from "../mappers/trackingMappers";
@@ -25,12 +29,7 @@ type PageResult<T> = {
   skipToken?: string;
 };
 
-/** Tope de filas que Dataverse devuelve en una sola llamada. */
-const DATAVERSE_PAGE_SIZE = 500;
-/** Tope de páginas seguidas, para no quedar en un bucle si el token se repite. */
-const MAX_DATAVERSE_PAGES = 40;
-
-/** Recorre todas las páginas de una tabla. Una sola llamada se queda en 500 filas. */
+/** Recorre todas las páginas de una tabla (tope por página y por número de páginas). */
 const loadAllPages = async <T>(
   load: (skipToken?: string) => Promise<PageResult<T>>,
 ): Promise<T[]> => {

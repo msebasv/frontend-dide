@@ -2,6 +2,7 @@
   "name": "academicplus",
   "private": true,
   "version": "1.0.0",
+  "description": "AcademicPlus — Code App de virtualización de asignaturas (Universidad El Bosque / DIDE)",
   "type": "module",
   "scripts": {
     "dev": "vite",

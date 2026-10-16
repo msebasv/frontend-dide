@@ -6,26 +6,13 @@
  *
  * Capas (de arriba hacia abajo):
  *
- * 1. Pages (modulos pages)
- *    Pantallas que el usuario ve. Solo orquestan UI: cargan datos con hooks
- *    y renderizan componentes. No llaman a Dataverse directamente.
+ * 1. Pages — pantallas: orquestan UI con hooks; no llaman Dataverse directo.
+ * 2. Hooks — estado local (loading, datos, errores) y recarga.
+ * 3. Services — datos y acciones; coordinan capa generada y flujos.
+ * 4. Mappers — registros Dataverse → tipos de dominio para la UI.
+ * 5. Generated (src/generated) — cliente CLI; no editar a mano.
  *
- * 2. Hooks (modulos hooks)
- *    Estado local de cada feature (loading, datos, errores).
- *    Encapsulan cuándo y cómo recargar información.
- *
- * 3. Services (modulos services)
- *    Punto de entrada a datos y acciones. Coordinan llamadas a la capa
- *    generada y a los flujos de Power Automate (Logic Apps).
- *
- * 4. Mappers (modulos mappers)
- *    Transforman registros crudos de Dataverse en tipos de dominio legibles
- *    para la UI. Aquí vive la lógica de negocio de transformación.
- *
- * 5. Generated (src/generated)
- *    Servicios y modelos autogenerados por Power Apps CLI. No editar a mano.
- *
- * Modulos de negocio:
+ * Módulos de negocio:
  * - courses — Mis cursos, detalle, carga y validación de material
  * - processVirtualization — Gestión global de procesos (solo líder)
  * - tracking — Seguimiento de procesos por entregable

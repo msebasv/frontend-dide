@@ -1,3 +1,4 @@
+/** Sitio y biblioteca SharePoint inyectados por Vite (ver `.env.example`). */
 export const sharepointConfig = {
   siteUrl: (import.meta.env.VITE_SHAREPOINT_SITE_URL ?? "").replace(/\/+$/, ""),
   defaultLibrary:

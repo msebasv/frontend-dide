@@ -7,6 +7,10 @@ import {
   resolveSharePointFolder,
   sharepointConfig,
 } from "../../global/config/sharepointConfig";
+import {
+  SHAREPOINT_FOLDER_ITEMS_TOP,
+  SHAREPOINT_LIST_MAX_TOP,
+} from "../../global/constants/apiLimits";
 import { isSharePointNotFoundError } from "../errors/sharePointSetupError";
 import {
   extractActivityVersionMetaFromPath,
@@ -656,7 +660,7 @@ const listProcessFilesFromDocumentsLibrary = async (
   const folderTokenLower = folderToken.toLowerCase();
 
   let result = await DocumentosService.getAll({
-    top: 5000,
+    top: SHAREPOINT_LIST_MAX_TOP,
     select: [
       "{FilenameWithExtension}",
       "{Name}",
@@ -672,7 +676,7 @@ const listProcessFilesFromDocumentsLibrary = async (
   });
 
   if (getOperationErrorMessage(result, "DocumentosService.getAll")) {
-    result = await DocumentosService.getAll({ top: 5000 });
+    result = await DocumentosService.getAll({ top: SHAREPOINT_LIST_MAX_TOP });
   }
 
   const errorMessage = getOperationErrorMessage(result, "DocumentosService.getAll");
@@ -796,7 +800,7 @@ const listFilesFromGetFileItems = async (
       folderPath,
       viewScopeOption,
       $filter: "FSObjType eq 0",
-      $top: 5000,
+      $top: SHAREPOINT_LIST_MAX_TOP,
     });
 
     assertSharePointResult(result, "GetFileItems");
@@ -818,7 +822,7 @@ const listFilesRecursively = async (
     table: library,
     viewScopeOption: "RecursiveAll",
     $filter: "FSObjType eq 0",
-    $top: 5000,
+    $top: SHAREPOINT_LIST_MAX_TOP,
   });
 
   assertSharePointResult(result, "GetFileItems");
@@ -1138,7 +1142,7 @@ const loadFileContentViaList = async (
         table: "691335fc-2161-4ee3-b307-6f51481425dc",
         folderPath,
         viewScopeOption: "Default",
-        $top: 500,
+        $top: SHAREPOINT_FOLDER_ITEMS_TOP,
       });
 
       const errorMessage = getOperationErrorMessage(result, "GetFileItems");

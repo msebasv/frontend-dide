@@ -13,6 +13,10 @@ import { Dev_tabledeliverablesService } from "../../generated/services/Dev_table
 import { Dev_tableassignrolesService } from "../../generated/services/Dev_tableassignrolesService";
 import { Dev_tablecategorytemplatesService } from "../../generated/services/Dev_tablecategorytemplatesService";
 
+import {
+  DATAVERSE_PAGE_SIZE,
+  MAX_DATAVERSE_PAGES,
+} from "../../global/constants/apiLimits";
 import { mapVirtualizationProcesses } from "../mappers/processMappers";
 
 import type { VirtualizationProcess } from "../types/process.types";
@@ -22,10 +26,7 @@ type PageResult<T> = {
   skipToken?: string;
 };
 
-const DATAVERSE_PAGE_SIZE = 500;
-const MAX_DATAVERSE_PAGES = 40;
-
-/** Una sola llamada se queda en 500 filas; el panel necesita todos los entregables. */
+/** Una sola llamada se queda en DATAVERSE_PAGE_SIZE filas; el panel necesita todos. */
 const loadAllPages = async <T>(
   load: (skipToken?: string) => Promise<PageResult<T>>,
 ): Promise<T[]> => {

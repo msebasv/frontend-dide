@@ -12,7 +12,8 @@ Cuenta operativa de plataforma: `serviciosdide@unbosque.edu.co`.
 | **QA** | AcademicPlusQA | `power.config.json` (activo por defecto) y `power.config.qa-academicplus-dide.json` |
 | **PRE** | AcademicPlusPre | `power.config.pre-academic-plus-dide.json` |
 
-`power.config.json` es el archivo que leen Vite y la CLI al desarrollar o publicar. Los demás son respaldos para cambiar de ambiente.
+`power.config.json` es el archivo que leen Vite y la CLI al desarrollar o publicar. Los demás son respaldos para cambiar de ambiente.  
+Las configuraciones de desarrollo personal no van al repositorio.
 
 ## Requisitos
 
@@ -25,7 +26,19 @@ Cuenta operativa de plataforma: `serviciosdide@unbosque.edu.co`.
 
 ```powershell
 npm install
+Copy-Item .\.env.example .\.env.local
+# Ajuste VITE_SHAREPOINT_SITE_URL al sitio del ambiente activo
 ```
+
+## Variables de entorno (Vite)
+
+| Variable | Obligatoria | Descripción |
+| --- | --- | --- |
+| `VITE_SHAREPOINT_SITE_URL` | Sí (archivos) | URL del sitio SharePoint del ambiente |
+| `VITE_SHAREPOINT_LIBRARY` | No | Biblioteca (por defecto `Shared Documents`) |
+| `VITE_SHAREPOINT_FORMATS_FOLDER` | No | Carpeta de formatos (por defecto `Formats`) |
+
+Plantilla: `.env.example`. En local se usa `.env.local` (no se versiona).
 
 ## Autenticación
 
@@ -61,7 +74,8 @@ pac org select --environment bdbaee81-c705-e431-9cc7-e8bd7151e7e0
 pac org who
 ```
 
-Antes de agregar tablas, refrescar orígenes o publicar, el `environmentId` de `pac org who` debe coincidir con el de `power.config.json`.
+Antes de agregar tablas, refrescar orígenes o publicar, el `environmentId` de `pac org who` debe coincidir con el de `power.config.json`.  
+Tras un `refresh-data-source` / `add-data-source`, los esquemas en `.power/schemas` reflejan el ambiente autenticado; no editarlos a mano.
 
 ## Desarrollo local
 
@@ -69,7 +83,7 @@ Antes de agregar tablas, refrescar orígenes o publicar, el `environmentId` de `
 npm run dev
 ```
 
-Abrir la URL **Local Play** que imprime la consola (no solo `http://localhost:5173/`), para autenticarse con Microsoft dentro del reproductor de Power Apps.
+Abrir la URL **Local Play** que imprime la consola (no solo el puerto de Vite), para autenticarse con Microsoft dentro del reproductor de Power Apps.
 
 ## Publicación
 
@@ -98,7 +112,8 @@ Tras publicar, si `power.config.json` cambió, guardar de nuevo el respaldo del 
 | `src/global` | Layout, autenticación, componentes compartidos |
 | `src/generated` | Cliente Dataverse / flujos (generado por la CLI; no editar) |
 
-Las pantallas no llaman Dataverse ni flujos directamente: lo hacen los servicios en `src/**/services`.
+Las pantallas no llaman Dataverse ni flujos directamente: lo hacen los servicios en `src/**/services`.  
+Las constantes de dominio viven en `src/global/constants/`.
 
 ## Scripts npm
 
@@ -111,5 +126,4 @@ Las pantallas no llaman Dataverse ni flujos directamente: lo hacen los servicios
 
 ## Notas
 
-- La documentación técnica ampliada puede vivir en `docs/` de forma local; esa carpeta no forma parte del repositorio remoto.
 - No editar a mano `src/generated` ni `.power/schemas`. Para cambios de contrato, usar `npx power-apps refresh-data-source` / `add-data-source` / `add-flow` en el ambiente correcto.

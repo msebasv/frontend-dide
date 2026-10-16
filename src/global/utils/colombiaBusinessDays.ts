@@ -135,10 +135,12 @@ export const businessDaysBetween = (startIso: string, endIso: string): number =>
   const end = bogotaDateKey(endIso);
   if (!start || !end || end <= start) return 0;
 
+  // Tope de seguridad (~11 años hábiles) ante fechas corruptas.
+  const MAX_BUSINESS_DAY_ITERATIONS = 4000;
   let count = 0;
   let cursor = addDays(start, 1);
   let guard = 0;
-  while (cursor <= end && guard < 4000) {
+  while (cursor <= end && guard < MAX_BUSINESS_DAY_ITERATIONS) {
     if (isBusinessDay(cursor)) count += 1;
     cursor = addDays(cursor, 1);
     guard += 1;

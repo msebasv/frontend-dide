@@ -16,19 +16,19 @@ import {
 /** Solo casing/espacios; no quita acentos (distinto de normalizeRoleKey). */
 const normalizeRole = (role: string): string => role.trim().toLowerCase();
 
-/** Determina si el rol activo corresponde al autor de asignatura. */
+/** Autor de asignatura. */
 export const isAuthorRole = (role: string): boolean =>
   normalizeRole(role) === normalizeRole(USER_ROLES.AUTHOR);
 
-/** Determina si el rol activo corresponde al validador disciplinar. */
+/** Validador disciplinar. */
 export const isValidatorRole = (role: string): boolean =>
   normalizeRole(role) === normalizeRole(USER_ROLES.VALIDATOR);
 
-/** Determina si el rol activo corresponde al asesor pedagógico. */
+/** Asesor pedagógico. */
 export const isAdvisorRole = (role: string): boolean =>
   normalizeRole(role) === normalizeRole(USER_ROLES.ADVISOR);
 
-/** Determina si el rol activo corresponde al diseñador DIDE. */
+/** Diseñador DIDE. */
 export const isDideDesignerRole = (role: string): boolean =>
   normalizeRole(role) === normalizeRole(USER_ROLES.DIDE_DESIGNER);
 
