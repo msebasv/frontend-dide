@@ -579,6 +579,7 @@ export function useCourseDetailView({
 
   const processInfoItems = [
     { label: "Proceso de virtualización", value: detail.processName },
+    { label: "ID del proceso", value: detail.processId },
     { label: "Curso", value: detail.courseName },
     { label: "Programa", value: detail.programName },
     { label: "Facultad", value: detail.facultyName },

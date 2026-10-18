@@ -370,7 +370,7 @@ function CreateProcess() {
             label="Nombre del proceso"
             required
             error={processName.trim() ? processNameCheck.message : undefined}
-            hint="Solo letras, números y espacios. El nombre completo, con semestre y código, no supera 200 caracteres."
+            hint="Letras, números, espacios, guiones (-) y puntos (.). El nombre completo, con semestre y código, no supera 200 caracteres."
           >
             <InputText
               value={processName}

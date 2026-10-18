@@ -77,8 +77,8 @@ const DANGEROUS_PATTERNS: RegExp[] = [
 /** Títulos / nombres: letras, números, espacios y puntuación (sin / ni guiones tipográficos – —). */
 const TITLE_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#!?*%@]+$/u;
 
-/** Nombre de proceso escrito por el usuario: letras, números y espacios. */
-const PROCESS_NAME_ALLOWED = /^[\p{L}\p{N}\s]+$/u;
+/** Nombre base del proceso: letras, números, espacios, guion (-) y punto (.). */
+const PROCESS_NAME_ALLOWED = /^[\p{L}\p{N}\s.\-]+$/u;
 
 /** Descripciones / comentarios: igual + saltos de línea (sin / ni guiones tipográficos – —). */
 const DESCRIPTION_ALLOWED = /^[\p{L}\p{N}\s\-_.:,;()&°'"¿¡+#\n\r!?*%@]+$/u;
@@ -182,7 +182,7 @@ export const validateTitle = (
 };
 
 /**
- * Nombre base del proceso. Sin símbolos.
+ * Nombre base del proceso (letras, números, espacios, `-` y `.`).
  * `maxLength` es el cupo del título para que el nombre completo no pase de 200.
  */
 export const validateProcessName = (
@@ -210,7 +210,7 @@ export const validateProcessName = (
   if (!PROCESS_NAME_ALLOWED.test(value)) {
     return {
       ok: false,
-      message: `${label} solo permite letras, números y espacios.`,
+      message: `${label} solo permite letras, números, espacios, guiones (-) y puntos (.).`,
       value,
     };
   }

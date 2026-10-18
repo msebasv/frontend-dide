@@ -84,10 +84,11 @@ export const sidebarConfig: SidebarItemConfig[] = [
   {
     text: "Programas",
     icon: <HiOutlineAcademicCap size={20} />,
-    roles: [USER_ROLES.ADMIN],
+    roles: [USER_ROLES.ADMIN, USER_ROLES.DIDE_COORDINATOR],
     path: "/admin/programs",
     variants: {
       [USER_ROLES.ADMIN]: "Programas y facultades",
+      [USER_ROLES.DIDE_COORDINATOR]: "Programas y facultades",
     },
   },
   {

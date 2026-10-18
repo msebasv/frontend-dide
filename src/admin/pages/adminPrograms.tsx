@@ -1,6 +1,6 @@
 /**
- * Catálogo académico: facultades y programas (solo Administrador).
- * Crear / editar facultades y programas.
+ * Catálogo académico: facultades y programas.
+ * Crear / editar: Administrador y Coordinador DIDE.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
@@ -17,7 +17,10 @@ import InputText from "../../global/components/inputText";
 import Select from "../../global/components/select";
 import { useActionFeedback } from "../../global/hooks/useActionFeedback";
 import { useAuth } from "../../global/hooks/useAuth";
-import { isAdminRole } from "../../global/constants/domainConstants";
+import {
+  isAdminRole,
+  isDideCoordinatorRole,
+} from "../../global/constants/domainConstants";
 import {
   FIELD_LIMITS,
   validateTitle,
@@ -114,7 +117,10 @@ function AdminProgramsPage() {
     void loadData();
   }, [loadData]);
 
-  if (!isAdminRole(currentRole)) {
+  const canManagePrograms =
+    isAdminRole(currentRole) || isDideCoordinatorRole(currentRole);
+
+  if (!canManagePrograms) {
     return <Navigate to="/" replace />;
   }
 
